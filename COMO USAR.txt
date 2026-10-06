@@ -1,0 +1,35 @@
+CONCORD - COMPARTILHAMENTO PESSOAL DE TELA
+
+Voce e seu amigo usam o MESMO arquivo Concord-0.1.0-Windows.exe.
+Nao precisa instalar nada. E para Windows 64 bits.
+
+QUEM VAI TRANSMITIR
+1. Abra o Concord.
+2. Escolha uma tela ou janela.
+3. Ajuste qualidade, som do computador e microfone.
+4. Clique em Compartilhar tela.
+5. Clique em Criar convite pela internet. Pode levar ate 2 minutos.
+6. Copie o convite e envie para seu amigo.
+
+QUEM VAI ASSISTIR
+1. Abra o mesmo Concord.
+2. Clique em Assistir ao amigo.
+3. Cole o convite completo e clique em Entrar na sala.
+
+Use 720p / 30 FPS se a internet estiver lenta.
+Conexao Automatica tenta primeiro uma conexao direta.
+Compatibilidade funciona pelo tunel e pode ter mais atraso.
+
+O convite deixa de funcionar ao fechar o app do transmissor.
+Trocar convite expulsa o espectador e invalida o convite antigo.
+Fechar acesso encerra o acesso pela internet.
+
+IMPORTANTE
+O som do computador inclui os sons de TODOS os apps abertos,
+mesmo se voce compartilhar so uma janela.
+O microfone acompanha a tela; esta versao nao tem chamada de voz
+nos dois sentidos. Uma pessoa transmite e uma assiste por sala.
+
+O executavel nao tem assinatura digital. O Windows pode avisar
+que o editor e desconhecido. O programa nao grava a sua tela.
+O acesso pela internet depende do tunel gratuito da Cloudflare.

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Concord</title>
+  <link rel="icon" href="/icon.svg">
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand" aria-label="Concord"><img src="/icon.svg" alt=""><span>concord<span class="brand-dot">.</span></span></div>
+      <p class="eyebrow">SÓ ENTRE VOCÊS</p>
+      <nav aria-label="Modo do programa">
+        <button id="host-tab" class="nav-item selected"><span class="nav-symbol">↗</span> Compartilhar tela</button>
+        <button id="viewer-tab" class="nav-item"><span class="nav-symbol">↙</span> Assistir ao amigo</button>
+      </nav>
+      <div class="room-card"><div class="room-icon">C</div><div><strong>Sua sala particular</strong><p id="room-description">Um convite. Dois amigos.</p></div></div>
+      <div class="sidebar-bottom"><span class="small-dot"></span><span id="app-version">Concord · pessoal</span></div>
+    </aside>
+    <main>
+      <header><div><p class="eyebrow" id="page-eyebrow">SUA TELA, SUA GALERA</p><h1 id="page-title">Bora compartilhar?</h1></div><span id="connection-status" class="pill"><span class="small-dot"></span> Preparando</span></header>
+      <div id="notice" class="notice" role="status" hidden></div>
+      <section id="join-section" class="join-section" hidden>
+        <div><h2>Chega mais.</h2><p>Cole o convite que seu amigo te mandou.</p></div>
+        <form id="join-form"><input id="join-input" type="text" autocomplete="off" spellcheck="false" placeholder="https://…trycloudflare.com/#join=…" aria-label="Convite do amigo" required><button id="join-button" class="button primary" type="submit">Entrar na sala <span>→</span></button></form>
+      </section>
+      <div class="content-grid">
+        <section class="stage-card" aria-label="Transmissão">
+          <div class="stage-top"><span><span id="live-dot" class="small-dot"></span> <span id="stage-label">Sua prévia</span></span><span id="stream-clock">PRONTO QUANDO VOCÊ ESTIVER</span></div>
+          <div class="stage" id="stage">
+            <video id="screen-video" autoplay playsinline muted></video>
+            <div id="empty-stage" class="empty-stage">
+              <div class="screen-illustration"><div><span></span><span></span><span></span></div><svg width="54" height="54" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 16 16 8M8 8h8v8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+              <h2 id="empty-title">Um espaço pra estar junto.</h2>
+              <p id="empty-description">Jogo, vídeo ou aquela janela aleatória.<br>Escolha o que mostrar e chama seu amigo.</p>
+              <span class="empty-tag">SEM CONTA · SEM ENROLAÇÃO</span>
+            </div>
+          </div>
+          <div class="stage-bottom"><div class="stage-meta"><span id="stream-quality">Nenhuma tela selecionada</span><span class="separator">·</span><span id="transport-label">Aguardando transmissão</span></div><button id="fullscreen-button" class="icon-button" title="Tela cheia" aria-label="Tela cheia">⛶</button></div>
+          <div id="viewer-controls" class="viewer-controls" hidden><button id="sound-button" class="button subtle">Ativar som</button><label>Volume <input id="volume" type="range" min="0" max="1" step="0.05" value="0.8"></label><button id="leave-button" class="button subtle">Sair da sala</button></div>
+        </section>
+        <aside id="host-controls" class="control-column">
+          <section class="panel"><div class="panel-title"><span class="step">01</span><h2>O que vamos mostrar?</h2></div>
+            <button id="choose-source" class="source-button"><span class="source-icon">▣</span><span><strong id="source-name">Escolher tela ou janela</strong><small id="source-description">Só você decide o que aparece.</small></span><span>→</span></button>
+            <div class="field-row"><label>Qualidade<select id="quality"><option value="720:30">720p · 30 FPS</option><option value="1080:30" selected>1080p · 30 FPS</option><option value="1080:60">1080p · 60 FPS</option></select></label><label>Conexão<select id="connection-mode"><option value="auto">Automática</option><option value="relay">Compatibilidade</option></select></label></div>
+            <label class="toggle-row"><span><strong>Som do computador</strong><small>Inclui os sons de todos os apps.</small></span><input id="system-audio" type="checkbox" checked><span class="toggle" aria-hidden="true"></span></label>
+            <label class="toggle-row"><span><strong>Seu microfone</strong><small>Fale junto com a transmissão.</small></span><input id="microphone" type="checkbox"><span class="toggle" aria-hidden="true"></span></label>
+            <button id="start-button" class="button primary wide" disabled>Compartilhar tela <span>↗</span></button>
+            <button id="stop-button" class="button danger wide" hidden>Encerrar transmissão <span>■</span></button>
+          </section>
+          <section class="panel invite-panel"><div class="panel-title"><span class="step">02</span><h2>Chama seu amigo.</h2></div><p>Ele abre o Concord e cola o convite em <strong>Assistir ao amigo</strong>.</p>
+            <button id="invite-button" class="button secondary wide">Criar convite pela internet <span>↗</span></button>
+            <div id="invite-result" hidden><label class="invite-label" for="invite-link">SEU CONVITE PARTICULAR</label><div class="copy-field"><input id="invite-link" readonly aria-label="Convite particular"><button id="copy-button" class="icon-button" title="Copiar convite" aria-label="Copiar convite">⧉</button></div><div class="invite-actions"><button id="renew-button" class="text-button">Trocar convite</button><button id="close-invite" class="text-button">Fechar acesso</button></div></div>
+            <div class="friend-status"><span id="friend-dot" class="small-dot"></span><span id="friend-label">Aguardando seu amigo</span></div>
+            <small class="invite-note">O convite vale enquanto este app estiver aberto. Mande só pra quem você quer na sala.</small>
+          </section>
+        </aside>
+      </div>
+      <footer><span>Feito pra compartilhar o momento.</span><span id="footer-tip">Sua tela só é transmitida depois que você clicar em compartilhar.</span></footer>
+    </main>
+  </div>
+  <dialog id="source-picker"><div class="picker-header"><div><p class="eyebrow">VOCÊ ESTÁ NO CONTROLE</p><h2>Escolha o que compartilhar.</h2></div><button id="close-picker" class="icon-button" aria-label="Fechar seleção">×</button></div><p class="picker-hint">Uma janela mostra só aquele app. Uma tela mostra tudo naquele monitor.</p><div id="source-list" class="source-list"></div></dialog>
+</body>
+</html>

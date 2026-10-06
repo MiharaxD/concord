@@ -1,0 +1,31 @@
+{
+  "name": "concord",
+  "version": "0.1.0",
+  "private": true,
+  "author": "Concord",
+  "license": "UNLICENSED",
+  "description": "Compartilhamento pessoal de tela entre dois PCs",
+  "type": "module",
+  "main": "desktop/main.cjs",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win portable --x64",
+    "test": "node --test tests/server.test.mjs",
+    "test:desktop": "node tests/desktop.mjs"
+  },
+  "dependencies": { "ws": "8.22.0" },
+  "devDependencies": { "electron": "44.5.1", "electron-builder": "26.15.3" },
+  "build": {
+    "appId": "local.concord.desktop",
+    "productName": "Concord",
+    "directories": { "output": "dist" },
+    "files": ["desktop/**/*", "public/**/*", "server.mjs", "package.json"],
+    "extraResources": [
+      { "from": ".runtime/cloudflared.exe", "to": "cloudflared.exe" },
+      { "from": ".runtime/cloudflared-version.json", "to": "cloudflared-version.json" }
+    ],
+    "win": { "target": "portable", "signExecutable": false, "icon": "desktop/icon.ico" },
+    "portable": { "artifactName": "Concord-${version}-Windows.exe" }
+  }
+}
