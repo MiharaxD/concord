@@ -10,10 +10,10 @@ function Invoke-BuildStep([string]$label, [string]$command, [string[]]$arguments
 
 try {
     Push-Location -LiteralPath $projectDirectory
-    $nodeCommand = (Get-Command node -CommandType Application -ErrorAction Stop).Source
+    $nodeCommand = (Get-Command node -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
     $nodeMajor = [int]((& $nodeCommand --version).Trim().TrimStart('v').Split('.')[0])
     if ($nodeMajor -lt 22) { throw 'Para gerar o programa, instale Node.js 22 ou mais recente.' }
-    $pnpmCommand = (Get-Command pnpm -CommandType Application -ErrorAction Stop).Source
+    $pnpmCommand = (Get-Command pnpm -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
     $env:PATH = (Split-Path -Parent $nodeCommand) + ';' + $env:PATH
     $package = Get-Content -LiteralPath (Join-Path $projectDirectory 'package.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     if ($package.version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') { throw 'Versao invalida no package.json.' }

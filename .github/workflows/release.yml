@@ -2,6 +2,7 @@ name: Publicar Concord para Windows
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
 permissions:
   contents: write
 concurrency:
@@ -14,6 +15,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
@@ -22,8 +24,13 @@ jobs:
         shell: pwsh
         run: |
           $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          if ($version -notmatch '^\d+\.\d+\.\d+$' -or $env:GITHUB_REF_NAME -ne "v$version") {
+          if ($version -notmatch '^\d+\.\d+\.\d+$' -or ($env:GITHUB_EVENT_NAME -eq 'push' -and $env:GITHUB_REF_NAME -ne "v$version")) {
             throw 'A tag deve ser vMAJOR.MINOR.PATCH e corresponder ao package.json.'
+          }
+          # Retry an interrupted release without moving its tag or changing shipped code.
+          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch' -and (git tag --list "v$version")) {
+            git diff --quiet "v$version" HEAD -- desktop public native server.mjs package.json pnpm-lock.yaml build scripts/prepare.mjs scripts/build-audio.ps1
+            if ($LASTEXITCODE -ne 0) { throw 'O app mudou desde a tag. Aumente a versao antes de publicar.' }
           }
       - name: Preparar pnpm
         run: npm install --global pnpm@11.19.0

@@ -100,6 +100,8 @@ git push origin v0.3.4
 
 O workflow em Windows confere se tag/`package.json` concordam, usa Node 24/pnpm fixado, executa testes de unidade, gera NSIS e publica os quatro artefatos. Recebe apenas o `GITHUB_TOKEN` temporário com `contents: write`; não precisa de token pessoal nos PCs dos amigos. Assinatura pode ser adicionada futuramente via secrets de CI. [Autenticação oficial do Actions](https://docs.github.com/en/actions/tutorials/authenticate-with-github_token).
 
+Para retomar uma publicação que falhou, o workflow também permite **Run workflow** na branch principal. Se a tag dessa versão já existe, confere que app, dependências e configuração do pacote continuam iguais à tag; mudanças no app exigem outra versão. Isso permite corrigir scripts de desenvolvimento sem mover uma tag. O build seleciona somente a primeira instalação de Node/pnpm disponível no PATH.
+
 Gerar um instalador com `build-installer.bat` / `pnpm build:installer` **não publica**. O workflow roda somente após push de uma tag, e `release` publica apenas quando executado expressamente. A instalação inicial enviada diretamente funciona antes da primeira Release; receber versões futuras depende da publicação dos artefatos completos.
 
 ## Assinar futuramente
