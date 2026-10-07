@@ -53,7 +53,11 @@ try {
     $filename = if ($Target -eq 'installer') { "Concord-$($package.version)-Setup.exe" } else { "Concord-$($package.version)-Windows.exe" }
     $artifactPath = Join-Path $outputDirectory $filename
     if (-not (Test-Path -LiteralPath $artifactPath -PathType Leaf)) { throw 'O empacotador nao gerou o executavel esperado.' }
-    $hash = (Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    # Use .NET directly; Windows PowerShell launched from pwsh may lack Get-FileHash.
+    $hashAlgorithm = [Security.Cryptography.SHA256]::Create()
+    $artifactStream = [IO.File]::OpenRead($artifactPath)
+    try { $hash = [BitConverter]::ToString($hashAlgorithm.ComputeHash($artifactStream)).Replace('-', '').ToLowerInvariant() }
+    finally { $artifactStream.Dispose(); $hashAlgorithm.Dispose() }
     [IO.File]::WriteAllText($artifactPath + '.sha256', "$hash *$filename`r`n", [Text.Encoding]::ASCII)
     if ($Target -eq 'installer') {
         foreach ($required in @('latest.yml', "$filename.blockmap")) {
