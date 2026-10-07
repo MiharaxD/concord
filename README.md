@@ -1,5 +1,7 @@
 # Concord
 
+Instalador atual: [Concord 0.3.4 para Windows](https://github.com/MiharaxD/concord/releases/download/v0.3.4/Concord-0.3.4-Setup.exe). [Todos os arquivos da Release](https://github.com/MiharaxD/concord/releases/tag/v0.3.4).
+
 App pessoal para Windows: até 8 pessoas na mesma sala, sem conta, domínio ou servidor próprio. Todos usam o mesmo executável Electron + JavaScript.
 
 ## Como usar

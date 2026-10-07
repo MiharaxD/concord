@@ -20,7 +20,15 @@ Publisher passou contra API simulada: checksum, quatro anexos completos antes de
 
 ## Publicação
 
-Push e Release **autorizados expressamente pelo usuário**. Código e versão 0.3.4 preparados para envio; execução/publicação ainda em andamento. O workflow por tag gera outro build do mesmo código, que pode ter hash diferente do pacote local por recompilação/timestamps. Confirmar artefatos públicos e registrar seus hashes após a publicação.
+Push e Release **autorizados expressamente pelo usuário e concluídos**. [Release 0.3.4](https://github.com/MiharaxD/concord/releases/tag/v0.3.4) com quatro anexos públicos: Setup.exe, .blockmap, .sha256 e latest.yml. [GitHub Actions concluído com sucesso](https://github.com/MiharaxD/concord/actions/runs/37704240993), com os 19 testes passando no Windows hospedado.
+
+Instalador público: **125.193.971 bytes**, SHA-256 **`6c35d9efa6ab32a177247eed46913aa023a1b80cfb0bdf3a826f990bde7d014c`**. Cópia local em `dist/installer/0.3.4/github/Concord-0.3.4-Setup.exe`. Checksum publicado e hash retornado pela API conferem com o arquivo baixado. Build CI utiliza outra compressão/timestamps; o build local inicial foi preservado, sem substituir releases anteriores.
+
+Tag v0.3.4 permanece em c4b5abf. Duas correções nos scripts de desenvolvimento foram enviadas depois: seleção da primeira instalação Node/pnpm quando Get-Command retorna múltiplas e checksum via .NET quando Get-FileHash não está disponível no PowerShell iniciado pelo runner. Retomada manual validou app/dependências/configuração iguais à tag; nenhum código runtime foi alterado nessas correções.
+
+Cliente empacotado 0.3.3, sem GH_TOKEN/GITHUB_TOKEN, usando **electron-updater real** e feed GitHub público: detectou 0.3.4, mostrou progresso intermediário (41%, 65%, 84%, 90%) e terminou download/checksum. Evidência em `test-results/github-update-1791417230910/result.json`. Cache/perfil isolados; não chamou quitAndInstall nem modificou a instalação pessoal. A primeira atualização usa fallback completo, porque a 0.3.3 não tinha blockmap público anterior.
+
+O conteúdo foi extraído do **instalador público baixado** para revisão, sem executar instalação: ASAR corresponde ao fonte (normalizando fins de linha), ws/electron-updater presentes, dependências de desenvolvimento ausentes. Smoke passou nesse pacote real: janela, sala, assets/seleção/cópia/preparo e fechamento em 138 ms. Defender também examinou o instalador público: found no threats, código 0.
 
 ## Evidências anteriores e limites
 

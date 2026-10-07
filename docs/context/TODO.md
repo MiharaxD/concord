@@ -2,11 +2,11 @@
 
 ## Agora
 
-Publicação autorizada da 0.3.4 e confirmação dos artefatos públicos em andamento. Interface/pacote local concluídos e verificados.
+Nenhuma implementação solicitada pendente. Release 0.3.4 pública, workflow e download público do updater confirmados.
 
 ## Depois
 
-- [ ] Confirmar workflow e atualização por uma Release pública do GitHub após publicação autorizada. Download/instalação/reinício reais via feed local e publicação contra API simulada passaram na 0.3.3.
+- [ ] Confirmar instalação/reinício do update público numa máquina de teste. Na 0.3.4, CI/publicação e cliente 0.3.3 consultando/baixando GitHub público sem token passaram; aplicação/reinício anteriores via feed local passaram na 0.3.3. Preservar a instalação/sala pessoal aberta.
 - [ ] Investigar instabilidade ao reiniciar múltiplas transmissões em compatibilidade: testes locais voltaram a falhar em movimento/áudio na 0.3.1 e no pacote preservado 0.3.0. Causa ainda não identificada; transporte não mudou na 0.3.1.
 - [ ] Validar desempenho e conexão em duas máquinas físicas e redes distintas quando houver acesso a esse cenário.
 

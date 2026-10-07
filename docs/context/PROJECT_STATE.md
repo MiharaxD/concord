@@ -1,43 +1,41 @@
 # Estado atual
 
-## Objetivo
+## Produto e versão entregue
 
-App desktop pessoal para uma sala de até oito pessoas compartilharem tela/janela e áudio, sem navegador externo nem cadastro. Todos usam o mesmo executável Windows x64.
+- App desktop pessoal Windows x64 para sala de até oito pessoas, sem navegador externo/cadastro. Compartilhar e assistir na mesma interface; entrada pelo convite, nome obrigatório e foto opcional local. Sem lista de amigos/tags.
+- **0.3.4 publicada**: [Release](https://github.com/MiharaxD/concord/releases/tag/v0.3.4). Instalador público em `dist/installer/0.3.4/github/Concord-0.3.4-Setup.exe`, 125.193.971 bytes, SHA-256 `6c35d9efa6ab32a177247eed46913aa023a1b80cfb0bdf3a826f990bde7d014c`.
+- Build local anterior da mesma versão preservado em `dist/installer/0.3.4/Concord-0.3.4-Setup.exe`, SHA-256 `adea918179b6470a4980af2759434745b85e41fcd90079fcc2fb6bfa515ac892`. Compressão/timestamps/recompilação diferem do CI. Instaladores 0.3.2/0.3.3, portáteis anteriores e relatórios específicos preservados.
+- Interface simplificada: sem cabeçalho e indicador visual de conexão, vazio “Compartilhamento de tela”, menu “PAINEL”, versão sem “pessoal”, crédito Yuri Mihara, “Link de convite” / “CONVITE DA SALA” sem mensagem redundante quando pronto. Relógio só enquanto transmite.
 
-## Estado entregue e verificado
+## Funcionamento confirmado
 
-- Versão local atual 0.3.4: `dist/installer/0.3.4/Concord-0.3.4-Setup.exe`, 134.778.731 bytes. SHA-256: `adea918179b6470a4980af2759434745b85e41fcd90079fcc2fb6bfa515ac892`. Instaladores 0.3.2/0.3.3 e portáteis anteriores preservados; Release pública em envio autorizado.
-- Interface 0.3.4 simplificada: sem cabeçalho/indicador visual de conexão, estado vazio “Compartilhamento de tela”, menu “PAINEL”, versão sem “pessoal”, crédito Yuri Mihara e “Link de convite” sem mensagem redundante quando pronto. Relógio aparece só ao transmitir. 19 unidades, smoke e revisão visual/captura da própria janela passaram.
-- Distribuição principal agora é NSIS por usuário, sem administrador, com menu Iniciar, atalho opcional e desinstalador. Runtime/dependências/helper/Cloudflared embutidos; nome/foto em `%APPDATA%\Concord` preservados ao atualizar/desinstalar e na migração do portátil.
-- Atualização automática no app instalado: consulta pública GitHub MiharaxD/concord uma vez após bootstrap, download/progresso em segundo plano e clique “Reiniciar e atualizar”. Fechar normalmente não instala; desenvolvimento/portátil não consultam. Versão e botão manual no menu lateral. Erros só em log, sem bloquear abertura.
-- Pacote final confirmado correspondente ao fonte; 19 testes de unidade, instalação/reinstalação/uso fora do projeto com PATH só Windows/helpers/bloqueio com app aberto/desinstalação e atualização real HTTP/NSIS 0.3.2 de QA → 0.3.3 passaram. Reinício automático, fechamento de auxiliares, nome/foto e dados pessoais preservados. Evidência em VERIFICACAO.md.
-- Builder gera Setup, blockmap, latest.yml e checksum. `pnpm release` / `npm run release` e workflow por tag preparados; publicação completa/retomada/falha testadas contra API simulada. GitHub público e execução real de Actions ainda não testados com uma nova Release; nenhuma publicação/push/commit real efetuado.
-- Convite curto da sala preparado automaticamente ao abrir, inclusive durante a escolha inicial do nome. Captura é opcional; participantes podem entrar, assistir e transmitir na mesma interface.
-- Sala com até sete convidados e o dono. Nome obrigatório na primeira execução e foto opcional PNG/JPG, reduzida a JPEG 128×128 e salva no PC. Perfil compartilhado somente com participantes conectados.
-- Participantes com nome, foto e estado no menu lateral. Sem lista de amigos ou tags; bloco antigo da sala e separação entre compartilhar/assistir removidos.
-- Múltiplas transmissões simultâneas; grid adaptável, clique alterna foco e retorno à grade, também disponível por “Ver todas”. Grid reproduz todas as telas recebidas; foco reproduz somente a selecionada. Prévia própria sempre silenciosa.
-- Monitor/janela, áudio apenas do jogo/app ou computador inteiro, microfone opcional, convite revogável, WebRTC direto entre participantes e compatibilidade multiplexada por WebSocket.
-- Qualidade 720p/1080p/1440p/4K em 30/60 FPS; bitrate automático ou manual de 1–60 Mbps. Configuração antes de transmitir; fonte menor não ganha detalhe.
-- Parar a transmissão do dono mantém a sala e outras telas. Fechar o programa do dono encerra a sala.
-- Na 0.3.1, etapa de foco com duas telas recebidas verificou segundo clique, restauração da grade/estados de áudio e botão “Ver todas” no app empacotado. Portátil final abriu, autenticou sala, enumerou fontes, entregou PCM pelo helper e encerrou normalmente. Teste completo de chamadas não passou; ver limitação abaixo.
-- Na 0.3.0, 16 testes de unidade, três instâncias, túnel público, persistência e revogação passaram. Áudio automático, qualidade 1440p/4K e isolamento de processos sonoros medidos nessa versão. Captura/transporte não mudaram na 0.3.1; capturador embutido preservado.
-- O usuário publicou o código em `https://github.com/MiharaxD/concord.git`. `dist/` é ignorada; binários devem ser anexados a Releases. Não houve commit, push ou publicação nesta tarefa.
+- Convite curto preparado ao abrir, inclusive durante escolha do nome. Captura opcional depende de seleção explícita. Até sete convidados e dono; nome/foto/estado no menu lateral.
+- Streams simultâneas em grid adaptável, clique alterna foco/grade e “Ver todas” também retorna. Grid reproduz sons recebidos; foco só o escolhido. Prévia própria sempre silenciosa.
+- Monitor/janela, som apenas do jogo/app ou computador inteiro, microfone opcional, WebRTC por dupla e relay WebSocket via Quick Tunnel Cloudflare.
+- 720p/1080p/1440p/4K em 30/60 FPS, bitrate automático/manual 1–60 Mbps antes de transmitir.
+- Parar a tela do dono mantém sala/outras streams; fechar o app do dono encerra a sala. Protocolo compatível com 0.3.0+.
+- NSIS por usuário, sem administrador, menu Iniciar/atalho opcional/desinstalador. Runtime/helper/conexão embutidos. Nome/foto em `%APPDATA%\Concord\profile.json`, preservados em update/desinstalação e migração do portátil.
+- Updater consulta GitHub público uma vez após bootstrap, baixa/progride em segundo plano e aplica no clique “Reiniciar e atualizar”. Fecha normalmente sem instalar; dev/portátil não consultam. Versão/botão manual no menu lateral. Falhas não bloqueiam; log limitado em userData.
+
+## Validação e publicação
+
+- 19 unidades passaram localmente e no CI. Smoke passou nos pacotes local e **extraído do instalador público**; ASAR público corresponde ao fonte, inclui ws/updater e exclui dependências de desenvolvimento.
+- Revisão visual e captura da própria janela de QA confirmaram UI, convite pronto e relógio durante/depois da transmissão. Instalação/reinstalação/desinstalação e update HTTP/NSIS completo com reinício/perfil preservados foram verificados na 0.3.3; relatório preservado naquela pasta.
+- Cliente empacotado 0.3.3 detectou/baixou 0.3.4 pelo electron-updater via GitHub público, sem token, progresso e checksum conferidos. A instalação/reinício desse download público não foram acionados sobre o app pessoal aberto.
+- Código/tag enviados com autorização expressa. Tag v0.3.4 aponta a c4b5abf; scripts de desenvolvimento corrigidos em commits posteriores, sem alterar app/package/configuração da tag.
+- [Actions concluído com sucesso](https://github.com/MiharaxD/concord/actions/runs/37704240993): NSIS + blockmap + sha256 + latest.yml públicos, usando GITHUB_TOKEN. Build escolhe primeira ferramenta no PATH e calcula hash via .NET para funcionar em Windows PowerShell iniciado por pwsh.
+- Workflow aceita tags e execução manual para retomar publicação; recusa retomar uma tag se app/dependências/configuração mudaram. Publisher não sobrescreve release pública. `dist/` continua ignorada no Git.
+- Defender local não detectou ameaças no instalador público nem no pacote local 0.3.4. Binário sem assinatura; resultado não comprova falso positivo do alerta antigo do amigo.
 
 ## Trabalho em andamento
 
-Em andamento: enviar código/tag e confirmar Release 0.3.4 no GitHub com autorização expressa. Interface/pacote local verificados; 0.3.3 permanece preservada. Não encerrar ou substituir a instalação pessoal atualmente aberta para executar testes de instalação.
+Nenhum pedido pendente. Publicação e mudanças visuais concluídas. Detalhes/limites em VERIFICACAO.md e BUILD_WINDOWS.md.
 
-## Limitações e questões abertas
+## Limitações e próxima validação
 
-- Túnel depende do serviço gratuito Cloudflare. Preparação espera DNS/HTTPS e pode demorar até 150 segundos; começar ao abrir antecipa essa espera.
-- A sala depende do PC do dono ligado e com o app aberto. Múltiplas telas aumentam upload/CPU; limite de oito membros validado no servidor, mas oito transmissões reais simultâneas não foram medidas.
-- Repetições dos testes de chamadas apresentaram travamento de movimento/áudio ao reiniciar várias telas, sobretudo em compatibilidade. Reproduzido também no pacote preservado 0.3.0; causa não identificada. Pendência em TODO.md; não considerar a chamada completa estável em todos os cenários.
-- Microfone acompanha a transmissão; não há chamada de voz independente da tela.
-- Executável sem assinatura digital. Defender local não detectou ameaças no pacote final 0.3.3. Alerta antigo de download não teve texto/nome da ameaça informado; não foi confirmado falso positivo.
-- Atualizações futuras dependem de Release pública com instalador e metadados completos. Portáteis antigos e instalador 0.3.2 original precisam instalar 0.3.3 uma vez; diferencial preservado, mas economia efetiva não medida (QA confirmou fallback completo). Fluxo via GitHub/Actions aguarda primeira publicação autorizada.
-- Áudio por app exige Windows build 20348+ (Windows 11), inclui processos filhos e pode incluir outras janelas/abas do mesmo app. Falha não troca silenciosamente para áudio global.
-- Testes em uma máquina física; desempenho/conexão entre PCs e operadoras diferentes ainda precisam de uso real. FPS e bitrate configurados não garantem desempenho constante.
-
-## Próxima validação útil
-
-Uso real em dois PCs/redes diferentes e primeira publicação GitHub/Actions quando solicitada. Comandos e teste de updates estão em BUILD_WINDOWS.md.
+- Túnel gratuito depende de Cloudflare/DNS/HTTPS e pode levar até 150 segundos; preparo antecipado reduz espera percebida. Sala depende do PC do dono aberto.
+- Reiniciar múltiplas telas apresentou instabilidade, sobretudo no relay, também reproduzida na 0.3.0; causa ainda pendente. Não tratar o conjunto como estável em todos os cenários.
+- Upload/CPU crescem com participantes; oito transmissões reais simultâneas não foram medidas. Microfone acompanha stream, sem voz independente.
+- Áudio por app exige build 20348+ (Windows 11), inclui filhos e pode incluir outras janelas do mesmo processo. Falha não amplia captura.
+- Uso real entre PCs/redes distintas ainda necessário. Economia efetiva do diferencial não medida; primeira atualização pública de 0.3.3 utiliza fallback completo porque não há blockmap público anterior.
+- Quem usa portátil antigo/instalador 0.3.2 sem updater precisa instalar a versão atual uma vez. Instalação/reinício de uma atualização pública ainda devem ser confirmados numa máquina de teste sem interferir numa sala pessoal.
