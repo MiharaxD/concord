@@ -4,13 +4,14 @@ import { mkdir } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 const root = process.cwd();
 const { _electron } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : 'playwright');
-const apps = [];
+const apps = []; const run = path.resolve('test-results/quality-' + Date.now());
 await mkdir('test-results', { recursive: true });
 try {
   async function launch() {
-    const app = await _electron.launch({ executablePath: process.env.CONCORD_EXE || path.join(root, 'node_modules/electron/dist/electron.exe'), args: process.env.CONCORD_EXE ? [] : [root], timeout: 45000 }); apps.push(app);
+    const app = await _electron.launch({ executablePath: process.env.CONCORD_EXE || path.join(root, 'node_modules/electron/dist/electron.exe'), args: process.env.CONCORD_EXE ? [] : [root], env: { ...process.env, CONCORD_DATA_DIR: path.join(run, String(apps.length)) }, timeout: 45000 }); apps.push(app);
     const page = await app.firstWindow(); page.setDefaultTimeout(25000);
-    await page.locator('#connection-status').filter({ hasText: 'Sala conectada' }).waitFor();
+    await page.locator('#name-picker[open]').waitFor(); await page.locator('#display-name').fill('Teste ' + apps.length); await page.locator('#save-name').click();
+    await page.waitForFunction(() => document.body.dataset.connected === 'true' || document.querySelector('#connection-status')?.textContent.includes('Sala conectada'));
     page.on('pageerror', error => console.error('PAGE ERROR', error.message)); return page;
   }
   const host = await launch(), viewer = await launch();
@@ -35,10 +36,10 @@ try {
     };
   });
   await viewer.evaluate(() => {
-    const video = document.getElementById('screen-video'); const play = video.play.bind(video); let interrupted = false;
-    video.play = () => {
-      if (!interrupted && video.srcObject) { interrupted = true; return new Promise((_, reject) => setTimeout(() => reject(new DOMException('Mudança de fonte durante chegada de tracks', 'AbortError')), 300)); }
-      return play();
+    const play = HTMLMediaElement.prototype.play; let interrupted = false;
+    HTMLMediaElement.prototype.play = function() {
+      if (!interrupted && this.srcObject && this.dataset.publisher === 'host') { interrupted = true; return new Promise((_, reject) => setTimeout(() => reject(new DOMException('Mudança de fonte', 'AbortError')), 300)); }
+      return play.call(this);
     };
   });
   await host.locator('#audio-mode').selectOption('system');
@@ -50,27 +51,27 @@ try {
   assert.equal(await host.evaluate(() => window.testCaptures), 0, 'entrada inválida não abre captura');
   await host.locator('#bitrate-value').fill('11.5'); await host.locator('#start-button').click();
   const invite = await host.evaluate(async () => (await window.concord.session()).guestLink);
-  await viewer.locator('#viewer-tab').click(); await viewer.locator('#join-input').fill(invite); await viewer.locator('#join-button').click();
+  await viewer.locator('#join-input').fill(invite); await viewer.locator('#join-button').click();
   await viewer.locator('#transport-label').filter({ hasText: 'Conexão direta' }).waitFor();
-  await viewer.waitForFunction(() => document.getElementById('screen-video').videoWidth === 2560);
+  await viewer.waitForFunction(() => document.querySelector('video[data-publisher="host"]')?.videoWidth === 2560);
   await new Promise(resolve => setTimeout(resolve, 1000));
   const direct = await host.evaluate(() => window.testSender.getParameters());
   assert.equal(direct.encodings[0].maxBitrate, 11_500_000); assert.equal(direct.encodings[0].maxFramerate, 60);
-  const audible = await viewer.evaluate(() => { const video = document.getElementById('screen-video'); return !video.muted && video.volume > 0 && !video.paused; });
+  const audible = await viewer.evaluate(() => { const video = document.querySelector('video[data-publisher="host"]'); return !video.muted && video.volume > 0 && !video.paused; });
   assert.ok(audible, 'som inicia sem mexer no volume, mesmo após AbortError tardio');
-  assert.match(await viewer.locator('#stream-quality').textContent(), /11,5 Mbps/);
+  assert.match(await viewer.locator('#stream-quality').textContent(), /tela/);
   console.log('WebRTC: 1440p, limite de 11,5 Mbps e 60 FPS aplicados; player inicia com som sem clique de volume');
   await host.locator('#stop-button').click();
   await host.locator('#quality').selectOption('2160:30'); await host.locator('#bitrate-value').fill('17.5'); await host.locator('#connection-mode').selectOption('relay');
   await host.locator('#start-button').click();
-  await viewer.waitForFunction(() => document.getElementById('screen-video').videoWidth === 3840);
-  const initialFrames = await viewer.evaluate(() => document.getElementById('screen-video').getVideoPlaybackQuality().totalVideoFrames);
+  await viewer.waitForFunction(() => document.querySelector('video[data-publisher="host"]')?.videoWidth === 3840);
+  const initialFrames = await viewer.evaluate(() => document.querySelector('video[data-publisher="host"]').getVideoPlaybackQuality().totalVideoFrames);
   await new Promise(resolve => setTimeout(resolve, 700));
-  assert.ok(await viewer.evaluate(() => document.getElementById('screen-video').getVideoPlaybackQuality().totalVideoFrames) > initialFrames, '4K reproduz quadros em movimento');
+  assert.ok(await viewer.evaluate(() => document.querySelector('video[data-publisher="host"]').getVideoPlaybackQuality().totalVideoFrames) > initialFrames, '4K reproduz quadros em movimento');
   assert.equal(await host.evaluate(() => window.testRecorder.videoBitsPerSecond), 17_500_000);
-  assert.ok(await viewer.evaluate(() => !document.getElementById('screen-video').muted));
+  assert.ok(await viewer.evaluate(() => !document.querySelector('video[data-publisher="host"]').muted));
   const rms = await viewer.evaluate(async () => {
-    const ac = new AudioContext(); await ac.resume(); const source = ac.createMediaElementSource(document.getElementById('screen-video')); const analyser = ac.createAnalyser(); source.connect(analyser);
+    const ac = new AudioContext(); await ac.resume(); const source = ac.createMediaElementSource(document.querySelector('video[data-publisher="host"]')); const analyser = ac.createAnalyser(); source.connect(analyser);
     let result = 0;
     for (let retry = 0; retry < 40 && result <= .005; retry++) {
       await new Promise(resolve => setTimeout(resolve, 200)); const samples = new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(samples);
@@ -118,10 +119,10 @@ try {
     tone.connect(gain).connect(ac.destination); tone.start(); window.testPhysicalTone = ac;
   });
   await host.locator('#start-button').click();
-  await viewer.waitForFunction(() => document.getElementById('screen-video').videoWidth === 1280);
+  await viewer.waitForFunction(() => document.querySelector('video[data-publisher="host"]')?.videoWidth === 1280);
   assert.equal(await host.evaluate(() => window.testRecorder.videoBitsPerSecond), 4_000_000, 'bitrate automático chega ao encoder');
   const appRms = await viewer.evaluate(async () => {
-    const { analyser } = window.testAudioAnalyser;
+    const ac = new AudioContext(); await ac.resume(); const source = ac.createMediaElementSource(document.querySelector('video[data-publisher="host"]')), analyser = ac.createAnalyser(); source.connect(analyser); window.testAppAnalyser = ac;
     let result = 0;
     for (let retry = 0; retry < 40 && result <= .001; retry++) {
       await new Promise(resolve => setTimeout(resolve, 200)); const samples = new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(samples);

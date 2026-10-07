@@ -19,4 +19,7 @@ await mkdir(path.join(root, '.runtime'), { recursive: true });
 await writeFile(path.join(root, '.runtime', 'cloudflared.exe.part'), bytes);
 await rename(path.join(root, '.runtime', 'cloudflared.exe.part'), path.join(root, '.runtime', 'cloudflared.exe'));
 await writeFile(path.join(root, '.runtime', 'cloudflared-version.json'), JSON.stringify({ version: release.tag_name, sha256: sha, source: asset.browser_download_url }, null, 2));
+const license = await fetch(`https://raw.githubusercontent.com/cloudflare/cloudflared/${cloudflaredVersion}/LICENSE`);
+if (!license.ok) throw new Error('Não consegui obter a licença do componente de conexão.');
+await writeFile(path.join(root, '.runtime', 'cloudflared-LICENSE.txt'), await license.text(), 'utf8');
 console.log('Cloudflared baixado e checksum conferido.');

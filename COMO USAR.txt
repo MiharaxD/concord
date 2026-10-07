@@ -1,45 +1,71 @@
-CONCORD - COMPARTILHAMENTO PESSOAL DE TELA
+CONCORD - SALA PESSOAL DE TELAS
 
-Voce e seu amigo usam o MESMO arquivo Concord-0.2.1-Windows.exe.
-Nao precisa instalar nada. E para Windows 64 bits.
+Envie Concord-0.3.4-Setup.exe para seus amigos. Windows 64 bits.
+Abra o instalador, escolha se quer atalho na Area de Trabalho e clique em Instalar.
+Depois, abra Concord pelo menu Iniciar. Nao precisa de Node, Python ou comandos.
+Instala somente para seu usuario, sem pedir administrador.
+Na primeira abertura, escolha seu nome. Foto e opcional.
+Clique no perfil do menu lateral para editar nome/foto depois.
+Nome/foto ficam em %APPDATA%\Concord, separados da pasta do programa.
+Atualizar e desinstalar normalmente preservam esses dados.
+Feche o Concord antes de instalar manualmente ou desinstalar por Aplicativos instalados.
 
-QUEM VAI TRANSMITIR
-1. Abra o Concord.
-2. Escolha uma tela ou janela.
-3. Ajuste qualidade, taxa de bits, fonte do audio e microfone.
-4. Clique em Compartilhar tela.
-5. Clique em Criar convite pela internet. Pode levar ate 2 minutos.
-6. Copie o convite e envie para seu amigo.
+ATUALIZACOES
+A versao instalada procura novas versoes no GitHub uma vez ao abrir.
+Baixa em segundo plano e mostra o progresso no menu lateral.
+Quando estiver pronta, clique em Reiniciar e atualizar.
+Isso encerra a sala atual, instala a nova versao e reabre o programa.
+Nome e foto sao preservados. Fechar normalmente nao instala o update.
+Verificar atualizacoes permite consultar novamente sem reabrir.
+Sem internet, o app continua abrindo normalmente.
+O portatil antigo precisa instalar este Setup uma vez para ter atualizacoes.
+Novas versoes precisam ser publicadas com seus metadados na Release do GitHub.
 
-QUEM VAI ASSISTIR
-1. Abra o mesmo Concord.
-2. Clique em Assistir ao amigo.
-3. Cole o convite completo e clique em Entrar na sala.
+O convite e preparado em segundo plano logo que o app abre.
+Enquanto isso, escolha tela/janela, qualidade, taxa de bits e audio.
+Quando ficar pronto, copie o convite e mande para as pessoas.
+Se abrir e copiar imediatamente, ainda pode haver espera.
+Cancelar preparacao interrompe; Preparar convite tenta de novo.
 
-O convite curto comeca com concord: e deve ser colado no app.
-Os dois precisam atualizar para 0.2.1 para usar esse formato.
-Nao precisa abrir o convite no navegador. Links antigos continuam aceitos.
+QUEM ENTRA PELO CONVITE
+Na mesma tela dos controles de compartilhar, cole o convite no campo
+Entrar na sala de um amigo e clique em Entrar na sala.
+Convite curto comeca com concord:; nao precisa abrir no navegador.
+Todos precisam de 0.3.0 ou mais nova para participar da sala nova.
 
-Qualidade: 720p, 1080p, 1440p ou 4K, em 30 ou 60 FPS.
-Taxa de bits: Automatica por qualidade ou Personalizada de 1 a 60 Mbps.
-Use 720p / 30 FPS e reduza a taxa de bits se a internet estiver lenta.
-Conexao Automatica tenta primeiro uma conexao direta.
-Compatibilidade funciona pelo tunel e pode ter mais atraso.
+NA MESMA SALA
+Ate 8 pessoas podem entrar e compartilhar ao mesmo tempo.
+Cada pessoa escolhe sua propria tela e clica em Compartilhar tela.
+As streams aparecem numa grade que se ajusta para caber.
+Clique em uma tela para focar; clique nela de novo ou em Ver todas para voltar a grade.
+Na grade, toca o som de todas as streams recebidas.
+Em foco, toca so o som escolhido. Sua previa fica muda para evitar eco.
+Volume e silenciar sao respeitados. Tela cheia funciona nos dois modos.
+Nomes e fotos dos participantes aparecem no menu lateral.
 
-O convite deixa de funcionar ao fechar o app do transmissor.
-Trocar convite expulsa o espectador e invalida o convite antigo.
-Fechar acesso encerra o acesso pela internet.
+PERFIL
+Nome e miniatura da foto PNG/JPG ficam salvos no PC do proprio usuario.
+A miniatura e enviada aos participantes, sem armazenamento online.
+Nao tem camera, lista de amigos, tags ou cadastro.
 
-IMPORTANTE
-Somente do jogo / app captura apenas o programa escolhido e seus
-processos filhos. Ao compartilhar um monitor inteiro, escolha o jogo
-no botao da fonte do audio. Exige Windows 11 / build 20348 ou superior.
-Todo o computador inclui os sons de TODOS os apps abertos.
-Deixe o microfone desligado para transmitir somente o som do jogo.
-As opcoes de qualidade e bitrate sao ajustadas antes de transmitir.
-O microfone acompanha a tela; esta versao nao tem chamada de voz
-nos dois sentidos. Uma pessoa transmite e uma assiste por sala.
+QUALIDADE E AUDIO
+720p, 1080p, 1440p ou 4K, em 30 ou 60 FPS.
+Taxa automatica por qualidade ou personalizada de 1 a 60 Mbps.
+Use 720p / 30 FPS em salas maiores ou internet lenta.
+Mais pessoas e streams exigem mais upload e processamento.
+Conexao Automatica tenta WebRTC por dupla; Compatibilidade usa o tunel.
+Somente do jogo / app exige Windows 11 / build 20348+, inclui filhos
+do app escolhido e deixa programas independentes de fora.
+Todo o computador inclui os sons de TODOS os apps.
+Microfone acompanha sua tela; nao ha voz independente de uma stream.
+Qualidade, fonte e bitrate sao ajustados antes de transmitir.
 
-O executavel nao tem assinatura digital. O Windows pode avisar
-que o editor e desconhecido. O programa nao grava a sua tela.
-O acesso pela internet depende do tunel gratuito da Cloudflare.
+ENCERRAR
+Encerrar transmissao para so sua tela; os outros continuam na sala.
+Trocar convite expulsa os convidados e invalida o convite antigo.
+Fechar acesso encerra o tunel e revoga o convite.
+Fechar o app que criou a sala encerra a sala inteira.
+
+O acesso usa o tunel gratuito Cloudflare; nao exige servidor proprio,
+dominio, cadastro ou abrir portas. Nao ha gravacao automatica de tela.
+O executavel nao tem assinatura; Windows pode avisar editor desconhecido.

@@ -19,8 +19,10 @@ const isLocal = req => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.soc
 
 export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnelCwd = path.join(ROOT, '.runtime') } = {}) {
   const hostToken = secret();
-  let guestToken = secret(), inviteToken = randomBytes(16).toString('base64url'), host, viewer, tunnel, tunnelPromise, tunnelUrl = publicUrl;
-  let state = { active: false };
+  let guestToken = secret(), inviteToken = randomBytes(16).toString('base64url'), host, tunnel, tunnelPromise, cancelTunnel, tunnelUrl = publicUrl;
+  const members = new Map();
+  const roster = () => [...members.values()].map(ws => ({ id: ws.memberId, name: ws.profile.name, photo: ws.profile.photo, stream: ws.streamState }));
+  const broadcast = value => { for (const peer of members.values()) send(peer, value); };
   const sockets = new Set();
   const attempts = new Map();
   const files = new Map([
@@ -28,6 +30,7 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
     ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
     ['/stream-settings.js', ['stream-settings.js', 'text/javascript; charset=utf-8']],
     ['/invites.js', ['invites.js', 'text/javascript; charset=utf-8']],
+    ['/room-media.js', ['room-media.js', 'text/javascript; charset=utf-8']],
     ['/app-audio-worklet.js', ['app-audio-worklet.js', 'text/javascript; charset=utf-8']],
     ['/style.css', ['style.css', 'text/css; charset=utf-8']],
     ['/icon.svg', ['icon.svg', 'image/svg+xml']]
@@ -43,10 +46,17 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
   const admin = req => isLocal(req) && same(req.headers['x-concord-host'], hostToken);
   function session() {
     const base = tunnelUrl || `http://127.0.0.1:${server.address().port}`;
-    return { guestLink: `${base}/#join=${guestToken}`, guestInvite: shortInvite(base, inviteToken), public: Boolean(tunnelUrl), viewer: Boolean(viewer), active: state.active };
+    return { guestLink: `${base}/#join=${guestToken}`, guestInvite: shortInvite(base, inviteToken), public: Boolean(tunnelUrl), viewer: [...members.values()].some(ws => ws.role === 'viewer'), members: roster(), active: Boolean(host?.streamState.active) };
   }
+  const stoppingTunnels = new Set();
   function stopTunnel() {
-    tunnel?.kill();
+    cancelTunnel?.(); cancelTunnel = undefined; tunnelPromise = undefined;
+    const child = tunnel;
+    if (child?.pid && child.exitCode === null && child.signalCode === null) {
+      const stopped = new Promise(resolve => child.once('close', resolve));
+      stoppingTunnels.add(stopped); stopped.finally(() => stoppingTunnels.delete(stopped));
+      child.kill();
+    }
     tunnel = undefined;
     tunnelUrl = publicUrl;
   }
@@ -55,17 +65,19 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
     if (tunnelPromise) return tunnelPromise;
     const binary = cloudflared || path.join(ROOT, '.runtime', process.platform === 'win32' ? 'cloudflared.exe' : 'cloudflared');
     if (!existsSync(binary)) return Promise.reject(new Error('Cloudflared não encontrado. Abra pelo Iniciar Concord.cmd para preparar o programa.'));
-    tunnelPromise = new Promise((resolve, reject) => {
+    const pending = new Promise((resolve, reject) => {
       let complete = false, output = '', checking = false;
+      const controller = new AbortController();
       const child = spawn(binary, ['tunnel', '--no-autoupdate', '--protocol', 'http2', '--url', `http://127.0.0.1:${server.address().port}`], {
         cwd: tunnelCwd, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe']
       });
       tunnel = child;
       const timer = setTimeout(() => finish(new Error('O endereço público não ficou acessível a tempo. A Cloudflare pode estar lenta; tente criar o convite novamente.')), 150000);
+      cancelTunnel = () => finish(new Error('Preparação do convite cancelada.'));
       function finish(error, url) {
         if (complete) return;
         complete = true;
-        clearTimeout(timer);
+        clearTimeout(timer); controller.abort();
         if (error) { child.kill(); reject(error); }
         else { tunnelUrl = url; resolve(url); }
       }
@@ -76,10 +88,11 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
             // Wait for DNS publication before involving the OS/browser cache.
             // Quick Tunnels can print the hostname while it still returns NXDOMAIN.
             await resolve4(hostname);
-            const response = await fetch(url + '/icon.svg', { signal: AbortSignal.timeout(5000) });
+            if (complete) return;
+            const response = await fetch(url + '/icon.svg', { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(5000)]) });
             if (response.ok && (await response.text()).includes('viewBox="0 0 64 64"')) { finish(null, url); return; }
           } catch { /* Retry while the provider publishes the new hostname. */ }
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          if (!complete) await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
       function data(chunk) {
@@ -94,7 +107,8 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
         finish(new Error('O túnel encerrou antes de conectar. Verifique a internet e tente novamente.'));
         if (tunnel === child) { tunnel = undefined; tunnelUrl = publicUrl; send(host, { type: 'tunnel-closed' }); }
       });
-    }).finally(() => { tunnelPromise = undefined; });
+    }).finally(() => { if (tunnelPromise === pending) { tunnelPromise = undefined; cancelTunnel = undefined; } });
+    tunnelPromise = pending;
     return tunnelPromise;
   }
   const server = http.createServer(async (req, res) => {
@@ -107,7 +121,8 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
         if (url.pathname === '/api/tunnel' && req.method === 'POST') { await openTunnel(); return json(res, 200, session()); }
         if (url.pathname === '/api/tunnel' && req.method === 'DELETE') { stopTunnel(); return json(res, 200, session()); }
         if (url.pathname === '/api/invite' && req.method === 'POST') {
-          guestToken = secret(); inviteToken = randomBytes(16).toString('base64url'); viewer?.close(4003, 'Convite substituído');
+          guestToken = secret(); inviteToken = randomBytes(16).toString('base64url');
+          for (const member of members.values()) if (member.role === 'viewer') member.close(4003, 'Convite substituído');
           return json(res, 200, session());
         }
         return json(res, 404, { error: 'Não encontrado.' });
@@ -138,48 +153,69 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
     ws.on('pong', () => { ws.alive = true; });
     ws.on('message', (buffer, binary) => {
       if (!ws.role) {
-        if (binary || buffer.length > 1024) { ws.close(4001, 'Convite inválido'); return; }
+        if (binary || buffer.length > 64 * 1024) { ws.close(4001, 'Convite inválido'); return; }
         let auth;
         try { auth = JSON.parse(buffer); } catch { ws.close(4001, 'Convite inválido'); return; }
         if (auth.type !== 'auth') { ws.close(4001, 'Convite inválido'); return; }
         if (auth.role === 'host' && isLocal(req) && same(auth.token, hostToken)) {
-          if (host) { ws.close(4002, 'O transmissor já está aberto em outra aba'); return; }
-          host = ws; ws.role = 'host'; clearTimeout(timeout);
-          send(ws, { type: 'welcome', role: 'host', viewer: Boolean(viewer) });
-          if (viewer) send(ws, { type: 'viewer-joined' });
+          if (host) { ws.close(4002, 'A sala já está aberta neste PC'); return; }
+          host = ws; ws.role = 'host'; ws.memberId = 'host';
         } else if (auth.role === 'viewer' && (same(auth.token, guestToken) || same(auth.token, inviteToken))) {
-          if (viewer) { ws.close(4002, 'Já tem alguém na sala. Feche a outra aba antes de entrar.'); return; }
-          viewer = ws; ws.role = 'viewer'; clearTimeout(timeout);
-          send(ws, { type: 'welcome', role: 'viewer', host: Boolean(host) });
-          send(ws, { type: 'stream-state', ...state });
-          send(host, { type: 'viewer-joined' });
-        } else ws.close(4001, 'Convite inválido ou expirado');
+          if ([...members.values()].filter(member => member.role === 'viewer').length >= 7) { ws.close(4002, 'A sala já tem 7 convidados.'); return; }
+          ws.role = 'viewer'; ws.memberId = randomBytes(12).toString('base64url');
+        } else { ws.close(4001, 'Convite inválido ou expirado'); return; }
+        ws.profile = { name: typeof auth.profile?.name === 'string' ? auth.profile.name.replace(/[\u0000-\u001f\u007f-\u009f]/g, '').trim().slice(0, 32) || 'Amigo' : 'Amigo',
+          photo: typeof auth.profile?.photo === 'string' && auth.profile.photo.length < 60000 && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(auth.profile.photo) ? auth.profile.photo : '' };
+        ws.streamState = { active: false }; ws.relayTargets = new Set();
+        members.set(ws.memberId, ws); clearTimeout(timeout);
+        send(ws, { type: 'welcome', role: ws.role, self: ws.memberId, members: roster() });
+        broadcast({ type: 'room', members: roster() });
         return;
       }
-      const peer = ws.role === 'host' ? viewer : host;
+      if (ws.readyState !== WebSocket.OPEN) return;
       if (binary) {
-        if (ws.role !== 'host' || !state.active) { ws.close(4001, 'Mensagem não permitida'); return; }
-        if (peer?.readyState === WebSocket.OPEN) {
-          if (peer.bufferedAmount > 32 * 1024 * 1024) { peer.close(4004, 'Sua conexão ficou para trás. Reconecte.'); return; }
-          peer.send(buffer, { binary: true });
+        if (!ws.streamState.active || !ws.relayTargets.size) { ws.close(4001, 'Inicie sua transmissão antes de enviar mídia'); return; }
+        // Prefix each chunk with the authenticated publisher, never a client-supplied ID.
+        const id = Buffer.from(ws.memberId);
+        const packet = Buffer.concat([Buffer.from([id.length]), id, buffer]);
+        for (const targetId of ws.relayTargets) {
+          const peer = members.get(targetId);
+          if (peer?.readyState !== WebSocket.OPEN) continue;
+          if (peer.bufferedAmount > 32 * 1024 * 1024) { peer.close(4004, 'Sua conexão ficou para trás. Reconecte.'); continue; }
+          peer.send(packet, { binary: true });
         }
         return;
       }
       if (buffer.length > 65536) { ws.close(4001, 'Mensagem muito grande'); return; }
       let msg;
       try { msg = JSON.parse(buffer); } catch { ws.close(4001, 'Mensagem inválida'); return; }
-      const allowed = ws.role === 'host' ? ['stream-state', 'offer', 'ice', 'relay-start', 'relay-stop', 'mode'] : ['answer', 'ice', 'fallback'];
-      if (!allowed.includes(msg.type)) return;
-      if (msg.type === 'stream-state') {
-        state = { active: Boolean(msg.active), label: String(msg.label || '').slice(0, 120), quality: String(msg.quality || '').slice(0, 40) };
-        send(peer, { type: 'stream-state', ...state });
-      } else send(peer, msg);
+      if (msg.type === 'profile') {
+        if (typeof msg.name === 'string' && msg.name.trim() && msg.name.length <= 32) ws.profile.name = msg.name.replace(/[\u0000-\u001f\u007f-\u009f]/g, '').trim();
+        if (typeof msg.photo === 'string' && msg.photo.length < 60000 && (!msg.photo || /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(msg.photo))) ws.profile.photo = msg.photo;
+        broadcast({ type: 'room', members: roster() });
+      } else if (msg.type === 'stream-state') {
+        ws.streamState = { active: Boolean(msg.active), label: String(msg.label || '').slice(0, 120), quality: String(msg.quality || '').slice(0, 60), relay: Boolean(msg.relay) };
+        if (!ws.streamState.active) ws.relayTargets.clear();
+        broadcast({ type: 'room', members: roster() });
+      } else if (['offer', 'answer', 'ice', 'fallback'].includes(msg.type)) {
+        const peer = members.get(msg.to);
+        if (peer && peer !== ws) send(peer, { ...msg, from: ws.memberId });
+      } else if (msg.type === 'relay-start' && ws.streamState.active) {
+        if (!/^video\/webm;codecs=vp8(?:,opus)?$/.test(msg.mime || '')) return;
+        const ids = Array.isArray(msg.to) ? msg.to.slice(0, 8) : [];
+        ws.relayTargets = new Set(ids.filter(id => id !== ws.memberId && members.has(id)));
+        for (const id of ws.relayTargets) send(members.get(id), { type: 'relay-start', from: ws.memberId, mime: msg.mime });
+      }
     });
     ws.on('error', () => {});
     ws.once('close', () => {
       clearTimeout(timeout); sockets.delete(ws);
-      if (ws === host) { host = undefined; state = { active: false }; send(viewer, { type: 'stream-state', ...state }); send(viewer, { type: 'host-left' }); }
-      if (ws === viewer) { viewer = undefined; send(host, { type: 'viewer-left' }); }
+      if (ws === host) host = undefined;
+      if (members.get(ws.memberId) === ws) {
+        members.delete(ws.memberId);
+        for (const peer of members.values()) peer.relayTargets.delete(ws.memberId);
+        broadcast({ type: 'room', members: roster() });
+      }
     });
   });
   const heartbeat = setInterval(() => {
@@ -200,6 +236,7 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
         // otherwise keep server.close() pending until the header timeout.
         server.closeAllConnections();
       });
+      await Promise.all([...stoppingTunnels]);
     }
   };
 }

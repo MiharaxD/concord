@@ -1,6 +1,18 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('concord', {
   bootstrap: () => ipcRenderer.invoke('concord:bootstrap'),
+  updateState: () => ipcRenderer.invoke('concord:update-state'),
+  updatesReady: () => ipcRenderer.invoke('concord:update-ready'),
+  checkUpdates: () => ipcRenderer.invoke('concord:check-updates'),
+  installUpdate: () => ipcRenderer.invoke('concord:install-update'),
+  onUpdate: callback => {
+    const listener = (event, state) => callback(state);
+    ipcRenderer.on('concord:update-state', listener);
+    return () => ipcRenderer.removeListener('concord:update-state', listener);
+  },
+  setName: name => ipcRenderer.invoke('concord:set-name', name),
+  choosePhoto: () => ipcRenderer.invoke('concord:choose-photo'),
+  removePhoto: () => ipcRenderer.invoke('concord:remove-photo'),
   session: () => ipcRenderer.invoke('concord:session'),
   tunnel: () => ipcRenderer.invoke('concord:tunnel'),
   closeTunnel: () => ipcRenderer.invoke('concord:close-tunnel'),

@@ -1,0 +1,37 @@
+name: Publicar Concord para Windows
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Conferir tag e versao
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ($version -notmatch '^\d+\.\d+\.\d+$' -or $env:GITHUB_REF_NAME -ne "v$version") {
+            throw 'A tag deve ser vMAJOR.MINOR.PATCH e corresponder ao package.json.'
+          }
+      - name: Preparar pnpm
+        run: npm install --global pnpm@11.19.0
+      - name: Instalar dependencias e verificar
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm test
+      - name: Gerar e publicar release completa
+        run: pnpm release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,36 +1,31 @@
-# Verificação do Concord 0.2.1 — 06/10/2026
+# Verificação do Concord 0.3.4 — 07/10/2026
 
-Executável Windows x64: `dist/0.2.1/Concord-0.2.1-Windows.exe`, 124.445.684 bytes. Versões 0.1.0 e 0.2.0 preservadas em `dist/`.
+Pacote local: `dist/installer/0.3.4/Concord-0.3.4-Setup.exe`, 134.778.731 bytes.
+SHA-256 local: `adea918179b6470a4980af2759434745b85e41fcd90079fcc2fb6bfa515ac892`.
 
-SHA-256: `80a3fda80ed3f6c56e7874f3a79d57d4ccf4edab0d6895169774f8f2d59a64f4`.
+## Mudanças e verificações locais
 
-## Resultados observados
+- Cabeçalho “Bora compartilhar?”/“Sua tela, sua galera” e indicador visual “Sala conectada” removidos. Conexão permanece registrada internamente; erros continuam usando os avisos existentes.
+- Texto ocioso “Pronto quando você estiver” removido. Relógio começa em 00:00:00 ao transmitir e fica oculto/limpo ao encerrar.
+- Estado sem transmissões mostra somente a ilustração e **Compartilhamento de tela**, removendo slogan, descrição e “Sem conta / sem enrolação”.
+- Menu **PAINEL**, versão **Concord 0.3.4** sem “pessoal” e crédito **Feito com carinho por Yuri Mihara**.
+- Convite com título **Link de convite**, rótulo **CONVITE DA SALA** e sem instrução promocional nem mensagem de sucesso permanente. Preparação, erro e cancelamento mantêm feedback.
+- Protocolo/captura/áudio/updater preservados; mudanças restritas à apresentação. Testes existentes adaptados para observar a conexão sem depender do indicador removido, com compatibilidade com versões anteriores.
 
-- **15 testes passaram:** conversão de convites, URLs antigas/locais/personalizadas, rejeição de código inválido/host injetado, autenticação, revogação das duas chaves, papéis, relay, reconexão, origem, encerramento e bitrate.
-- **Convite público curto:** app descompactado 0.2.1 criou túnel real, exibiu e copiou nativamente um convite `concord:` de 58 caracteres. Link legado para a mesma sala tinha 103 caracteres: redução de 45. Cópia foi interceptada somente no teste para preservar a área de transferência do usuário.
-- **Internet:** outra instância do app aceitou esse código e recebeu vídeo sintético em movimento de 1280×720 pela Cloudflare/WSS. Administração no endereço público respondeu 403, inclusive com a chave do transmissor. `DESKTOP_TEST_PASS`.
-- **Regressão local:** convite com chave curta autenticou o receptor; vídeo WebRTC e compatibilidade avançaram, áudio foi decodificado nos dois caminhos. Tela cheia/Esc, mais de 35 segundos com limpeza do buffer, reentrada durante transmissão e expulsão por revogação passaram.
-- **App empacotado:** inicialização, enumeração de fontes, cópia nativa do convite e encerramento com preconexão TCP sem HTTP passaram. `PACKAGED_SMOKE_PASS`.
-- **Portátil final:** extração, janela, sala autenticada, seleção de fonte, helper embutido entregando PCM e encerramento normal passaram. `PORTABLE_TEST_PASS`.
-- **Helper preservado:** SHA-256 do capturador empacotado `17a8bbf53204cdd8c68062c68409a5fe8af04ee788fb2438a1e1d97c2db3621a`, igual ao da 0.2.0.
-- **Release anterior preservada:** SHA-256 do portátil 0.2.0 continua `a348dedfa794c0d33445bfde17b56dcfb9122d1b95c217637d726d781ad9fecb`.
-- **Defender local:** plataforma 4.18.26080.4-0 examinou `dist/0.2.1`, incluindo portátil e componentes. Retornou `found no threats`, código 0. Não foram desativadas proteções nem criadas exclusões. Isso não garante ausência de malware nem diagnostica alertas em outros PCs.
+**19/19 testes de unidade passaram.** `tests/smoke.mjs` passou no pacote 0.3.4: janela, sala, seleção nativa, PNG/JPG, cópia de convite, cancelar/retomar preparo e fechamento em 150 ms, incluindo preconexão sem HTTP.
 
-## Limites dessa verificação
+Revisão real no Electron com perfil isolado em `test-results/interface-1791416312711`: layout e convite pronto conferidos; captura da própria janela de QA iniciada/encerrada, vídeo reproduzido e relógio mostrado/ocultado corretamente. Screenshot do painel e convite guardadas nessa pasta. Nenhuma transmissão/instalação pessoal foi encerrada ou substituída.
 
-Testes ocorreram em uma máquina Windows 11, usando duas instâncias e um túnel público real. Não houve teste desta versão em dois PCs físicos/redes distintas. Qualidade 1440p/4K, cancelamento tardio de reprodução e isolamento de dois processos sonoros foram medidos na 0.2.0; esses caminhos não mudaram nesta atualização. Evidência anterior preservada em `dist/0.2.0/VERIFICACAO.md`. Bitrate configurado é teto/alvo, não consumo constante. Captura específica inclui processos filhos; mistura com microfone físico não foi medida. O executável continua sem assinatura digital, e TLS no fallback termina na Cloudflare.
+Publisher passou contra API simulada: checksum, quatro anexos completos antes de publicar, retomada de rascunho, falha de upload sem publicação e recusa de sobrescrever release pública. Defender local 4.18.26080.4-0 examinou `dist/installer/0.3.4`: **found no threats**, código 0. Binário sem assinatura digital; isso não diagnostica alertas em outros computadores.
 
-## Repetir os testes
+## Publicação
 
-Com Playwright instalado ou `PLAYWRIGHT_MODULE` apontando para seu `index.mjs`:
+Push e Release **autorizados expressamente pelo usuário**. Código e versão 0.3.4 preparados para envio; execução/publicação ainda em andamento. O workflow por tag gera outro build do mesmo código, que pode ter hash diferente do pacote local por recompilação/timestamps. Confirmar artefatos públicos e registrar seus hashes após a publicação.
 
-```powershell
-pnpm test
-$env:CONCORD_EXE = (Join-Path (Get-Location) 'dist/0.2.1/win-unpacked/Concord.exe')
-$env:CONCORD_TEST_TUNNEL = '1'
-pnpm test:desktop
-node tests/smoke.mjs
-node tests/portable.mjs
-```
+## Evidências anteriores e limites
 
-O teste com túnel cria um acesso público temporário e o fecha ao terminar. Mídia usa tela sintética; captura real do Windows é validada apenas por metadados. O teste portátil emite um tom breve para validar o helper sem salvar áudio em disco.
+Relatório completo da instalação/atualizador permanece em `dist/installer/0.3.3/VERIFICACAO.md`. Nessa versão, instalação/reinstalação/desinstalação reais e atualização HTTP/NSIS com reinício e perfil preservados passaram. Instalador 0.3.3 preservado, SHA-256 `8f0de41a55e4553a8e3caadbf5657a5816e885cc6f1c1ebaa1621132e42db883`.
+
+Há programa/atalhos pessoais no Windows nesta rodada; testes que instalam/desinstalam não foram repetidos sobre essa instalação. Validação local em um PC Windows 11; instabilidade anterior ao reiniciar múltiplas streams continua pendente em TODO.md. Os testes de mídia completos não foram repetidos para esta alteração visual.
+
+Comandos e reprodução estão em [BUILD_WINDOWS.md](BUILD_WINDOWS.md).
