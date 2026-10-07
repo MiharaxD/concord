@@ -4,6 +4,7 @@ import { once } from 'node:events';
 import net from 'node:net';
 import { WebSocket } from 'ws';
 import { createConcord } from '../server.mjs';
+import { parseInvite } from '../public/invites.js';
 
 function inbox(ws) {
   const items = [], waiters = [];
@@ -38,7 +39,7 @@ async function setup(t) {
 
 test('Arquivos públicos funcionam e administração exige chave local', async t => {
   const { app, api } = await setup(t);
-  for (const resource of ['/', '/app.js', '/style.css', '/icon.svg']) assert.equal((await fetch(app.address + resource)).status, 200);
+  for (const resource of ['/', '/app.js', '/invites.js', '/style.css', '/icon.svg']) assert.equal((await fetch(app.address + resource)).status, 200);
   assert.equal((await fetch(app.address + '/api/session')).status, 403);
   assert.equal((await api('/api/session', 'GET', { 'x-forwarded-for': '1.2.3.4' })).status, 403);
   assert.equal((await api('/api/session', 'GET', { 'cf-connecting-ip': '1.2.3.4' })).status, 403);
@@ -48,6 +49,29 @@ test('Arquivos públicos funcionam e administração exige chave local', async t
   assert.equal(data.public, false);
   assert.equal((await fetch(app.address + '/server.mjs')).status, 404);
   assert.match((await fetch(app.address)).headers.get('content-security-policy'), /frame-ancestors 'none'/);
+});
+test('Convite curto autentica só como visitante e é revogado junto com o antigo', async t => {
+  const { app, socket, api } = await setup(t);
+  const session = await (await api('/api/session')).json();
+  const invite = parseInvite(session.guestInvite);
+  assert.equal(invite.address, app.address);
+  assert.equal(invite.token.length, 22);
+  assert.notEqual(invite.token, app.guestToken.slice(0, 22));
+  const impostor = await socket('host', invite.token);
+  assert.equal((await impostor.closed)[0], 4001);
+  const viewer = await socket('viewer', invite.token);
+  await viewer.read(msg => msg.type === 'welcome');
+  const oldFullKey = app.guestToken;
+  const freshSession = await (await api('/api/invite', 'POST')).json();
+  assert.equal((await viewer.closed)[0], 4003);
+  const stale = await socket('viewer', invite.token);
+  assert.equal((await stale.closed)[0], 4001);
+  const staleFull = await socket('viewer', oldFullKey);
+  assert.equal((await staleFull.closed)[0], 4001);
+  const freshInvite = parseInvite(freshSession.guestInvite);
+  assert.notEqual(freshInvite.token, invite.token);
+  const fresh = await socket('viewer', freshInvite.token);
+  await fresh.read(msg => msg.type === 'welcome');
 });
 test('Convites inválidos, unicode e segundo transmissor são rejeitados', async t => {
   const { socket } = await setup(t);

@@ -2,12 +2,21 @@ const { app, BrowserWindow, desktopCapturer, ipcMain, session, dialog, clipboard
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { mkdir } = require('node:fs/promises');
+const { spawn } = require('node:child_process');
 
-let window, concord, selection, quitting = false;
+let window, concord, selection, quitting = false, appAudio;
 app.setName('Concord');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 // Keep capture encoding alive when the window is minimized.
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
+
+function stopAppAudio() {
+  const child = appAudio; appAudio = undefined;
+  if (!child) return;
+  child.stopping = true; child.stdin.end();
+  const timeout = setTimeout(() => child.kill(), 1000); timeout.unref();
+  child.once('exit', () => clearTimeout(timeout));
+}
 
 app.whenReady().then(async () => {
   const { createConcord } = await import(pathToFileURL(path.join(__dirname, '..', 'server.mjs')).href);
@@ -32,7 +41,40 @@ app.whenReady().then(async () => {
   handle('concord:tunnel', () => api('/api/tunnel', 'POST'));
   handle('concord:close-tunnel', () => api('/api/tunnel', 'DELETE'));
   handle('concord:invite', () => api('/api/invite', 'POST'));
-  handle('concord:copy-invite', async () => { const data = await api('/api/session'); clipboard.writeText(data.guestLink); return true; });
+  handle('concord:copy-invite', async () => { const data = await api('/api/session'); clipboard.writeText(data.guestInvite); return true; });
+  handle('concord:stop-app-audio', () => { stopAppAudio(); return true; });
+  handle('concord:start-app-audio', async id => {
+    if (typeof id !== 'string' || !/^window:\d+:\d+$/.test(id)) throw new Error('Escolha a janela do jogo/app para capturar seu áudio.');
+    const sources = await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 0, height: 0 } });
+    if (!sources.some(source => source.id === id)) throw new Error('A janela do áudio foi fechada. Escolha novamente.');
+    stopAppAudio();
+    const binary = app.isPackaged ? path.join(process.resourcesPath, 'ConcordAudio.exe') : path.join(__dirname, '..', '.runtime', 'ConcordAudio.exe');
+    return new Promise((resolve, reject) => {
+      const child = spawn(binary, ['--window', id.split(':')[1]], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+      appAudio = child; let pending = Buffer.alloc(0), errorText = '', ready = false, settled = false;
+      const timeout = setTimeout(() => fail(new Error('O Windows não iniciou o áudio do app a tempo.')), 12000);
+      function fail(error) { if (!settled) { settled = true; clearTimeout(timeout); if (appAudio === child) stopAppAudio(); reject(error); } }
+      child.stdout.on('data', chunk => {
+        if (!ready || appAudio !== child || window?.isDestroyed()) return;
+        pending = Buffer.concat([pending, chunk]); const length = pending.length - pending.length % 4;
+        if (length) { window.webContents.send('concord:app-audio-data', new Uint8Array(pending.subarray(0, length))); pending = pending.subarray(length); }
+      });
+      child.stderr.on('data', chunk => {
+        errorText = (errorText + chunk.toString('utf8')).slice(-4000);
+        if (errorText.includes('READY 48000 2 s16le') && !settled) { ready = settled = true; clearTimeout(timeout); resolve({ sampleRate: 48000, channels: 2 }); }
+        if (errorText.includes('ERROR ')) fail(new Error(errorText.split('ERROR ').pop().trim()));
+      });
+      child.once('error', () => fail(new Error('O capturador de áudio do app não está disponível. Reabra a versão completa do Concord.')));
+      child.once('exit', () => {
+        clearTimeout(timeout);
+        if (!settled) fail(new Error(errorText.trim() || 'O capturador de áudio encerrou antes de iniciar.'));
+        if (appAudio === child) {
+          appAudio = undefined;
+          if (!child.stopping && ready && !window?.isDestroyed()) window.webContents.send('concord:app-audio-error', errorText.includes('ERROR ') ? errorText.split('ERROR ').pop().trim() : 'A captura de áudio do app foi encerrada.');
+        }
+      });
+    });
+  });
   handle('concord:sources', async () => {
     const sources = await desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 360, height: 210 }, fetchWindowIcons: false });
     return sources.filter(source => !source.name.startsWith('Concord')).map(source => ({ id: source.id, name: source.name, thumbnail: source.thumbnail.toDataURL() }));
@@ -75,5 +117,6 @@ app.on('window-all-closed', () => app.quit());
 app.on('before-quit', event => {
   if (quitting || !concord) return;
   event.preventDefault(); quitting = true;
+  stopAppAudio();
   concord.close().finally(() => app.quit());
 });

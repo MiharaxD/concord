@@ -1,3 +1,5 @@
+import { qualityPreset, videoBitrate, formatMbps } from './stream-settings.js';
+import { parseInvite } from './invites.js';
 const $ = id => document.getElementById(id);
 const video = $('screen-video');
 const native = window.concord;
@@ -5,6 +7,7 @@ let config, role = 'host', socket, target, reconnectTimer, retries = 0, terminal
 let stream, display, microphone, audioContext, recorder, peer, peerId, iceQueue = [], fallbackTimer;
 let selectedSource, hasViewer = false, mode = '', starting = false, liveSince = 0, mediaSource, sourceBuffer, mediaUrl;
 let appendQueue = [], queuedBytes = 0, invite, processing = Promise.resolve(), negotiation = 0;
+let selectedAudioSource, appAudioContext, appAudioNode, unsubscribeAppAudio, unsubscribeAppAudioError, viewerMuted = false;
 
 function notice(text, error = false) { $('notice').textContent = text; $('notice').classList.toggle('error', error); $('notice').hidden = !text; }
 function status(text, online = false) {
@@ -27,7 +30,7 @@ function setLive(active) {
   if (!active) $('stream-clock').textContent = 'PRONTO QUANDO VOCÊ ESTIVER';
 }
 function lockSettings(locked) {
-  for (const id of ['choose-source', 'quality', 'connection-mode', 'system-audio', 'microphone']) $(id).disabled = locked;
+  for (const id of ['choose-source', 'choose-audio-source', 'audio-mode', 'quality', 'connection-mode', 'bitrate-mode', 'bitrate-value', 'bitrate-slider', 'system-audio', 'microphone']) $(id).disabled = locked;
   $('start-button').hidden = Boolean(stream); $('stop-button').hidden = !stream;
   $('start-button').disabled = locked || !selectedSource || socket?.readyState !== WebSocket.OPEN;
 }
@@ -96,8 +99,10 @@ async function message(msg) {
     const pc = makePeer(msg.id); peer = pc; transport('connecting');
     pc.ontrack = event => {
       if (peer !== pc) return;
-      video.srcObject = event.streams[0]; showVideo(true); video.muted = false;
-      video.play().catch(() => { video.muted = true; notice('Clique em Ativar som para ouvir a transmissão.'); });
+      const incoming = event.streams[0];
+      if (video.srcObject !== incoming) video.srcObject = incoming;
+      showVideo(true); video.defaultMuted = false; video.muted = viewerMuted;
+      playIncoming();
       updateSound();
     };
     await pc.setRemoteDescription({ type: 'offer', sdp: msg.sdp });
@@ -160,6 +165,8 @@ async function beginPeer() {
     for (const sender of pc.getSenders()) {
       if (sender.track.kind === 'video') {
         const params = sender.getParameters(); params.encodings ||= [{}]; params.encodings[0].maxBitrate = bitrate();
+        params.encodings[0].maxFramerate = qualityPreset($('quality').value).fps;
+        params.degradationPreference = 'maintain-resolution';
         await sender.setParameters(params);
       }
     }
@@ -170,7 +177,15 @@ async function beginPeer() {
     fallbackTimer = setTimeout(() => { if (peer === pc && pc.connectionState !== 'connected') startRelay(); }, 9000);
   } catch (error) { if (peer === pc) startRelay(); }
 }
-function bitrate() { return $('quality').value === '1080:60' ? 7_000_000 : $('quality').value === '1080:30' ? 4_500_000 : 2_500_000; }
+function bitrate() { return videoBitrate($('quality').value, $('bitrate-mode').value === 'manual' ? $('bitrate-value').value : null); }
+function qualityLabel() { return `${$('quality').selectedOptions[0].textContent} · ${formatMbps(bitrate())} Mbps`; }
+function updateBitrateControls() {
+  const manual = $('bitrate-mode').value === 'manual';
+  const recommended = formatMbps(videoBitrate($('quality').value));
+  $('bitrate-mode').options[0].textContent = `Automática · ${recommended} Mbps`;
+  $('manual-bitrate').hidden = !manual;
+  $('bitrate-hint').textContent = manual ? `Referência para esta qualidade: ${recommended} Mbps. Ajuste antes de transmitir.` : 'Mais bitrate preserva detalhes e usa mais upload. A taxa real pode ser menor.';
+}
 function startRelay(restart = false) {
   if (!stream || !hasViewer || socket?.readyState !== WebSocket.OPEN || (recorder && !restart)) return;
   const id = peerId || crypto.randomUUID(); cleanupPeer(); peerId = id;
@@ -181,8 +196,10 @@ function startRelay(restart = false) {
   send({ type: 'relay-start', id, mime });
   rec.ondataavailable = event => {
     if (!event.data.size || recorder !== rec || socket?.readyState !== WebSocket.OPEN) return;
-    if (socket.bufferedAmount > 12 * 1024 * 1024) { stopSharing(); notice('Sua internet não está acompanhando a transmissão. Tente 720p · 30 FPS.', true); return; }
-    socket.send(event.data);
+    if (socket.bufferedAmount + event.data.size > 32 * 1024 * 1024) { stopSharing(); notice('Sua internet não está acompanhando a transmissão. Reduza a taxa de bits ou a qualidade.', true); return; }
+    // Large 4K keyframes can exceed the relay frame limit. Byte-stream slices
+    // preserve WebM ordering while keeping every WebSocket message bounded.
+    for (let offset = 0; offset < event.data.size; offset += 1024 * 1024) socket.send(event.data.slice(offset, offset + 1024 * 1024));
   };
   rec.onerror = () => { stopSharing(); notice('O codificador falhou. Tente compartilhar novamente.', true); };
   rec.start(250);
@@ -196,7 +213,7 @@ function resetPlayer() {
 function setupPlayer(mime) {
   if (!MediaSource.isTypeSupported(mime)) throw new Error('O formato da transmissão não é suportado neste PC.');
   const ms = new MediaSource(); mediaSource = ms; mediaUrl = URL.createObjectURL(ms);
-  video.srcObject = null; video.src = mediaUrl; video.muted = false; updateSound();
+  video.srcObject = null; video.src = mediaUrl; video.defaultMuted = false; video.muted = viewerMuted; updateSound();
   ms.addEventListener('sourceopen', () => {
     if (mediaSource !== ms) return;
     try {
@@ -205,14 +222,14 @@ function setupPlayer(mime) {
       sourceBuffer.addEventListener('error', () => {
         resetPlayer(); send({ type: 'fallback', id: peerId, restart: true }); notice('Recuperando a imagem da transmissão…');
       });
-      pumpMedia(); video.play().catch(() => { video.muted = true; updateSound(); });
+      pumpMedia(); playIncoming();
     } catch (error) { notice(`Não consegui reproduzir a transmissão: ${error.message}`, true); }
   }, { once: true });
 }
 function appendMedia(chunk) {
   if (role !== 'viewer' || !mediaSource) return;
   appendQueue.push(chunk); queuedBytes += chunk.byteLength;
-  if (queuedBytes > 24 * 1024 * 1024) { resetPlayer(); send({ type: 'fallback', id: peerId, restart: true }); return; }
+  if (queuedBytes > 48 * 1024 * 1024) { resetPlayer(); send({ type: 'fallback', id: peerId, restart: true }); return; }
   pumpMedia();
 }
 function pumpMedia() {
@@ -222,7 +239,7 @@ function pumpMedia() {
     if (sb.buffered.length) {
       const end = sb.buffered.end(sb.buffered.length - 1);
       if (video.currentTime === 0 || end - video.currentTime > 2) video.currentTime = Math.max(sb.buffered.start(0), end - .5);
-      if (video.currentTime > 35 && sb.buffered.start(0) < video.currentTime - 35) { sb.remove(0, video.currentTime - 30); return; }
+      if (video.currentTime > 12 && sb.buffered.start(0) < video.currentTime - 12) { sb.remove(0, video.currentTime - 8); return; }
     }
     if (appendQueue.length) { const chunk = appendQueue.shift(); queuedBytes -= chunk.byteLength; sb.appendBuffer(chunk); }
   } catch { resetPlayer(); send({ type: 'fallback', id: peerId, restart: true }); }
@@ -232,38 +249,74 @@ video.addEventListener('error', () => {
   if (role === 'viewer' && mediaSource) { resetPlayer(); send({ type: 'fallback', id: peerId, restart: true }); }
 });
 function updateSound() { $('sound-button').textContent = video.muted ? 'Ativar som' : 'Silenciar'; }
+function playIncoming() {
+  if (role !== 'viewer' || (!video.srcObject && !mediaSource)) return;
+  video.play().catch(error => {
+    // AbortError is a source/track transition, not a permission to silently mute audio.
+    if (error.name === 'NotAllowedError') notice('A reprodução automática foi bloqueada. Clique em Ativar som.');
+  });
+}
+video.addEventListener('canplay', playIncoming);
 video.volume = .8;
 
-function publishState() { send({ type: 'stream-state', active: Boolean(stream), label: selectedSource?.name || '', quality: $('quality').selectedOptions[0].textContent }); }
-async function chooseSource() {
+function publishState() { send({ type: 'stream-state', active: Boolean(stream), label: selectedSource?.name || '', quality: stream ? qualityLabel() : '' }); }
+function updateAudioControls() {
+  const appOnly = $('audio-mode').value === 'application';
+  $('audio-settings').hidden = !$('system-audio').checked;
+  $('choose-audio-source').hidden = !appOnly;
+  $('audio-source-name').textContent = selectedAudioSource?.name || 'Escolher jogo / app';
+  $('audio-source-hint').textContent = appOnly ? 'Só o app escolhido e seus processos. Outros apps ficam de fora.' : 'Inclui Discord, notificações e os sons de todos os apps.';
+}
+async function chooseSource(audioOnly = false) {
   if (!native || stream) return;
   $('choose-source').disabled = true; notice('');
   try {
-    const sources = await native.sources(); $('source-list').replaceChildren();
+    const sources = (await native.sources()).filter(source => !audioOnly || source.id.startsWith('window:')); $('source-list').replaceChildren();
     if (!sources.length) throw new Error('Nenhuma tela ou janela disponível.');
     for (const source of sources) {
       const button = document.createElement('button'); button.className = 'source-choice';
       const image = document.createElement('img'); image.src = source.thumbnail; image.alt = '';
       const label = document.createElement('span'); label.textContent = source.name;
       button.append(image, label);
-      button.onclick = () => { selectedSource = source; $('source-name').textContent = source.name; $('source-description').textContent = source.id.startsWith('screen:') ? 'Tudo nesse monitor será mostrado.' : 'Somente essa janela será mostrada.'; $('source-picker').close(); lockSettings(false); };
+      button.onclick = () => {
+        if (audioOnly) selectedAudioSource = source;
+        else {
+          selectedSource = source; $('source-name').textContent = source.name; $('source-description').textContent = source.id.startsWith('screen:') ? 'Tudo nesse monitor será mostrado.' : 'Somente essa janela será mostrada.';
+          if (source.id.startsWith('window:')) selectedAudioSource = source;
+        }
+        updateAudioControls(); $('source-picker').close(); lockSettings(false);
+      };
       $('source-list').append(button);
     }
     $('source-picker').showModal();
   } catch (error) { notice(`Não consegui listar as telas: ${error.message}`, true); }
   finally { $('choose-source').disabled = false; }
 }
+async function captureAppAudio() {
+  appAudioContext = new AudioContext({ sampleRate: 48000 });
+  await appAudioContext.audioWorklet.addModule('/app-audio-worklet.js');
+  appAudioNode = new AudioWorkletNode(appAudioContext, 'concord-app-audio', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2] });
+  const destination = appAudioContext.createMediaStreamDestination(); appAudioNode.connect(destination);
+  unsubscribeAppAudio = native.onAppAudio(bytes => appAudioNode?.port.postMessage(new Uint8Array(bytes)));
+  unsubscribeAppAudioError = native.onAppAudioError(message => { stopSharing(); notice(`Áudio do app interrompido: ${message}`, true); });
+  await native.startAppAudio(selectedAudioSource.id); await appAudioContext.resume();
+  return destination.stream.getAudioTracks()[0];
+}
 async function startSharing() {
   if (starting || stream || !selectedSource) return;
+  if ($('bitrate-mode').value === 'manual' && !$('bitrate-value').reportValidity()) return;
+  const appOnly = $('system-audio').checked && $('audio-mode').value === 'application';
+  if (appOnly && !selectedAudioSource) { notice('Escolha o jogo/app em Fonte do áudio. Você pode compartilhar um monitor inteiro e ouvir só esse app.', true); return; }
   starting = true; lockSettings(true); notice('');
   try {
     await native.selectSource(selectedSource.id);
-    const [height, fps] = $('quality').value.split(':').map(Number);
-    display = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: fps }, audio: $('system-audio').checked });
+    const { width, height, fps } = qualityPreset($('quality').value);
+    display = await navigator.mediaDevices.getDisplayMedia({ video: { width: { ideal: width }, height: { ideal: height }, frameRate: { ideal: fps } }, audio: $('system-audio').checked && !appOnly });
     const track = display.getVideoTracks()[0];
-    await track.applyConstraints({ width: { max: Math.round(height * 16 / 9) }, height: { max: height }, frameRate: { max: fps } });
+    await track.applyConstraints({ width: { max: width }, height: { max: height }, frameRate: { max: fps } });
     track.contentHint = fps === 60 ? 'motion' : 'detail';
     const audio = display.getAudioTracks();
+    if (appOnly) audio.push(await captureAppAudio());
     if ($('microphone').checked) {
       try {
         microphone = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false });
@@ -279,7 +332,7 @@ async function startSharing() {
     } else if (audio.length) stream.addTrack(audio[0]);
     track.onended = () => stopSharing();
     video.srcObject = display; video.muted = true; video.play().catch(() => {});
-    showVideo(true); setLive(true); $('stream-quality').textContent = $('quality').selectedOptions[0].textContent;
+    showVideo(true); setLive(true); $('stream-quality').textContent = qualityLabel();
     publishState(); if (hasViewer) await beginPeer();
     else transport('');
   } catch (error) {
@@ -290,6 +343,9 @@ function stopSharing() {
   cleanupPeer();
   for (const item of [stream, display, microphone]) for (const track of item?.getTracks() || []) { track.onended = null; track.stop(); }
   audioContext?.close().catch(() => {}); stream = display = microphone = audioContext = undefined;
+  unsubscribeAppAudio?.(); unsubscribeAppAudioError?.(); unsubscribeAppAudio = unsubscribeAppAudioError = undefined;
+  appAudioNode?.disconnect(); appAudioNode = undefined;
+  appAudioContext?.close().catch(() => {}); appAudioContext = undefined; native?.stopAppAudio().catch(() => {});
   video.srcObject = null; showVideo(false); setLive(false); transport('');
   publishState(); lockSettings(false); $('stream-quality').textContent = selectedSource ? 'Tela selecionada · pronta para compartilhar' : 'Nenhuma tela selecionada';
 }
@@ -304,18 +360,11 @@ async function switchRole(next) {
   $('empty-title').textContent = role === 'host' ? 'Um espaço pra estar junto.' : 'Seu lugar tá guardado.';
   $('empty-description').textContent = role === 'host' ? 'Escolha o que mostrar e chama seu amigo.' : 'Cole o convite para assistir à tela dele.';
   setLive(false); transport(''); status(role === 'host' ? 'Preparando' : 'Esperando convite');
-  if (role === 'host') { video.muted = true; connect(config.address, config.hostToken, 'host'); }
-}
-function parseInvite(text) {
-  let url; try { url = new URL(text.trim()); } catch { throw new Error('Cole o convite completo que seu amigo enviou.'); }
-  const local = ['127.0.0.1', 'localhost'].includes(url.hostname);
-  if (url.protocol !== 'https:' && !(local && url.protocol === 'http:')) throw new Error('O convite precisa começar com https://.');
-  const token = new URLSearchParams(url.hash.slice(1)).get('join');
-  if (!/^[A-Za-z0-9_-]{43}$/.test(token || '') || url.username || url.password) throw new Error('O convite está incompleto ou inválido.');
-  return { address: url.origin, token };
+  if (role === 'host') { video.muted = true; video.defaultMuted = true; connect(config.address, config.hostToken, 'host'); }
+  else { viewerMuted = false; video.defaultMuted = false; video.muted = false; }
 }
 function showInvite(data) {
-  invite = data; $('invite-link').value = data.guestLink; $('invite-result').hidden = false; $('invite-button').hidden = true;
+  invite = data; $('invite-link').value = data.guestInvite; $('invite-result').hidden = false; $('invite-button').hidden = true;
 }
 async function makeInvite() {
   $('invite-button').disabled = true; $('invite-button').textContent = 'Preparando convite…'; notice('Estou criando e verificando seu acesso pela internet. Na primeira vez, isso pode levar até dois minutos.');
@@ -326,7 +375,16 @@ async function makeInvite() {
 
 $('host-tab').onclick = () => switchRole('host');
 $('viewer-tab').onclick = () => switchRole('viewer');
-$('choose-source').onclick = chooseSource;
+$('choose-source').onclick = () => chooseSource();
+$('choose-audio-source').onclick = () => chooseSource(true);
+$('audio-mode').onchange = updateAudioControls;
+$('system-audio').onchange = updateAudioControls;
+updateAudioControls();
+$('quality').onchange = updateBitrateControls;
+$('bitrate-mode').onchange = updateBitrateControls;
+$('bitrate-slider').oninput = () => { $('bitrate-value').value = $('bitrate-slider').value; };
+$('bitrate-value').oninput = () => { if ($('bitrate-value').validity.valid) $('bitrate-slider').value = $('bitrate-value').value; };
+updateBitrateControls();
 $('close-picker').onclick = () => $('source-picker').close();
 $('start-button').onclick = startSharing;
 $('stop-button').onclick = () => { stopSharing(); notice('Transmissão encerrada. Seu convite continua válido até você fechar o acesso.'); };
@@ -346,8 +404,8 @@ $('join-form').onsubmit = event => {
   catch (error) { notice(error.message, true); }
 };
 $('leave-button').onclick = () => { disconnect(); setLive(false); showVideo(false); $('join-section').hidden = false; $('viewer-controls').hidden = true; status('Saiu da sala'); transport(''); notice('Você saiu da sala.'); };
-$('sound-button').onclick = () => { video.muted = !video.muted; video.play().catch(() => {}); updateSound(); };
-$('volume').oninput = () => { video.volume = Number($('volume').value); video.muted = video.volume === 0; updateSound(); };
+$('sound-button').onclick = () => { viewerMuted = !video.muted; video.muted = viewerMuted; playIncoming(); updateSound(); };
+$('volume').oninput = () => { video.volume = Number($('volume').value); viewerMuted = video.volume === 0; video.muted = viewerMuted; playIncoming(); updateSound(); };
 $('fullscreen-button').onclick = () => {
   const action = document.fullscreenElement ? document.exitFullscreen() : $('stage').requestFullscreen();
   action.catch(error => notice(`Não consegui abrir a tela cheia: ${error.message}`, true));

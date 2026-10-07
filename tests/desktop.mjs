@@ -18,6 +18,7 @@ try {
     return page;
   }
   const host = await launch(); const viewer = await launch();
+  await host.locator('#audio-mode').selectOption('system');
   await host.screenshot({ path: path.join(root, 'test-results', 'concord-desktop.png') });
   await host.evaluate(() => {
     // Test-only synthetic moving screen and tone. No real desktop pixels enter the stream.
@@ -46,7 +47,7 @@ try {
     await host.locator('#start-button').click();
     await host.locator('#stage.has-video').waitFor();
   }
-  let invitation = await host.evaluate(async () => (await window.concord.session()).guestLink);
+  let invitation = await host.evaluate(async () => (await window.concord.session()).guestInvite);
   async function join() {
     await viewer.locator('#viewer-tab').click();
     await viewer.locator('#join-input').fill(invitation);
@@ -112,7 +113,17 @@ try {
   console.log('Convite revogado: espectador removido');
   if (process.env.CONCORD_TEST_TUNNEL === '1') {
     await host.locator('#stop-button').click();
-    const session = await host.evaluate(() => window.concord.tunnel()); invitation = session.guestLink;
+    await host.locator('#invite-button').click();
+    await host.locator('#invite-result').waitFor({ timeout: 180000 });
+    const session = await host.evaluate(() => window.concord.session()); invitation = session.guestInvite;
+    assert.match(invitation, /^concord:[a-z0-9-]+:[A-Za-z0-9_-]{22}$/);
+    assert.equal(await host.locator('#invite-link').inputValue(), invitation);
+    await apps[0].evaluate(({ clipboard }) => { global.testWriteOriginal = clipboard.writeText; clipboard.writeText = text => { global.testInviteWritten = text; }; });
+    await host.locator('#copy-button').click();
+    await host.locator('#notice').filter({ hasText: 'Convite copiado' }).waitFor();
+    const copied = await apps[0].evaluate(({ clipboard }) => { clipboard.writeText = global.testWriteOriginal; return global.testInviteWritten; });
+    assert.equal(copied, invitation);
+    console.log(`Convite público curto: ${invitation.length} caracteres; anterior ${session.guestLink.length}`);
     assert.ok(session.public); await start('relay');
     await join(); await verifyVideo('Internet via Cloudflare WSS');
     const remoteAccess = await host.evaluate(async () => {

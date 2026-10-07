@@ -2,22 +2,24 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import net from 'node:net';
 import { once } from 'node:events';
+import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 const { _electron } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : 'playwright');
-const executablePath = process.env.CONCORD_EXE || path.resolve('dist/win-unpacked/Concord.exe');
+const pkg = JSON.parse(await readFile('package.json', 'utf8'));
+const executablePath = process.env.CONCORD_EXE || path.resolve(pkg.build.directories.output, 'win-unpacked/Concord.exe');
 let app, preconnection;
 try {
   app = await _electron.launch({ executablePath, args: [], timeout: 45000 });
   const page = await app.firstWindow(); page.setDefaultTimeout(15000);
   await page.locator('#connection-status').filter({ hasText: 'Sala conectada' }).waitFor();
-  const config = await page.evaluate(() => window.concord.bootstrap()); assert.equal(config.version, '0.1.0');
+  const config = await page.evaluate(() => window.concord.bootstrap()); assert.equal(config.version, pkg.version);
   const sources = await page.evaluate(() => window.concord.sources()); assert.ok(sources.length > 0);
   // Spy on the native write so the test never overwrites the user's clipboard.
   await app.evaluate(({ clipboard }) => { global.testWriteOriginal = clipboard.writeText; clipboard.writeText = text => { global.testInviteWritten = text; }; });
   await page.evaluate(() => window.concord.copyInvite());
   const copied = await app.evaluate(({ clipboard }) => {
     clipboard.writeText = global.testWriteOriginal;
-    return /^http:\/\/127\.0\.0\.1:\d+\/#join=[A-Za-z0-9_-]{43}$/.test(global.testInviteWritten);
+    return /^http:\/\/127\.0\.0\.1:\d+\/#join=[A-Za-z0-9_-]{22}$/.test(global.testInviteWritten);
   });
   assert.ok(copied);
   console.log('Executável: janela, seleção de tela e cópia nativa do convite disponíveis');

@@ -1,6 +1,6 @@
 {
   "name": "concord",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "private": true,
   "author": "Concord",
   "license": "UNLICENSED",
@@ -11,7 +11,8 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win portable --x64",
-    "test": "node --test tests/server.test.mjs",
+    "build:audio": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-audio.ps1",
+    "test": "node --test tests/server.test.mjs tests/stream-settings.test.mjs tests/invites.test.mjs",
     "test:desktop": "node tests/desktop.mjs"
   },
   "dependencies": { "ws": "8.22.0" },
@@ -19,11 +20,12 @@
   "build": {
     "appId": "local.concord.desktop",
     "productName": "Concord",
-    "directories": { "output": "dist" },
+    "directories": { "output": "dist/0.2.1" },
     "files": ["desktop/**/*", "public/**/*", "server.mjs", "package.json"],
     "extraResources": [
       { "from": ".runtime/cloudflared.exe", "to": "cloudflared.exe" },
-      { "from": ".runtime/cloudflared-version.json", "to": "cloudflared-version.json" }
+      { "from": ".runtime/cloudflared-version.json", "to": "cloudflared-version.json" },
+      { "from": ".runtime/ConcordAudio.exe", "to": "ConcordAudio.exe" }
     ],
     "win": { "target": "portable", "signExecutable": false, "icon": "desktop/icon.ico" },
     "portable": { "artifactName": "Concord-${version}-Windows.exe" }

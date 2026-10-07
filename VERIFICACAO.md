@@ -1,24 +1,24 @@
-# Verificação do Concord 0.1.0 — 06/10/2026
+# Verificação do Concord 0.2.1 — 06/10/2026
 
-Executável entregue: `dist/Concord-0.1.0-Windows.exe` (Windows x64, portátil, 124.437.942 bytes).
+Executável Windows x64: `dist/0.2.1/Concord-0.2.1-Windows.exe`, 124.445.684 bytes. Versões 0.1.0 e 0.2.0 preservadas em `dist/`.
 
-SHA-256: `0a618df4ca40f468e56067397044205d41a8c08a79a759527639f8cb22eccfe7`.
+SHA-256: `80a3fda80ed3f6c56e7874f3a79d57d4ccf4edab0d6895169774f8f2d59a64f4`.
 
 ## Resultados observados
 
-- **8 testes do servidor passaram:** arquivos públicos, administração local, convites inválidos/Unicode, limite de participantes, sinalização e relay binário, revogação de convite, reconexão do transmissor, bloqueio de mensagens indevidas, origem externa e fechamento de preconexões HTTP.
-- **Duas instâncias reais de Electron:** vídeo sintético em movimento recebido por WebRTC e pelo modo de compatibilidade; áudio decodificado confirmado com um analisador, sem depender apenas da existência de uma faixa de áudio.
-- **Compatibilidade contínua:** mais de 35 segundos de reprodução, com limpeza de buffer antigo; saída e reentrada do espectador durante a transmissão; convite revogado removendo o espectador.
-- **Caminho pela internet:** vídeo de 1280 pixels com quadros avançando através de um endereço público Cloudflare/WSS. Administração com a chave do transmissor continuou retornando HTTP 403 pelo endereço público.
-- **Captura nativa Windows:** Electron forneceu uma faixa de vídeo de monitor e uma faixa de áudio do sistema. A verificação reteve apenas metadados, sem salvar os pixels da tela real.
-- **Interface:** renderização inspecionada, tela cheia e saída com Esc testadas; controles de volume cabendo na janela.
-- **Pacote final sem compactação:** inicialização, seleção de telas e chamada de cópia nativa do convite passaram. O teste interceptou a escrita no clipboard para preservar a área de transferência do usuário. Fechamento com uma preconexão HTTP pendente ocorreu em 146 ms.
-- **Executável portátil final:** testado diretamente por `tests/portable.mjs`, incluindo extração, abertura da janela, autenticação da sala, enumeração das telas e encerramento normal. `PORTABLE_TEST_PASS`.
-- **Cloudflared embutido:** versão 2026.10.0, SHA-256 verificado contra o release oficial e contra o binário empacotado. `86aee4017b26625cee8484c113558f48effa4cd47f7aa05fcf425604e5d2b23c`.
+- **15 testes passaram:** conversão de convites, URLs antigas/locais/personalizadas, rejeição de código inválido/host injetado, autenticação, revogação das duas chaves, papéis, relay, reconexão, origem, encerramento e bitrate.
+- **Convite público curto:** app descompactado 0.2.1 criou túnel real, exibiu e copiou nativamente um convite `concord:` de 58 caracteres. Link legado para a mesma sala tinha 103 caracteres: redução de 45. Cópia foi interceptada somente no teste para preservar a área de transferência do usuário.
+- **Internet:** outra instância do app aceitou esse código e recebeu vídeo sintético em movimento de 1280×720 pela Cloudflare/WSS. Administração no endereço público respondeu 403, inclusive com a chave do transmissor. `DESKTOP_TEST_PASS`.
+- **Regressão local:** convite com chave curta autenticou o receptor; vídeo WebRTC e compatibilidade avançaram, áudio foi decodificado nos dois caminhos. Tela cheia/Esc, mais de 35 segundos com limpeza do buffer, reentrada durante transmissão e expulsão por revogação passaram.
+- **App empacotado:** inicialização, enumeração de fontes, cópia nativa do convite e encerramento com preconexão TCP sem HTTP passaram. `PACKAGED_SMOKE_PASS`.
+- **Portátil final:** extração, janela, sala autenticada, seleção de fonte, helper embutido entregando PCM e encerramento normal passaram. `PORTABLE_TEST_PASS`.
+- **Helper preservado:** SHA-256 do capturador empacotado `17a8bbf53204cdd8c68062c68409a5fe8af04ee788fb2438a1e1d97c2db3621a`, igual ao da 0.2.0.
+- **Release anterior preservada:** SHA-256 do portátil 0.2.0 continua `a348dedfa794c0d33445bfde17b56dcfb9122d1b95c217637d726d781ad9fecb`.
+- **Defender local:** plataforma 4.18.26080.4-0 examinou `dist/0.2.1`, incluindo portátil e componentes. Retornou `found no threats`, código 0. Não foram desativadas proteções nem criadas exclusões. Isso não garante ausência de malware nem diagnostica alertas em outros PCs.
 
 ## Limites dessa verificação
 
-As duas instâncias rodaram nesta mesma máquina, inclusive no teste por túnel público. Não houve teste com duas máquinas físicas e operadoras diferentes, nem medição de desempenho em jogos ou de latência nessas condições. A mistura de microfone com som do sistema foi implementada, mas não foi validada com dois dispositivos físicos de áudio. O modo por túnel usa TLS com terminação na Cloudflare, sem criptografia de ponta a ponta. O executável não possui assinatura digital.
+Testes ocorreram em uma máquina Windows 11, usando duas instâncias e um túnel público real. Não houve teste desta versão em dois PCs físicos/redes distintas. Qualidade 1440p/4K, cancelamento tardio de reprodução e isolamento de dois processos sonoros foram medidos na 0.2.0; esses caminhos não mudaram nesta atualização. Evidência anterior preservada em `dist/0.2.0/VERIFICACAO.md`. Bitrate configurado é teto/alvo, não consumo constante. Captura específica inclui processos filhos; mistura com microfone físico não foi medida. O executável continua sem assinatura digital, e TLS no fallback termina na Cloudflare.
 
 ## Repetir os testes
 
@@ -26,13 +26,11 @@ Com Playwright instalado ou `PLAYWRIGHT_MODULE` apontando para seu `index.mjs`:
 
 ```powershell
 pnpm test
-pnpm test:desktop
-# Inclui o túnel público:
+$env:CONCORD_EXE = (Join-Path (Get-Location) 'dist/0.2.1/win-unpacked/Concord.exe')
 $env:CONCORD_TEST_TUNNEL = '1'
 pnpm test:desktop
-# Testes da distribuição:
 node tests/smoke.mjs
 node tests/portable.mjs
 ```
 
-O teste de mídia usa uma tela sintética e tom de áudio. Os screenshots em `test-results/` mostram a interface e essa imagem de teste, não a tela real do usuário.
+O teste com túnel cria um acesso público temporário e o fecha ao terminar. Mídia usa tela sintética; captura real do Windows é validada apenas por metadados. O teste portátil emite um tom breve para validar o helper sem salvar áudio em disco.

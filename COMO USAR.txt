@@ -1,12 +1,12 @@
 CONCORD - COMPARTILHAMENTO PESSOAL DE TELA
 
-Voce e seu amigo usam o MESMO arquivo Concord-0.1.0-Windows.exe.
+Voce e seu amigo usam o MESMO arquivo Concord-0.2.1-Windows.exe.
 Nao precisa instalar nada. E para Windows 64 bits.
 
 QUEM VAI TRANSMITIR
 1. Abra o Concord.
 2. Escolha uma tela ou janela.
-3. Ajuste qualidade, som do computador e microfone.
+3. Ajuste qualidade, taxa de bits, fonte do audio e microfone.
 4. Clique em Compartilhar tela.
 5. Clique em Criar convite pela internet. Pode levar ate 2 minutos.
 6. Copie o convite e envie para seu amigo.
@@ -16,7 +16,13 @@ QUEM VAI ASSISTIR
 2. Clique em Assistir ao amigo.
 3. Cole o convite completo e clique em Entrar na sala.
 
-Use 720p / 30 FPS se a internet estiver lenta.
+O convite curto comeca com concord: e deve ser colado no app.
+Os dois precisam atualizar para 0.2.1 para usar esse formato.
+Nao precisa abrir o convite no navegador. Links antigos continuam aceitos.
+
+Qualidade: 720p, 1080p, 1440p ou 4K, em 30 ou 60 FPS.
+Taxa de bits: Automatica por qualidade ou Personalizada de 1 a 60 Mbps.
+Use 720p / 30 FPS e reduza a taxa de bits se a internet estiver lenta.
 Conexao Automatica tenta primeiro uma conexao direta.
 Compatibilidade funciona pelo tunel e pode ter mais atraso.
 
@@ -25,8 +31,12 @@ Trocar convite expulsa o espectador e invalida o convite antigo.
 Fechar acesso encerra o acesso pela internet.
 
 IMPORTANTE
-O som do computador inclui os sons de TODOS os apps abertos,
-mesmo se voce compartilhar so uma janela.
+Somente do jogo / app captura apenas o programa escolhido e seus
+processos filhos. Ao compartilhar um monitor inteiro, escolha o jogo
+no botao da fonte do audio. Exige Windows 11 / build 20348 ou superior.
+Todo o computador inclui os sons de TODOS os apps abertos.
+Deixe o microfone desligado para transmitir somente o som do jogo.
+As opcoes de qualidade e bitrate sao ajustadas antes de transmitir.
 O microfone acompanha a tela; esta versao nao tem chamada de voz
 nos dois sentidos. Uma pessoa transmite e uma assiste por sala.
 

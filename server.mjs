@@ -7,6 +7,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { resolve4 } from 'node:dns/promises';
 import { WebSocketServer, WebSocket } from 'ws';
+import { shortInvite } from './public/invites.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const secret = () => randomBytes(32).toString('base64url');
@@ -18,13 +19,16 @@ const isLocal = req => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.soc
 
 export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnelCwd = path.join(ROOT, '.runtime') } = {}) {
   const hostToken = secret();
-  let guestToken = secret(), host, viewer, tunnel, tunnelPromise, tunnelUrl = publicUrl;
+  let guestToken = secret(), inviteToken = randomBytes(16).toString('base64url'), host, viewer, tunnel, tunnelPromise, tunnelUrl = publicUrl;
   let state = { active: false };
   const sockets = new Set();
   const attempts = new Map();
   const files = new Map([
     ['/', ['index.html', 'text/html; charset=utf-8']],
     ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
+    ['/stream-settings.js', ['stream-settings.js', 'text/javascript; charset=utf-8']],
+    ['/invites.js', ['invites.js', 'text/javascript; charset=utf-8']],
+    ['/app-audio-worklet.js', ['app-audio-worklet.js', 'text/javascript; charset=utf-8']],
     ['/style.css', ['style.css', 'text/css; charset=utf-8']],
     ['/icon.svg', ['icon.svg', 'image/svg+xml']]
   ]);
@@ -39,7 +43,7 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
   const admin = req => isLocal(req) && same(req.headers['x-concord-host'], hostToken);
   function session() {
     const base = tunnelUrl || `http://127.0.0.1:${server.address().port}`;
-    return { guestLink: `${base}/#join=${guestToken}`, public: Boolean(tunnelUrl), viewer: Boolean(viewer), active: state.active };
+    return { guestLink: `${base}/#join=${guestToken}`, guestInvite: shortInvite(base, inviteToken), public: Boolean(tunnelUrl), viewer: Boolean(viewer), active: state.active };
   }
   function stopTunnel() {
     tunnel?.kill();
@@ -103,7 +107,7 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
         if (url.pathname === '/api/tunnel' && req.method === 'POST') { await openTunnel(); return json(res, 200, session()); }
         if (url.pathname === '/api/tunnel' && req.method === 'DELETE') { stopTunnel(); return json(res, 200, session()); }
         if (url.pathname === '/api/invite' && req.method === 'POST') {
-          guestToken = secret(); viewer?.close(4003, 'Convite substituído');
+          guestToken = secret(); inviteToken = randomBytes(16).toString('base64url'); viewer?.close(4003, 'Convite substituído');
           return json(res, 200, session());
         }
         return json(res, 404, { error: 'Não encontrado.' });
@@ -143,7 +147,7 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
           host = ws; ws.role = 'host'; clearTimeout(timeout);
           send(ws, { type: 'welcome', role: 'host', viewer: Boolean(viewer) });
           if (viewer) send(ws, { type: 'viewer-joined' });
-        } else if (auth.role === 'viewer' && same(auth.token, guestToken)) {
+        } else if (auth.role === 'viewer' && (same(auth.token, guestToken) || same(auth.token, inviteToken))) {
           if (viewer) { ws.close(4002, 'Já tem alguém na sala. Feche a outra aba antes de entrar.'); return; }
           viewer = ws; ws.role = 'viewer'; clearTimeout(timeout);
           send(ws, { type: 'welcome', role: 'viewer', host: Boolean(host) });
@@ -156,7 +160,7 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
       if (binary) {
         if (ws.role !== 'host' || !state.active) { ws.close(4001, 'Mensagem não permitida'); return; }
         if (peer?.readyState === WebSocket.OPEN) {
-          if (peer.bufferedAmount > 8 * 1024 * 1024) { peer.close(4004, 'Sua conexão ficou para trás. Reconecte.'); return; }
+          if (peer.bufferedAmount > 32 * 1024 * 1024) { peer.close(4004, 'Sua conexão ficou para trás. Reconecte.'); return; }
           peer.send(buffer, { binary: true });
         }
         return;
