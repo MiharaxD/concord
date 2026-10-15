@@ -8,6 +8,7 @@ import { spawn } from 'node:child_process';
 import { resolve4 } from 'node:dns/promises';
 import { WebSocketServer, WebSocket } from 'ws';
 import { shortInvite } from './public/invites.js';
+import inviteRetry from './desktop/invite-retry.cjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const secret = () => randomBytes(32).toString('base64url');
@@ -20,6 +21,8 @@ const isLocal = req => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.soc
 export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnelCwd = path.join(ROOT, '.runtime') } = {}) {
   const hostToken = secret();
   let guestToken = secret(), inviteToken = randomBytes(16).toString('base64url'), host, tunnel, tunnelPromise, cancelTunnel, tunnelUrl = publicUrl;
+  let inviteError = null;
+  const retry = inviteRetry.createInviteRetry(path.join(tunnelCwd, 'invite-retry.json'));
   const members = new Map();
   const roster = () => [...members.values()].map(ws => ({ id: ws.memberId, name: ws.profile.name, photo: ws.profile.photo, stream: ws.streamState }));
   const broadcast = value => { for (const peer of members.values()) send(peer, value); };
@@ -32,6 +35,7 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
     ['/invites.js', ['invites.js', 'text/javascript; charset=utf-8']],
     ['/room-media.js', ['room-media.js', 'text/javascript; charset=utf-8']],
     ['/app-audio-worklet.js', ['app-audio-worklet.js', 'text/javascript; charset=utf-8']],
+    ['/audio-meter.js', ['audio-meter.js', 'text/javascript; charset=utf-8']],
     ['/style.css', ['style.css', 'text/css; charset=utf-8']],
     ['/icon.svg', ['icon.svg', 'image/svg+xml']]
   ]);
@@ -46,7 +50,7 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
   const admin = req => isLocal(req) && same(req.headers['x-concord-host'], hostToken);
   function session() {
     const base = tunnelUrl || `http://127.0.0.1:${server.address().port}`;
-    return { guestLink: `${base}/#join=${guestToken}`, guestInvite: shortInvite(base, inviteToken), public: Boolean(tunnelUrl), viewer: [...members.values()].some(ws => ws.role === 'viewer'), members: roster(), active: Boolean(host?.streamState.active) };
+    return { guestLink: `${base}/#join=${guestToken}`, guestInvite: shortInvite(base, inviteToken), public: Boolean(tunnelUrl), inviteError, viewer: [...members.values()].some(ws => ws.role === 'viewer'), members: roster(), active: Boolean(host?.streamState.active) };
   }
   const stoppingTunnels = new Set();
   function stopTunnel() {
@@ -64,50 +68,65 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
     if (tunnelUrl) return Promise.resolve(tunnelUrl);
     if (tunnelPromise) return tunnelPromise;
     const binary = cloudflared || path.join(ROOT, '.runtime', process.platform === 'win32' ? 'cloudflared.exe' : 'cloudflared');
-    if (!existsSync(binary)) return Promise.reject(new Error('Cloudflared não encontrado. Abra pelo Iniciar Concord.cmd para preparar o programa.'));
-    const pending = new Promise((resolve, reject) => {
-      let complete = false, output = '', checking = false;
-      const controller = new AbortController();
-      const child = spawn(binary, ['tunnel', '--no-autoupdate', '--protocol', 'http2', '--url', `http://127.0.0.1:${server.address().port}`], {
-        cwd: tunnelCwd, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe']
-      });
-      tunnel = child;
-      const timer = setTimeout(() => finish(new Error('O endereço público não ficou acessível a tempo. A Cloudflare pode estar lenta; tente criar o convite novamente.')), 150000);
-      cancelTunnel = () => finish(new Error('Preparação do convite cancelada.'));
-      function finish(error, url) {
-        if (complete) return;
-        complete = true;
-        clearTimeout(timer); controller.abort();
-        if (error) { child.kill(); reject(error); }
-        else { tunnelUrl = url; resolve(url); }
+    let cancelled = false;
+    cancelTunnel = () => { cancelled = true; };
+    const pending = (async () => {
+      const blocked = await retry.blocked();
+      if (cancelled) throw new Error('Preparação do convite cancelada.');
+      if (blocked) { inviteError = blocked; throw new Error(blocked.message); }
+      inviteError = null;
+      if (!existsSync(binary)) {
+        inviteError = { code: 'COMPONENT', message: 'O componente de convites não foi encontrado. Reinstale o Concord com o instalador completo.' };
+        throw new Error(inviteError.message);
       }
-      async function verify(url) {
-        const hostname = new URL(url).hostname;
-        while (!complete) {
-          try {
-            // Wait for DNS publication before involving the OS/browser cache.
-            // Quick Tunnels can print the hostname while it still returns NXDOMAIN.
-            await resolve4(hostname);
-            if (complete) return;
-            const response = await fetch(url + '/icon.svg', { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(5000)]) });
-            if (response.ok && (await response.text()).includes('viewBox="0 0 64 64"')) { finish(null, url); return; }
-          } catch { /* Retry while the provider publishes the new hostname. */ }
-          if (!complete) await new Promise(resolve => setTimeout(resolve, 2000));
+      return new Promise((resolve, reject) => {
+        let complete = false, output = '', checking = false;
+        const controller = new AbortController();
+        const child = spawn(binary, ['tunnel', '--no-autoupdate', '--protocol', 'http2', '--url', `http://127.0.0.1:${server.address().port}`], {
+          cwd: tunnelCwd, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe']
+        });
+        tunnel = child;
+        const timer = setTimeout(() => finish({ code: 'TIMEOUT', message: 'A Cloudflare demorou para liberar o convite. Tente novamente em instantes.' }), 150000);
+        cancelTunnel = () => finish({ code: 'CANCELLED', message: 'Preparação do convite cancelada.' });
+        async function finish(error, url) {
+          if (complete) return;
+          complete = true;
+          clearTimeout(timer); controller.abort();
+          if (error) {
+            child.kill();
+            inviteError = error.code === 'RATE_LIMIT' ? await retry.limited() : error.code === 'CANCELLED' ? null : error;
+            reject(new Error((inviteError || error).message));
+          } else { tunnelUrl = url; inviteError = null; await retry.clear(); resolve(url); }
         }
-      }
-      function data(chunk) {
-        output = (output + chunk.toString()).slice(-12000);
-        const match = output.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
-        if (match && !checking && output.includes('Registered tunnel connection')) { checking = true; void verify(match[0]); }
-      }
-      child.stdout.on('data', data);
-      child.stderr.on('data', data);
-      child.once('error', () => finish(new Error('Não consegui executar o Cloudflared. Abra pelo iniciador e tente novamente.')));
-      child.once('exit', () => {
-        finish(new Error('O túnel encerrou antes de conectar. Verifique a internet e tente novamente.'));
-        if (tunnel === child) { tunnel = undefined; tunnelUrl = publicUrl; send(host, { type: 'tunnel-closed' }); }
+        async function verify(url) {
+          const hostname = new URL(url).hostname;
+          while (!complete) {
+            try {
+              // Wait for DNS publication before involving the OS/browser cache.
+              // Quick Tunnels can print the hostname while it still returns NXDOMAIN.
+              await resolve4(hostname);
+              if (complete) return;
+              const response = await fetch(url + '/icon.svg', { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(5000)]) });
+              if (response.ok && (await response.text()).includes('viewBox="0 0 64 64"')) { finish(null, url); return; }
+            } catch { /* Retry while the provider publishes the new hostname. */ }
+            if (!complete) await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+        }
+        function data(chunk) {
+          output = (output + chunk.toString()).slice(-12000);
+          const match = output.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
+          if (match && !checking && output.includes('Registered tunnel connection')) { checking = true; void verify(match[0]); }
+        }
+        child.stdout.on('data', data);
+        child.stderr.on('data', data);
+        child.once('error', () => finish({ code: 'COMPONENT', message: 'Não consegui executar o componente de convites. Reinstale o Concord com o instalador completo.' }));
+        child.once('close', () => {
+          const wasReady = complete && Boolean(tunnelUrl);
+          void finish(inviteRetry.tunnelFailure(output));
+          if (tunnel === child) { tunnel = undefined; tunnelUrl = publicUrl; if (wasReady) send(host, { type: 'tunnel-closed' }); }
+        });
       });
-    }).finally(() => { if (tunnelPromise === pending) { tunnelPromise = undefined; cancelTunnel = undefined; } });
+    })().finally(() => { if (tunnelPromise === pending) { tunnelPromise = undefined; cancelTunnel = undefined; } });
     tunnelPromise = pending;
     return tunnelPromise;
   }
@@ -229,6 +248,7 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
     get address() { return `http://127.0.0.1:${server.address().port}`; },
     async listen() { await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); }); return this; },
     async close() {
+      const pendingTunnel = tunnelPromise;
       clearInterval(heartbeat); stopTunnel(); for (const ws of sockets) ws.terminate(); wss.close();
       await new Promise(resolve => {
         server.close(resolve);
@@ -237,6 +257,7 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
         server.closeAllConnections();
       });
       await Promise.all([...stoppingTunnels]);
+      await pendingTunnel?.catch(() => {}); await retry.flushed();
     }
   };
 }

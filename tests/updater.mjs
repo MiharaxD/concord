@@ -95,6 +95,7 @@ try {
   await writeFile(path.join(location, 'resources/app-update.yml'), `provider: generic\nurl: ${feedUrl}\nuseMultipleRangeRequest: false\nupdaterCacheDirName: concord-updater-test-${id}\n`);
   let page = await launch();
   await page.locator('#name-picker[open]').waitFor(); await page.locator('#display-name').fill('Teste de atualizacao'); await page.locator('#save-name').click();
+  if (await page.locator('#create-room').count()) await page.locator('#create-room').click();
   await page.waitForFunction(() => document.body.dataset.connected === 'true' || document.querySelector('#connection-status')?.textContent.includes('Sala conectada'));
   await page.waitForFunction(async () => (await window.concord.updateState()).phase === 'error');
   assert.equal(await page.locator('#update-label').isVisible(), false);
@@ -160,6 +161,8 @@ try {
   assert.ok(after.Desktop && after.StartMenu);
   await closeOwnedWindows();
   app = await _electron.launch({ executablePath: path.join(location, 'Concord.exe'), args: [], cwd, env, timeout: 45000 }); page = await app.firstWindow();
+  await page.locator('#profile-button').waitFor();
+  if (await page.locator('#create-room').count()) await page.locator('#create-room').click();
   await page.waitForFunction(() => document.body.dataset.connected === 'true' || document.querySelector('#connection-status')?.textContent.includes('Sala conectada'));
   const actual = await page.evaluate(() => window.concord.bootstrap());
   assert.equal(actual.version, pkg.version); assert.equal(actual.profile.name, normalProfile.name); assert.equal(actual.profile.photo, normalProfile.photo);

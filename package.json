@@ -1,6 +1,6 @@
 {
   "name": "concord",
-  "version": "0.3.4",
+  "version": "0.4.3",
   "private": true,
   "author": "Concord",
   "license": "UNLICENSED",
@@ -17,8 +17,12 @@
     "build:installer": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows.ps1 -Target installer",
     "release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows.ps1 -Target installer -Publish",
     "build:audio": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-audio.ps1",
-    "test": "node --test tests/server.test.mjs tests/stream-settings.test.mjs tests/invites.test.mjs tests/updater-controller.test.cjs",
+    "test": "node --test tests/server.test.mjs tests/stream-settings.test.mjs tests/invites.test.mjs tests/updater-controller.test.cjs tests/preferences.test.cjs tests/invite-retry.test.cjs",
     "test:desktop": "node tests/call.mjs",
+    "test:navigation": "node tests/room-navigation.mjs",
+    "test:profiles": "node tests/member-profile.mjs",
+    "test:invitation": "node tests/invite-retry.mjs",
+    "test:experience": "node tests/experience.mjs",
     "test:installer": "node tests/installer.mjs",
     "test:updater": "node tests/updater.mjs"
   },

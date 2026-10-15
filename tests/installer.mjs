@@ -34,6 +34,8 @@ async function launch(version, first = false, defaultData = false) {
   app = await _electron.launch({ executablePath: path.join(ownedLocation, 'Concord.exe'), args: [], cwd: workingDirectory, env, timeout: 45000 });
   const page = await app.firstWindow(); page.setDefaultTimeout(20000);
   if (first) { await page.locator('#name-picker[open]').waitFor(); await page.locator('#display-name').fill('Teste de instalacao'); await page.locator('#save-name').click(); }
+  await page.locator('#profile-button').waitFor();
+  if (await page.locator('#create-room').count()) await page.locator('#create-room').click();
   await page.waitForFunction(() => document.body.dataset.connected === 'true' || document.querySelector('#connection-status')?.textContent.includes('Sala conectada'));
   const runtime = await app.evaluate(({ app }) => ({ version: app.getVersion(), packaged: app.isPackaged, appPath: app.getAppPath(), resources: process.resourcesPath, userData: app.getPath('userData'), cwd: process.cwd() }));
   assert.equal(runtime.version, version); assert.equal(runtime.packaged, true);

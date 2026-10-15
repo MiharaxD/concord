@@ -24,6 +24,7 @@ try {
   browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
   const page = browser.contexts()[0].pages()[0]; page.setDefaultTimeout(15000);
   await page.locator('#name-picker[open]').waitFor(); await page.locator('#display-name').fill('Teste portatil'); await page.locator('#save-name').click();
+  if (await page.locator('#create-room').count()) await page.locator('#create-room').click();
   await page.waitForFunction(() => document.body.dataset.connected === 'true' || document.querySelector('#connection-status')?.textContent.includes('Sala conectada'));
   assert.equal(await page.evaluate(async () => (await window.concord.bootstrap()).version), pkg.version);
   assert.ok(await page.evaluate(async () => (await window.concord.sources()).length > 0));

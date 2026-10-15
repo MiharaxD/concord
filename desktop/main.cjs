@@ -5,18 +5,35 @@ const { mkdir, readFile, writeFile, rename, stat } = require('node:fs/promises')
 const { mkdirSync } = require('node:fs');
 const { spawn } = require('node:child_process');
 
-let window, concord, selection, quitting = false, appAudio, updates, shutdownPromise;
+let window, concord, selection, quitting = false, appAudio, updates, shutdownPromise, appAudioGeneration = 0;
+let pendingInvite, invitesReady = false;
 const pendingProfiles = new Set(), stoppingAudio = new Set();
 app.setName('Concord');
 app.setAppUserModelId('local.concord.desktop');
 if (process.env.CONCORD_DATA_DIR) {
   const directory = path.resolve(process.env.CONCORD_DATA_DIR); mkdirSync(directory, { recursive: true }); app.setPath('userData', directory);
 }
+// userData is set first so isolated QA profiles can run side by side.
+const primaryInstance = app.requestSingleInstanceLock();
+if (!primaryInstance) app.quit();
+function receiveInvite(args) {
+  const value = args.find(arg => typeof arg === 'string' && /^concord:/i.test(arg));
+  if (value) {
+    pendingInvite = value.slice(0, 2049);
+    if (invitesReady && window && !window.isDestroyed()) {
+      window.webContents.send('concord:open-invite', pendingInvite); pendingInvite = undefined;
+    }
+  }
+  if (window && !window.isDestroyed()) { if (window.isMinimized()) window.restore(); window.show(); window.focus(); }
+}
+receiveInvite(process.argv);
+app.on('second-instance', (event, args) => receiveInvite(args));
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 // Keep capture encoding alive when the window is minimized.
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 
 function stopAppAudio() {
+  ++appAudioGeneration;
   const child = appAudio; appAudio = undefined;
   if (!child || !child.pid || child.exitCode !== null || child.signalCode !== null) return;
   child.stopping = true;
@@ -39,11 +56,13 @@ async function shutdown() {
   catch (error) { quitting = false; shutdownPromise = undefined; throw error; }
 }
 
-app.whenReady().then(async () => {
+if (primaryInstance) app.whenReady().then(async () => {
   const { createConcord } = await import(pathToFileURL(path.join(__dirname, '..', 'server.mjs')).href);
   const tunnelCwd = path.join(app.getPath('userData'), 'tunnel');
   await mkdir(tunnelCwd, { recursive: true });
   const profilePath = path.join(app.getPath('userData'), 'profile.json');
+  const preferences = await require('./preferences.cjs').createPreferences(path.join(app.getPath('userData'), 'preferences.json'));
+  const { parseInvite } = await import(pathToFileURL(path.join(__dirname, '..', 'public', 'invites.js')).href);
   let profile = { name: '', photo: '' };
   try { const saved = JSON.parse(await readFile(profilePath, 'utf8')); if (typeof saved.name === 'string') profile.name = saved.name.slice(0, 32); if (typeof saved.photo === 'string' && saved.photo.length < 60000 && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(saved.photo)) profile.photo = saved.photo; }
   catch (error) { if (error.code !== 'ENOENT') throw new Error('Não consegui ler seu nome salvo. Confira o arquivo profile.json do Concord.'); }
@@ -55,7 +74,7 @@ app.whenReady().then(async () => {
     if (!allowed(event)) throw new Error('Acesso negado.');
     if (quitting) throw new Error('O Concord está fechando.');
     const result = Promise.resolve().then(() => fn(...args));
-    if (['concord:set-name', 'concord:choose-photo', 'concord:remove-photo'].includes(name)) {
+    if (['concord:set-name', 'concord:choose-photo', 'concord:remove-photo', 'concord:preferences'].includes(name)) {
       pendingProfiles.add(result);
       result.then(() => pendingProfiles.delete(result), () => pendingProfiles.delete(result));
     }
@@ -67,7 +86,9 @@ app.whenReady().then(async () => {
     if (!response.ok) throw new Error(body.error);
     return body;
   }
-  handle('concord:bootstrap', () => ({ address: concord.address, hostToken: concord.hostToken, version: app.getVersion(), profile }));
+  handle('concord:bootstrap', () => ({ address: concord.address, hostToken: concord.hostToken, version: app.getVersion(), profile, preferences: preferences.get(), preferencesWarning: preferences.warning }));
+  handle('concord:preferences', value => preferences.save(value));
+  handle('concord:invites-ready', () => { invitesReady = true; const value = pendingInvite; pendingInvite = undefined; return value || null; });
   let profileQueue = Promise.resolve();
   function saveProfile(change) {
     const saved = profileQueue.then(async () => {
@@ -102,14 +123,19 @@ app.whenReady().then(async () => {
   handle('concord:tunnel', () => api('/api/tunnel', 'POST'));
   handle('concord:close-tunnel', () => api('/api/tunnel', 'DELETE'));
   handle('concord:invite', () => api('/api/invite', 'POST'));
-  handle('concord:copy-invite', async () => { const data = await api('/api/session'); clipboard.writeText(data.guestInvite); return true; });
+  handle('concord:copy-invite', async value => {
+    if (value !== undefined) { if (typeof value !== 'string' || value.length > 2048) throw new Error('Convite inválido.'); parseInvite(value); }
+    const code = value === undefined ? (await api('/api/session')).guestInvite : value;
+    clipboard.writeText(code); return true;
+  });
   handle('concord:stop-app-audio', () => { stopAppAudio(); return true; });
   handle('concord:start-app-audio', async id => {
     if (typeof id !== 'string' || !/^window:\d+:\d+$/.test(id)) throw new Error('Escolha a janela do jogo/app para capturar seu áudio.');
+    stopAppAudio(); const generation = appAudioGeneration;
     const sources = await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 0, height: 0 } });
     if (quitting) throw new Error('O Concord está fechando.');
+    if (generation !== appAudioGeneration) throw new Error('Teste de áudio cancelado.');
     if (!sources.some(source => source.id === id)) throw new Error('A janela do áudio foi fechada. Escolha novamente.');
-    stopAppAudio();
     const binary = app.isPackaged ? path.join(process.resourcesPath, 'ConcordAudio.exe') : path.join(__dirname, '..', '.runtime', 'ConcordAudio.exe');
     return new Promise((resolve, reject) => {
       const child = spawn(binary, ['--window', id.split(':')[1]], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });

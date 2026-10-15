@@ -1,6 +1,13 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('concord', {
   bootstrap: () => ipcRenderer.invoke('concord:bootstrap'),
+  savePreferences: value => ipcRenderer.invoke('concord:preferences', value),
+  invitesReady: () => ipcRenderer.invoke('concord:invites-ready'),
+  onInvite: callback => {
+    const listener = (event, value) => callback(value);
+    ipcRenderer.on('concord:open-invite', listener);
+    return () => ipcRenderer.removeListener('concord:open-invite', listener);
+  },
   updateState: () => ipcRenderer.invoke('concord:update-state'),
   updatesReady: () => ipcRenderer.invoke('concord:update-ready'),
   checkUpdates: () => ipcRenderer.invoke('concord:check-updates'),
@@ -17,7 +24,7 @@ contextBridge.exposeInMainWorld('concord', {
   tunnel: () => ipcRenderer.invoke('concord:tunnel'),
   closeTunnel: () => ipcRenderer.invoke('concord:close-tunnel'),
   renewInvite: () => ipcRenderer.invoke('concord:invite'),
-  copyInvite: () => ipcRenderer.invoke('concord:copy-invite'),
+  copyInvite: value => ipcRenderer.invoke('concord:copy-invite', value),
   startAppAudio: id => ipcRenderer.invoke('concord:start-app-audio', id),
   stopAppAudio: () => ipcRenderer.invoke('concord:stop-app-audio'),
   onAppAudio: callback => {

@@ -12,6 +12,8 @@ Decisão: tentar WebRTC com STUN; quando falhar, transmitir WebM/Opus por WebSoc
 Motivo: não depender de abertura de portas, IP público, conta de serviço TURN ou infraestrutura paga para uso pessoal.
 Consequência: o fallback costuma ter mais atraso; TLS termina na Cloudflare e não equivale a criptografia de ponta a ponta. Convite só fica pronto após confirmação de acessibilidade pública.
 
+Decisão: recusa 429 na criação do Quick Tunnel mostra o motivo e bloqueia novos pedidos por 1/2/4/5 minutos entre recusas consecutivas. Prazo local persistido sem chaves, respeitado ao reabrir; sucesso limpa. Não contornar limites do provedor nem prometer que o prazo equivale à liberação externa. Ao terminar, usuário pode tentar novamente; não há loop automático. Preparação continua em segundo plano e configurações/entrada na sala não ficam bloqueadas. Mensagens de erro vêm de classificação segura, sem saída bruta ou exceção de IPC.
+
 ## Compartilhamento explícito e privado
 
 Decisão: preparar acesso público em segundo plano ao abrir, conforme solicitado pelo usuário; captura continua dependendo de escolha explícita. Sala com até 8 pessoas e chave aleatória revogável.
@@ -21,14 +23,19 @@ Consequência: preparar não captura tela/áudio. Cancelar/fechar acesso interro
 
 Decisão: convites públicos usam `concord:<nome do túnel>:<chave de 22 caracteres>`. O receptor reconstrói localmente o endereço HTTPS Cloudflare. Chave curta independente, aleatória de 128 bits; administração e links legados continuam usando suas chaves de 256 bits.
 Motivo: reduzir 45 caracteres sem conta, serviço de encurtamento, banco externo ou divulgação da chave para outro provedor.
-Consequência: código é colado no app; participantes usam a mesma versão atual. Formato URL também é aceito. Renovar revoga as duas chaves e remove todos os convidados. Loopback preserva origem/porta no formato URL.
+Consequência: código pode ser colado no dialog ou aberto pelo protocolo `concord:` registrado pelo instalador Windows. Abertura fria/segunda instância preenchem e pedem confirmação; nunca entram nem interrompem captura sozinhas. URL antiga continua aceita. Renovar revoga as duas chaves e remove todos os convidados. Loopback preserva origem/porta no formato URL.
 
 ## Sala com várias transmissões e perfil local
 
-Decisão: compartilhar e assistir na mesma interface, com entrada por convite junto dos controles. Até 8 participantes podem compartilhar ao mesmo tempo; grade adaptável, clique alterna foco da tela e retorno à grade, com “Ver todas” também disponível. Grade habilita todos os sons recebidos; foco habilita apenas o selecionado. Própria prévia sempre muda; volume/mute escolhidos permanecem respeitados.
+Decisão: Painel inicial com Criar sala/Entrar em uma sala e pop-up de convite. Sala mantém compartilhar e assistir na mesma interface. Até 8 participantes podem compartilhar; grade adaptável, clique alterna foco e grade, com “Ver todas”. Grade habilita sons recebidos; foco só o selecionado. Própria prévia sempre muda; volume/mute permanecem respeitados. M/F/Esc controlam som recebido/tela cheia/grade, sem atalhos ao digitar.
 Decisão: nome obrigatório na primeira execução e foto opcional, salvos no PC e editáveis pelo perfil. Miniatura JPEG 128×128 enviada aos participantes da sala, sem guardar fotos online. Nomes/fotos são descritivos, não autenticação.
+Decisão: navegar entre Painel/sala atual preserva captura/conexão; Criar sala quando já é dono preserva sua sala. Criar sala enquanto convidado muda para a sala própria. Sair da sala encerra a própria captura e retorna ao Painel; parar só a transmissão mantém a sala. Nenhuma ação de criar/entrar começa a capturar automaticamente.
 Motivo: usuário descartou lista de amigos e tags e não quer servidor próprio/domínio. Entrar continua sendo por convite; participantes aparecem no menu lateral, removendo o bloco “Sua sala particular”.
 Consequência: todos precisam de 0.3.0 ou mais nova para o protocolo de sala. 0.3.1 muda somente a interação com foco, mantendo compatibilidade com 0.3.0. WebRTC negocia por dupla; falhas usam relay com streams separadas. Upload/CPU crescem com participantes. Microfone acompanha a tela, sem chamada de voz independente.
+
+## Consulta de perfil na sala
+
+Decisão: consultar perfil somente de participantes presentes na sala, pelo nome/avatar na lista lateral. Cartão com faixa roxa fixa, foto sobreposta ou mesmas iniciais e nome; nenhum apelido, descrição, status ou dado novo. Modal nativo acessível por teclado, com fechar visível/clique fora/Esc e retorno de foco à linha. Abrir/fechar não altera foco das streams nem áudio/captura/conexão. Perfil acompanha dados atuais e fecha quando o participante sai; não cria lista de amigos, armazenamento ou serviço.
 
 ## Releases preservadas
 
@@ -38,7 +45,9 @@ Consequência: distribuir via anexos de Releases, sem publicar automaticamente n
 
 ## Instalação e atualizações
 
-Interface simplificada conforme pedido: sem cabeçalho/indicador visual de conexão, “Compartilhamento de tela” no estado vazio, “PAINEL”, crédito Yuri Mihara e versão sem “pessoal”. Convite pronto usa “Link de convite” / “CONVITE DA SALA”, sem mensagem redundante; erros/progresso permanecem. Relógio somente enquanto transmite. Estado de conexão interno serve à aplicação/QA, sem bloco visual extra.
+Interface: Painel minimalista, “Compartilhamento de tela” no vazio, relógio somente enquanto transmite e crédito Yuri Mihara no rodapé inferior direito. Removidos texto orientativo no rodapé e aviso de sucesso ao encerrar a transmissão; avisos de erro permanecem. Minha sala usa SVG transparente de cômodo; Entrar em uma sala compartilha o mesmo SVG de tomada no menu e no Painel, baseados nas referências fornecidas. Código em painel pequeno na sala: “Código sendo carregado…”, Copiar código, erro/tentar novamente e gerenciamento recolhido. Preparo continua ao abrir, sem bloquear controles. Reconexão/compatibilidade têm aviso curto quando necessário.
+
+Decisão: Qualidade e FPS separados; bitrate automático/manual existente em Opções avançadas. Transporte automático, sem seletor; compatibilidade interna e protocolo preservados. Salvar resolução/FPS/bitrate/modo de áudio localmente, sem restaurar tela/janela ou iniciar captura. Medidor usa somente áudio autorizado da fonte; teste prévio do app exige clique, enquanto áudio do computador só mede durante transmissão. Microfone segue controle separado, desligado ao abrir.
 
 Decisão: instalar por usuário em `%LOCALAPPDATA%\Programs\Concord`, sem administrador, com menu Iniciar, opção de atalho e desinstalador. Manter `appId: local.concord.desktop` e perfil em `%APPDATA%\Concord`, inclusive na migração do portátil. Desinstalação preserva os dados.
 Decisão: electron-updater de runtime consulta GitHub público `MiharaxD/concord` uma vez após carregar, baixa em segundo plano e aplica somente no clique “Reiniciar e atualizar”. Fechar normalmente não instala. Desenvolvimento/portátil não consultam. Falhas não bloqueiam o app.

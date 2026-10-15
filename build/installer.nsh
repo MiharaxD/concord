@@ -1,6 +1,11 @@
 !include nsDialogs.nsh
 !include LogicLib.nsh
 !include MUI2.nsh
+!include "${BUILD_RESOURCES_DIR}\protocol.nsh"
+
+!macro customUnInstall
+  !insertmacro ConcordUnregisterProtocol "Software\Classes\concord" "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
+!macroend
 
 ; Closing Electron normally also closes its tunnel and audio helper.
 ; Never force-kill an active room from the installer/uninstaller.
@@ -92,6 +97,7 @@
   !macroend
 
   !macro customInstall
+    !insertmacro ConcordRegisterProtocol "Software\Classes\concord" "$appExe"
     WriteRegStr HKCU "${INSTALL_REGISTRY_KEY}" "DesktopShortcut" "$ConcordDesktopChoice"
     ${If} $ConcordDesktopChoice == "1"
       CreateShortCut "$newDesktopLink" "$appExe" "" "$appExe" 0 "" "" "${APP_DESCRIPTION}"

@@ -13,6 +13,7 @@ O distribuível principal é um instalador **NSIS `.exe`**, gerado por **electro
 | `native/AppAudio.cs` | Captura WASAPI por processo | Compilado como `resources/ConcordAudio.exe` |
 | `electron-updater` 6.8.9 | Consulta, download/checksum e instalação NSIS | Dependência de runtime incluída no app |
 | Perfil | Nome e miniatura da foto | `%APPDATA%\Concord\profile.json`; não acompanha o instalador |
+| Preferências | Resolução, FPS, bitrate e modo de áudio | `%APPDATA%\Concord\preferences.json`; sem fontes de captura ou microfone persistidos |
 
 Não há banco de dados. Captura e mídia ficam em memória. Não há Python, Git ou compilador em runtime. O servidor encerra junto do app; nenhum serviço/tarefa agendada é criado. O programa instalado resolve arquivos pelo pacote e `process.resourcesPath`, sem depender da pasta do código ou do diretório de onde foi aberto.
 
@@ -42,10 +43,10 @@ O comando instala as dependências pelo lockfile, verifica o SHA-256 oficial do 
 Resultado da versão atual:
 
 ```text
-dist/installer/0.3.4/Concord-0.3.4-Setup.exe
-dist/installer/0.3.4/Concord-0.3.4-Setup.exe.sha256
-dist/installer/0.3.4/Concord-0.3.4-Setup.exe.blockmap
-dist/installer/0.3.4/latest.yml
+dist/installer/0.4.3/Concord-0.4.3-Setup.exe
+dist/installer/0.4.3/Concord-0.4.3-Setup.exe.sha256
+dist/installer/0.4.3/Concord-0.4.3-Setup.exe.blockmap
+dist/installer/0.4.3/latest.yml
 ```
 
 **Envie o `.exe`** para a instalação inicial dos amigos. Todos os componentes estão dentro dele. Na GitHub Release, publique também `.blockmap` e `latest.yml`: são necessários para o atualizador. `win-unpacked` e relatórios não precisam ser enviados. Para gerar também o formato portátil, use `pnpm build`; sua saída fica em `dist/<versão>/`.
@@ -55,7 +56,8 @@ dist/installer/0.3.4/latest.yml
 - Instalação somente para o usuário atual, normalmente em `%LOCALAPPDATA%\Programs\Concord`; sem solicitar administrador.
 - Entrada no menu Iniciar, opção de atalho na Área de Trabalho, nome/versão/ícone e desinstalador em **Aplicativos instalados**.
 - Atualização/reinstalação mantém o mesmo identificador e substitui os arquivos do programa. Feche o Concord antes de atualizar ou desinstalar; o instalador pede isso e não mata uma sala à força.
-- Nome/foto e dados do Chromium continuam em `%APPDATA%\Concord`. Atualização e desinstalação normal preservam essa pasta. Instalar depois de usar o portátil continua usando o mesmo perfil.
+- Nome/foto, preferências e dados do Chromium continuam em `%APPDATA%\Concord`. Atualização e desinstalação normal preservam essa pasta. Instalar depois de usar o portátil continua usando o mesmo perfil.
+- NSIS registra `concord:` em `HKCU\Software\Classes\concord`, usando o caminho instalado e `%1` entre aspas; remove na desinstalação somente se o comando ainda pertence ao próprio executável. Macros em `build/protocol.nsh`, chamadas pelo include existente. Desenvolvimento/QA/portátil não se registram no Windows. O principal recebe abertura fria/segunda instância e pede confirmação no dialog antes de entrar, conforme o fluxo de [deep links do Electron](https://www.electronjs.org/docs/latest/tutorial/launch-app-from-url-in-another-app).
 - Para testes, `CONCORD_DATA_DIR` aponta a um perfil separado. Não é uma configuração necessária para usar o programa.
 
 ## Onde alterar
@@ -94,8 +96,8 @@ O comando gera o pacote local e usa a API oficial do GitHub para criar/reutiliza
 Alternativa pelo GitHub Actions, após enviar os commits à branch principal:
 
 ```powershell
-git tag v0.3.4
-git push origin v0.3.4
+git tag v0.4.3
+git push origin v0.4.3
 ```
 
 O workflow em Windows confere se tag/`package.json` concordam, usa Node 24/pnpm fixado, executa testes de unidade, gera NSIS e publica os quatro artefatos. Recebe apenas o `GITHUB_TOKEN` temporário com `contents: write`; não precisa de token pessoal nos PCs dos amigos. Assinatura pode ser adicionada futuramente via secrets de CI. [Autenticação oficial do Actions](https://docs.github.com/en/actions/tutorials/authenticate-with-github_token).
@@ -122,12 +124,19 @@ Para certificado no repositório de certificados do Windows/token, use `CONCORD_
 
 ```powershell
 pnpm test
-$env:CONCORD_EXE = (Join-Path (Get-Location) 'dist/installer/0.3.4/win-unpacked/Concord.exe')
+$env:CONCORD_EXE = (Join-Path (Get-Location) 'dist/installer/0.4.3/win-unpacked/Concord.exe')
 node tests/smoke.mjs
+pnpm test:navigation
+pnpm test:experience
+node tests/protocol.mjs
 pnpm test:installer
 ```
 
 `tests/installer.mjs` instala, reinstala, abre com PATH contendo só Windows e diretório de trabalho fora do projeto, verifica assets/servidor/áudio/túnel, bloqueio com app aberto, fechamento dos auxiliares, preservação dos dados e desinstalação. Recusa rodar se já existir instalação ou atalho pessoal do Concord; use um ambiente de teste. `CONCORD_BASELINE_INSTALLER` e `CONCORD_BASELINE_VERSION` permitem testar atualização a partir de um instalador anterior. Não executa a suíte de chamadas como parte do build; a instabilidade de múltiplas transmissões já registrada em `docs/context/TODO.md` é uma questão distinta do empacotamento.
+
+`tests/experience.mjs` abre duas instâncias isoladas e verifica fonte empacotado, novo Painel/sala/dialog, qualidade/FPS/bitrate, persistência, múltiplas telas/foco/atalhos, medidor real de áudio por app, mensagens de fallback/reconexão e argumentos de convite na abertura/segunda instância. Vídeo e áudio de transmissão são gerados; o teste do medidor toca/captura um tom do próprio processo de QA. Cópia usa um observador para preservar a área de transferência pessoal. Progresso/erro/retry do convite usam respostas controladas de IPC; isso não verifica disponibilidade do DNS público.
+
+`tests/protocol.mjs` usa o compilador NSIS já preparado pelo build (ou `NSIS_COMPILER`) e executa as macros reais contra uma chave de registro privada de QA. Confere comando/argumento entre aspas e remoção somente pelo proprietário. Não altera `Software\Classes\concord` nem instala sobre o app pessoal. A abertura pelo shell do Windows com a associação instalada deve ser validada numa máquina/VM de teste; os testes de argumentos cobrem os recebimentos frio/segunda instância no Electron real.
 
 ### Testar atualização de ponta a ponta sem publicar
 
@@ -139,7 +148,7 @@ pnpm test:updater
 node tests/release.mjs
 ```
 
-O build normal da 0.3.4 deve existir primeiro. A fixture 0.3.2 acima serve somente para QA: não substitui o instalador 0.3.2 preservado, que não possui atualização automática. `CONCORD_UPDATE_BASELINE` e `CONCORD_UPDATE_OLD_VERSION` aceitam outros pares. Use uma versão maior no pacote de destino.
+O build normal da 0.4.3 deve existir primeiro. A fixture 0.3.2 acima serve somente para QA: não substitui o instalador 0.3.2 preservado, que não possui atualização automática. `CONCORD_UPDATE_BASELINE` e `CONCORD_UPDATE_OLD_VERSION` aceitam outros pares. Use uma versão maior no pacote de destino.
 
 `tests/updater.mjs` instala a fixture anterior, modifica somente seu `app-update.yml` **instalado** para um feed HTTP em loopback e executa o electron-updater real. Verifica offline/silêncio, consulta única/manual, download/progresso/checksum, fechamento comum sem instalar, clique com áudio/túnel ativos, instalação NSIS, reinício automático, versão nova e nome/foto preservados. O artefato distribuído continua apontando para GitHub; não existe override de feed por IPC/env no app. O teste desinstala sua própria instalação e guarda screenshots/resultados em `test-results/updater-*`.
 

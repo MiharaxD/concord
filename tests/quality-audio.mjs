@@ -11,11 +11,14 @@ try {
     const app = await _electron.launch({ executablePath: process.env.CONCORD_EXE || path.join(root, 'node_modules/electron/dist/electron.exe'), args: process.env.CONCORD_EXE ? [] : [root], env: { ...process.env, CONCORD_DATA_DIR: path.join(run, String(apps.length)) }, timeout: 45000 }); apps.push(app);
     const page = await app.firstWindow(); page.setDefaultTimeout(25000);
     await page.locator('#name-picker[open]').waitFor(); await page.locator('#display-name').fill('Teste ' + apps.length); await page.locator('#save-name').click();
+    if (await page.locator('#create-room').count()) await page.locator('#create-room').click();
     await page.waitForFunction(() => document.body.dataset.connected === 'true' || document.querySelector('#connection-status')?.textContent.includes('Sala conectada'));
     page.on('pageerror', error => console.error('PAGE ERROR', error.message)); return page;
   }
   const host = await launch(), viewer = await launch();
   await host.evaluate(() => {
+    const PC = RTCPeerConnection; window.testPeers = [];
+    window.RTCPeerConnection = class extends PC { constructor(...args) { super(...args); window.testPeers.push(this); } };
     const set = RTCRtpSender.prototype.setParameters;
     RTCRtpSender.prototype.setParameters = async function(params) { const result = await set.call(this, params); if (this.track?.kind === 'video') window.testSender = this; return result; };
     const Recorder = MediaRecorder;
@@ -43,7 +46,8 @@ try {
     };
   });
   await host.locator('#audio-mode').selectOption('system');
-  await host.locator('#quality').selectOption('1440:60');
+  if (await host.locator('#fps').count()) { await host.locator('#quality').selectOption('1440'); await host.locator('#fps').selectOption('60'); await host.locator('#advanced-options summary').click(); }
+  else await host.locator('#quality').selectOption('1440:60');
   assert.match(await host.locator('#bitrate-mode option').first().textContent(), /24 Mbps/);
   await host.locator('#bitrate-mode').selectOption('manual'); await host.locator('#bitrate-value').fill('11.5');
   await host.locator('#choose-source').click(); await host.locator('.source-choice').first().click();
@@ -51,6 +55,7 @@ try {
   assert.equal(await host.evaluate(() => window.testCaptures), 0, 'entrada inválida não abre captura');
   await host.locator('#bitrate-value').fill('11.5'); await host.locator('#start-button').click();
   const invite = await host.evaluate(async () => (await window.concord.session()).guestLink);
+  if (await viewer.locator('#join-room-nav').count()) await viewer.locator('#join-room-nav').click();
   await viewer.locator('#join-input').fill(invite); await viewer.locator('#join-button').click();
   await viewer.locator('#transport-label').filter({ hasText: 'Conexão direta' }).waitFor();
   await viewer.waitForFunction(() => document.querySelector('video[data-publisher="host"]')?.videoWidth === 2560);
@@ -62,7 +67,11 @@ try {
   assert.match(await viewer.locator('#stream-quality').textContent(), /tela/);
   console.log('WebRTC: 1440p, limite de 11,5 Mbps e 60 FPS aplicados; player inicia com som sem clique de volume');
   await host.locator('#stop-button').click();
-  await host.locator('#quality').selectOption('2160:30'); await host.locator('#bitrate-value').fill('17.5'); await host.locator('#connection-mode').selectOption('relay');
+  if (await host.locator('#fps').count()) { await host.locator('#quality').selectOption('2160'); await host.locator('#fps').selectOption('30'); }
+  else await host.locator('#quality').selectOption('2160:30');
+  await host.locator('#bitrate-value').fill('17.5');
+  if (await host.locator('#connection-mode').count()) await host.locator('#connection-mode').selectOption('relay');
+  else await host.evaluate(() => { for (const pc of window.testPeers) { Object.defineProperty(pc, 'connectionState', { configurable: true, value: 'failed' }); pc.dispatchEvent(new Event('connectionstatechange')); } });
   await host.locator('#start-button').click();
   await viewer.waitForFunction(() => document.querySelector('video[data-publisher="host"]')?.videoWidth === 3840);
   const initialFrames = await viewer.evaluate(() => document.querySelector('video[data-publisher="host"]').getVideoPlaybackQuality().totalVideoFrames);
@@ -112,7 +121,7 @@ try {
   // Verify the Worklet path, not just helper PCM: choose the same native audio window in the UI.
   await host.evaluate(async () => { await window.testPhysicalTone.close(); });
   await viewer.evaluate(async () => { await window.testPhysicalTone.close(); });
-  await host.locator('#quality').selectOption('720:30'); await host.locator('#bitrate-mode').selectOption('auto'); await host.locator('#audio-mode').selectOption('application');
+  await host.locator('#quality').selectOption(await host.locator('#fps').count() ? '720' : '720:30'); await host.locator('#bitrate-mode').selectOption('auto'); await host.locator('#audio-mode').selectOption('application');
   await host.locator('#choose-audio-source').click(); await host.locator('.source-choice').filter({ hasText: 'Jogo de teste Concord' }).click();
   await host.evaluate(() => {
     const ac = new AudioContext(), tone = ac.createOscillator(), gain = ac.createGain(); tone.frequency.value = 440; gain.gain.value = .025;

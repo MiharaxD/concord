@@ -1,39 +1,51 @@
-# Verificação do Concord 0.3.4 — 07/10/2026
+# Verificação do Concord 0.4.3
 
-Pacote local: `dist/installer/0.3.4/Concord-0.3.4-Setup.exe`, 134.778.731 bytes.
-SHA-256 local: `adea918179b6470a4980af2759434745b85e41fcd90079fcc2fb6bfa515ac892`.
+Data: 15/10/2026, Windows x64. Build local, sem commit/push/tag/Release.
 
-## Mudanças e verificações locais
+Instalador: `dist/installer/0.4.3/Concord-0.4.3-Setup.exe`, **134.785.084 bytes**.
+SHA-256: `68bd2dd27d15c5982393ab1a5f7a04fa95884de9071d7afc9ee88f62dd51daf2`.
 
-- Cabeçalho “Bora compartilhar?”/“Sua tela, sua galera” e indicador visual “Sala conectada” removidos. Conexão permanece registrada internamente; erros continuam usando os avisos existentes.
-- Texto ocioso “Pronto quando você estiver” removido. Relógio começa em 00:00:00 ao transmitir e fica oculto/limpo ao encerrar.
-- Estado sem transmissões mostra somente a ilustração e **Compartilhamento de tela**, removendo slogan, descrição e “Sem conta / sem enrolação”.
-- Menu **PAINEL**, versão **Concord 0.3.4** sem “pessoal” e crédito **Feito com carinho por Yuri Mihara**.
-- Convite com título **Link de convite**, rótulo **CONVITE DA SALA** e sem instrução promocional nem mensagem de sucesso permanente. Preparação, erro e cancelamento mantêm feedback.
-- Protocolo/captura/áudio/updater preservados; mudanças restritas à apresentação. Testes existentes adaptados para observar a conexão sem depender do indicador removido, com compatibilidade com versões anteriores.
+## Diagnóstico confirmado e limite externo
 
-**19/19 testes de unidade passaram.** `tests/smoke.mjs` passou no pacote 0.3.4: janela, sala, seleção nativa, PNG/JPG, cópia de convite, cancelar/retomar preparo e fechamento em 150 ms, incluindo preconexão sem HTTP.
+Cloudflared 2026.10.0 oficial retornou `quick tunnel provisioning failed with status 429`, antes de gerar endereço público. Log em `test-results/tunnel-diagnosis-1792101277466/cloudflared.log`.
 
-Revisão real no Electron com perfil isolado em `test-results/interface-1791416312711`: layout e convite pronto conferidos; captura da própria janela de QA iniciada/encerrada, vídeo reproduzido e relógio mostrado/ocultado corretamente. Screenshot do painel e convite guardadas nessa pasta. Nenhuma transmissão/instalação pessoal foi encerrada ou substituída.
+Nova tentativa real com backend corrigido às 21:59 UTC de 15/10 continuou recusada em 230 ms. Código/mensagem/prazo classificados e persistidos em `test-results/public-invite-1792101579758/result.json`. HTTP administrativo local retorna 503 com mensagem segura; 429 é o status upstream. **Criação/entrada pública não foram confirmadas nesta rodada.** Atualização corrige tratamento no app; não remove o limite externo nem garante hora de liberação.
 
-Publisher passou contra API simulada: checksum, quatro anexos completos antes de publicar, retomada de rascunho, falha de upload sem publicação e recusa de sobrescrever release pública. Defender local 4.18.26080.4-0 examinou `dist/installer/0.3.4`: **found no threats**, código 0. Binário sem assinatura digital; isso não diagnostica alertas em outros computadores.
+Referência: [fonte oficial do Cloudflared 2026.10.0](https://github.com/cloudflare/cloudflared/blob/2026.10.0/cmd/cloudflared/tunnel/quick_tunnel.go), que retorna o status da falha de provisionamento. [Quick Tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/) não têm garantia de disponibilidade. O limite documentado de 200 requisições em andamento é de tráfego do túnel; não foi usado para inferir a cota de criação atingida aqui.
 
-## Publicação
+## Alteração
 
-Push e Release **autorizados expressamente pelo usuário e concluídos**. [Release 0.3.4](https://github.com/MiharaxD/concord/releases/tag/v0.3.4) com quatro anexos públicos: Setup.exe, .blockmap, .sha256 e latest.yml. [GitHub Actions concluído com sucesso](https://github.com/MiharaxD/concord/actions/runs/37704240993), com os 19 testes passando no Windows hospedado.
+- Saída do Cloudflared drenada até close para classificar motivo real. Mensagens seguras para 429, 5xx, 403, DNS/conexão, timeout e componente ausente; interface consulta metadados administrativos, sem expor exceção de IPC.
+- 429 bloqueia novos processos por 60/120/240/300 s entre recusas consecutivas. Prazo/contador persistidos atomicamente em userData/tunnel/invite-retry.json, sem chaves, URL ou log bruto. Cache inválido não impede o app. Sucesso limpa; longo intervalo reinicia escalada.
+- Contagem no botão, liberação ao expirar e nenhuma tentativa automática ao terminar. Reabrir respeita prazo; configurações, captura e sala não são bloqueadas.
+- Cancelamento também cobre leitura do cache anterior ao spawn. Shutdown espera tentativa e gravações; falha durante preparo não sobrescreve a causa com túnel encerrado.
+- Mantidos protocolo de salas, captura/áudio/transporte, perfis/cartões e atualizador. Testes comuns de UI evitam criar túneis públicos repetidamente.
 
-Instalador público: **125.193.971 bytes**, SHA-256 **`6c35d9efa6ab32a177247eed46913aa023a1b80cfb0bdf3a826f990bde7d014c`**. Cópia local em `dist/installer/0.3.4/github/Concord-0.3.4-Setup.exe`. Checksum publicado e hash retornado pela API conferem com o arquivo baixado. Build CI utiliza outra compressão/timestamps; o build local inicial foi preservado, sem substituir releases anteriores.
+## Validação no instalador final
 
-Tag v0.3.4 permanece em c4b5abf. Duas correções nos scripts de desenvolvimento foram enviadas depois: seleção da primeira instalação Node/pnpm quando Get-Command retorna múltiplas e checksum via .NET quando Get-FileHash não está disponível no PowerShell iniciado pelo runner. Retomada manual validou app/dependências/configuração iguais à tag; nenhum código runtime foi alterado nessas correções.
+App extraído sem instalar em `dist/installer/0.4.3/qa/win-unpacked/`; dados de QA isolados. Instalação pessoal não substituída.
 
-Cliente empacotado 0.3.3, sem GH_TOKEN/GITHUB_TOKEN, usando **electron-updater real** e feed GitHub público: detectou 0.3.4, mostrou progresso intermediário (41%, 65%, 84%, 90%) e terminou download/checksum. Evidência em `test-results/github-update-1791417230910/result.json`. Cache/perfil isolados; não chamou quitAndInstall nem modificou a instalação pessoal. A primeira atualização usa fallback completo, porque a 0.3.3 não tinha blockmap público anterior.
+**26 unidades: PASS.** Classificação, espera crescente, expiração, persistência/reabertura, reset/cache inválido; fixture via subprocesso real com stderr 429, chamadas concorrentes/repetidas sem novos processos e sala conectada. Também passaram unidades existentes de convites, preferências, autenticação/roster/mídia e controlador de atualização.
 
-O conteúdo foi extraído do **instalador público baixado** para revisão, sem executar instalação: ASAR corresponde ao fonte (normalizando fins de linha), ws/electron-updater presentes, dependências de desenvolvimento ausentes. Smoke passou nesse pacote real: janela, sala, assets/seleção/cópia/preparo e fechamento em 138 ms. Defender também examinou o instalador público: found no threats, código 0.
+**Convite: PASS**, no desenvolvimento e no app extraído, em `test-results/invite-ui-1792101739820/result.json`:
 
-## Evidências anteriores e limites
+- Cache isolado com prazo curto exercita bloqueio real do backend, mensagem/contagem, botão desabilitado/liberado ao expirar, sem pedido automático.
+- Qualidade/FPS e seleção nativa de fontes disponíveis; captura não inicia sozinha.
+- IPC controlado exercita serviço indisponível, nova tentativa/preparo, cancelar sem falha tardia e sucesso/cópia nativa sem alterar área de transferência pessoal.
+- Sala segue conectada, sem pageerror. server.mjs/app.js/invite-retry.cjs lidos do ASAR correspondem ao fonte normalizando CRLF; screenshot conferido visualmente. Sucesso controlado não comprova disponibilidade pública.
 
-Relatório completo da instalação/atualizador permanece em `dist/installer/0.3.3/VERIFICACAO.md`. Nessa versão, instalação/reinstalação/desinstalação reais e atualização HTTP/NSIS com reinício e perfil preservados passaram. Instalador 0.3.3 preservado, SHA-256 `8f0de41a55e4553a8e3caadbf5657a5816e885cc6f1c1ebaa1621132e42db883`.
+**Duas instâncias/perfis/mídia: PASS**, app extraído, `test-results/member-profile-1792101749376/result.json`:
 
-Há programa/atalhos pessoais no Windows nesta rodada; testes que instalam/desinstalam não foram repetidos sobre essa instalação. Validação local em um PC Windows 11; instabilidade anterior ao reiniciar múltiplas streams continua pendente em TODO.md. Os testes de mídia completos não foram repetidos para esta alteração visual.
+- Dois participantes entram pelo convite loopback e transmitem canvas em movimento/tom gerados; sem capturar tela/áudio pessoais.
+- Cartão por nome/avatar/teclado, foto atual/iniciais, fechar por botão/fora/Esc, Tab/foco devolvido, atualizações e saída limpando cartão.
+- Players/tracks/sockets, volume/mute, foco de stream e captura preservados. Quadros com cartão aberto **120/66 → 150/97**; depois **188/132 → 218/162**. RMS recebido **0,02839 / 0,02837**. Sem pageerror.
 
-Comandos e reprodução estão em [BUILD_WINDOWS.md](BUILD_WINDOWS.md).
+## Artefatos e preservação
+
+Setup, SHA-256, SHA-512/tamanho/versão do latest.yml e blockmap conferidos. ASAR extraído/staging idênticos: SHA-256 `aadec4a35595fa74fe4f15f9916ace044af748ff95a78ee4e3400b20d80f706c`. Registro em `dist/installer/0.4.3/qa/artifact-check.json`.
+
+Defender no Setup final: **found no threats**, código 0. Binário sem assinatura; resultado local não diagnostica alertas de outro PC.
+
+Instaladores/relatórios anteriores preservados. Hashes 0.4.2 `39862d78194d7ae82323536b48e1b614f4294e808950b6115f617f3a7bde7b2f` e 0.4.1 `1f1e0b4311e8bccb5573852b08eccff896234d5828ae3b7a03d05da389f2f4b6` conferidos.
+
+Suíte extensa de WASAPI, fallback/reconexão e protocolo Windows permanece documentada na 0.4.0, sem repetição integral. Duas máquinas físicas/redes distintas, aplicação do update público e clique do protocolo pelo shell após instalação continuam pendentes. Nenhuma publicação automática.

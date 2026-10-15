@@ -1,24 +1,30 @@
 # Concord
 
-Instalador atual: [Concord 0.3.4 para Windows](https://github.com/MiharaxD/concord/releases/download/v0.3.4/Concord-0.3.4-Setup.exe). [Todos os arquivos da Release](https://github.com/MiharaxD/concord/releases/tag/v0.3.4).
+Instalador público: [Concord 0.3.4 para Windows](https://github.com/MiharaxD/concord/releases/download/v0.3.4/Concord-0.3.4-Setup.exe). [Todos os arquivos da Release](https://github.com/MiharaxD/concord/releases/tag/v0.3.4).
+
+Versão local 0.4.3: erro de convite mostra o motivo informado pelo serviço. Quando a Cloudflare limita a criação, há uma contagem antes de tentar de novo, preservada ao reabrir o app. Cartões de perfil e demais recursos mantidos. Instalador em `dist/installer/0.4.3/Concord-0.4.3-Setup.exe`; ainda não publicado no GitHub. Versões anteriores preservadas.
 
 App pessoal para Windows: até 8 pessoas na mesma sala, sem conta, domínio ou servidor próprio. Todos usam o mesmo executável Electron + JavaScript.
 
 ## Como usar
 
-1. Abra `Concord-0.3.4-Setup.exe`, escolha se quer um atalho na Área de Trabalho e clique em **Instalar**. Depois abra o Concord pelo menu Iniciar. Na primeira vez, escolha seu nome; foto é opcional. Eles ficam salvos no PC. Clique no perfil, no menu lateral, para editar depois.
-2. O convite começa a ser preparado automaticamente, inclusive durante a escolha do nome. Enquanto isso, escolha tela/janela, qualidade, taxa de bits e áudio.
-3. Quando o convite estiver pronto, copie e mande para as pessoas. Elas colam o convite em **Entrar na sala de um amigo**, na mesma tela dos controles de transmissão, e clicam em **Entrar na sala**.
-4. Compartilhar e assistir ficam na mesma interface, sem alternar menus. Qualquer participante pode escolher uma tela e clicar em **Compartilhar tela**, inclusive quem entrou pelo convite. Cada um controla sua própria captura.
+1. Abra o Setup da versão desejada, escolha se quer um atalho na Área de Trabalho e clique em **Instalar**. Depois abra o Concord pelo menu Iniciar. Na primeira vez, escolha seu nome; foto é opcional. Clique no perfil, no menu lateral, para editar depois.
+2. No **Painel**, escolha **Criar sala** ou **Entrar em uma sala**. Criar abre os controles e participantes sem iniciar captura. Entrar abre um pop-up: cole o convite e confirme em **Entrar na sala**, ou cancele.
+3. O convite é preparado automaticamente, inclusive durante a escolha do nome e no Painel. Na sala, o painel **Código da sala** mostra **Código sendo carregado…**, o código pronto e **Copiar código**, ou uma explicação curta com **Tentar novamente**. Isso não bloqueia os controles. Quem entrou pelo convite copia o código da sala atual.
+4. Compartilhar e assistir ficam juntos na sala. Qualquer participante escolhe sua tela e clica em **Compartilhar tela**. Voltar ao Painel e reabrir a sala atual preserva a transmissão; **Criar sala** enquanto estiver na sala de um amigo muda para a sala própria. **Sair da sala** encerra sua captura e volta ao Painel.
 5. As transmissões aparecem numa grade que ajusta colunas e linhas para caber. Clique numa tela para dar foco; clique nela novamente ou em **Ver todas** para retornar à grade. **Tela cheia** amplia a grade ou a tela em foco.
 
 Na grade, o som de todas as transmissões recebidas fica habilitado. Em foco, só o som daquela tela fica habilitado. Silenciar/volume zero continuam sendo escolhas do usuário; a própria prévia fica sempre muda para evitar eco. Nomes e fotos dos participantes ficam no menu lateral, no lugar do antigo bloco “Sua sala particular”. Microfone acompanha a tela de quem o ativou; não há câmera nem voz independente de uma transmissão.
 
-O convite curto começa com `concord:`, é colado no app e não usa encurtador externo. Formato URL com `#join=` também é aceito; **todos na sala precisam usar 0.3.0 ou mais nova** para o protocolo com múltiplas transmissões. Não há lista de amigos ou descoberta por tag.
+O convite curto começa com `concord:` e não usa encurtador externo. O instalador 0.4.0 registra esse protocolo no Windows para o usuário atual: abrir um convite inicia/traz o Concord, preenche o pop-up e **sempre pede confirmação antes de entrar**. Pode testar pelo Executar do Windows (Win+R), ou continuar colando no app. Desenvolvimento/portátil não registram o protocolo. Formatos antigos de URL com `#join=` continuam aceitos; **todos na sala precisam usar 0.3.0 ou mais nova** para o protocolo de múltiplas transmissões.
 
-**Cancelar preparação** interrompe o processo em segundo plano; **Preparar convite** tenta novamente. **Trocar convite** remove todos os convidados e invalida o convite anterior. **Fechar acesso** encerra o túnel e revoga o convite. O app não volta a abrir esse acesso automaticamente na mesma execução. Fechar o app que criou a sala encerra a sala inteira; encerrar apenas a sua transmissão mantém os outros participantes conectados.
+**Cancelar preparação** interrompe o processo em segundo plano; **Tentar novamente** retoma. **Gerenciar convite** reúne **Trocar convite**, que remove os convidados e invalida o código anterior, e **Fechar acesso**, que encerra o túnel e revoga o código. O app não reabre esse acesso automaticamente na mesma execução. Fechar o app que hospeda encerra a sala inteira; encerrar só a transmissão mantém os participantes conectados.
+
+Se a Cloudflare recusar a criação por limite de solicitações, o app explica e mostra **Tentar novamente em…**. A espera começa em um minuto; recusas consecutivas aumentam para dois, quatro e no máximo cinco minutos entre tentativas. A contagem é uma proteção local, não uma previsão de liberação pela Cloudflare. Não há nova tentativa automática ao terminar; o botão fica disponível. O prazo é salvo em `%APPDATA%\Concord\tunnel\invite-retry.json`, sem chaves ou dados de participantes. Fechar/reabrir não repete o pedido durante a espera. Configurações, captura e entrada pelo convite de outra pessoa continuam disponíveis. Outros erros distinguem serviço indisponível, localização/conexão e componente ausente.
 
 A foto escolhida em PNG/JPG é recortada e reduzida localmente para JPEG de 128×128. Nome e foto ficam em `%APPDATA%\Concord\profile.json`, separados da instalação. Atualizações e desinstalação normal preservam esse perfil, inclusive se você usava o portátil. Essa miniatura é enviada aos participantes autorizados durante a sala; não há armazenamento online de fotos ou cópia do arquivo original. Nomes/fotos são identificações escolhidas pelo usuário, não prova de identidade.
+
+Na lista lateral, nome e avatar de cada participante são um botão: clique ou use Tab e Enter/Espaço para abrir o cartão. Ele mostra somente o nome e a foto atuais, com iniciais quando não houver foto. Feche no **×**, clicando fora ou por **Esc**; o foco do teclado volta à lista e a tela em foco, o som e as transmissões continuam iguais. O cartão acompanha as alterações do perfil e fecha se a pessoa sair da sala. Não há consulta a perfis fora da sala nem novos dados salvos.
 
 O instalador inclui todos os componentes e cria a entrada em **Aplicativos instalados**. Não precisa instalar Node.js, Python ou ferramentas de desenvolvimento. Instala somente para seu usuário, normalmente em `%LOCALAPPDATA%\Programs\Concord`, sem pedir administrador. Feche o Concord antes de instalar manualmente ou desinstalar; uma sala aberta não é encerrada à força pelo instalador.
 
@@ -32,7 +38,9 @@ Para publicar próximas versões, há `pnpm release` / `npm run release` e workf
 
 ## Qualidade e taxa de bits
 
-Escolha 720p, 1080p, 1440p ou 4K, em 30 ou 60 FPS. O modo **Automática** usa uma referência por qualidade; **Personalizada** permite de **1 a 60 Mbps**, em passos de 0,5, pelo controle deslizante ou campo numérico. Configure antes de iniciar; para mudar durante o uso, encerre e comece novamente.
+Escolha **Qualidade** (720p, 1080p, 1440p ou 4K) e **FPS** (30 ou 60) separadamente. Em **Opções avançadas**, a taxa **Automática** considera os dois controles; **Personalizada** permite **1 a 60 Mbps**, em passos de 0,5. Configure antes de iniciar; para mudar durante o uso, encerre e comece novamente.
+
+Resolução, FPS, modo/valor de bitrate, modo de áudio e sua opção de áudio ligado/desligado são salvos em `%APPDATA%\Concord\preferences.json`. Escolha de tela/janela, fonte sonora e autorização de captura não são restauradas. Microfone começa desligado a cada abertura.
 
 | Qualidade | 30 FPS | 60 FPS |
 | --- | --- | --- |
@@ -55,9 +63,19 @@ Essa captura específica exige Windows build 20348 ou mais recente, incluindo Wi
 
 O player inicia com áudio sem exigir clique no volume. Cancelamentos temporários de reprodução por mudança de fonte não ativam o mute; o botão de silenciar e volume zero continuam sendo escolhas do espectador.
 
+O medidor mostra somente o nível da fonte sonora autorizada, antes de misturar o microfone. Durante a transmissão, usa a mesma track de áudio, sem ampliar captura nem tocar sua prévia. Em **Somente do jogo / app**, escolha a janela e clique explicitamente em **Testar áudio do app** para medir antes de transmitir; **Parar teste de áudio**, trocar fonte/modo ou sair libera o teste. Em **Todo o computador**, o nível aparece ao transmitir; não há captura prévia automática.
+
+## Atalhos na sala
+
+- **M**: silenciar/ativar o som recebido.
+- **F**: alternar tela cheia.
+- **Esc**: retornar da tela em foco para a grade; também fecha pop-ups e sai da tela cheia pelo comportamento nativo.
+
+Dicas dos botões mostram os atalhos. Não atuam durante digitação, seletores, edição de texto ou pop-ups, nem com Ctrl/Alt/Shift/Win pressionados. Reconexão e mudança para compatibilidade mostram mensagens curtas na sala.
+
 ## Conexão e limites
 
-- Cada dupla de participantes negocia WebRTC bidirecional com STUN. Rotas que não conectam usam WebM por WebSocket através da sala; também é possível escolher **Compatibilidade** antes de transmitir. Streams de participantes diferentes são identificadas e decodificadas separadamente.
+- Cada dupla negocia WebRTC bidirecional com STUN. Rotas que não conectam usam automaticamente WebM por WebSocket através da sala. Não há seletor de transporte na interface; o modo de compatibilidade interno foi preservado. Streams diferentes são identificadas e decodificadas separadamente.
 - Mais espectadores e transmissores usam mais upload, memória e processamento. WebRTC configura bitrate por conexão; no fallback, o PC que criou a sala encaminha as streams e pode exigir mais banda. Comece com **720p · 30 FPS** em salas maiores ou conexão apertada.
 - O convite público usa um Quick Tunnel gratuito da Cloudflare, preparado em segundo plano ao abrir o app. Não exige conta, domínio, IP público ou abertura de porta. Depende da disponibilidade desse serviço; não há garantia de uptime. O endereço muda quando o túnel é recriado. Documentação: https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/
 - O app espera o túnel registrar a conexão, o DNS publicar o endereço e o HTTPS responder antes de liberar o convite. O preparo agora acontece enquanto você configura o app; se você abrir e copiar imediatamente, ainda pode haver espera. Após 150 segundos sem sucesso, mostra erro e permite tentar novamente.
@@ -80,7 +98,15 @@ pnpm test
 pnpm build
 ```
 
-Para gerar o instalador completo, execute **`build-installer.bat`** ou `pnpm build:installer`. O script instala dependências pelo lockfile, prepara o Cloudflared oficial com checksum/licença, compila o helper e empacota. A saída atual fica em `dist/installer/0.3.4/Concord-0.3.4-Setup.exe`. `pnpm build` também pode gerar o portátil em `dist/0.3.4/`. Os executáveis anteriores ficam preservados em `dist/`. Configuração e assinatura futura estão em [BUILD_WINDOWS.md](BUILD_WINDOWS.md).
+Para gerar o instalador completo, execute **`build-installer.bat`** ou `pnpm build:installer`. O script instala dependências pelo lockfile, prepara o Cloudflared oficial com checksum/licença, compila o helper e empacota. A saída atual fica em `dist/installer/0.4.3/Concord-0.4.3-Setup.exe`. `pnpm build` também pode gerar o portátil em `dist/0.4.3/`. Executáveis anteriores ficam preservados em `dist/`. Configuração e assinatura futura estão em [BUILD_WINDOWS.md](BUILD_WINDOWS.md).
+
+`pnpm test:experience` valida a interface com duas instâncias isoladas: sala, entrada/cancelamento/erro de convite, preparo/cópia, preferências, qualidade/FPS/encoder, duas telas, grade/foco, atalhos, fallback/reconexão, medidor WASAPI real e convites por argumentos em abertura fria/segunda instância. `node tests/protocol.mjs` compila/executa as macros NSIS de registro/remoção numa chave de QA isolada, sem mudar o handler pessoal. O teste de estados de preparo usa respostas controladas de IPC, sem depender de DNS público. Use `CONCORD_EXE` para o app extraído do instalador.
+
+`pnpm test:profiles` valida dois participantes e duas transmissões com vídeo/tom gerados: cartão por nome/avatar/teclado, foto/iniciais, fechamentos, foco do teclado, atualização/saída de perfil e preservação de mídia, conexão, mute, volume e tela em foco. Também compara os três arquivos de interface do app executado com o fonte. Use `CONCORD_EXE` para verificar o app extraído do instalador.
+
+`pnpm test:invitation` valida aviso de limite, contagem/botão, controles disponíveis, cancelar sem resultado tardio e sucesso/cópia com respostas controladas. Usa cache isolado para não criar túneis públicos repetidamente. As unidades cobrem subprocesso 429, pedidos concorrentes, persistência/expiração e retomada; o teste de perfis também evita provisionar túneis reais. A disponibilidade da Cloudflare precisa de verificação pública separada.
+
+`pnpm test:navigation` testa dois clientes com vídeo/tom gerados, preservação da captura/conexão/espectador ao clicar repetidamente na sala atual, retorno da sala de um amigo e saída explícita. `CONCORD_EXE` seleciona um executável empacotado; sem a variável, usa o app de desenvolvimento. Perfis de QA ficam em `test-results/`.
 
 `tests/call.mjs` testa três instâncias do app real via Playwright; recebe o caminho do Playwright em `PLAYWRIGHT_MODULE`. Verifica nomes/fotos, streams simultâneas, grade, foco, áudio decodificado, persistência e revogação. `CONCORD_TEST_TUNNEL=1` inclui entrada pelo convite preparado automaticamente e transporte público. Não substitui um teste em PCs físicos com redes diferentes.
 
@@ -91,6 +117,9 @@ Para gerar o instalador completo, execute **`build-installer.bat`** ou `pnpm bui
 - `desktop/main.cjs`: janela nativa, seleção de monitor/janela, áudio do Windows e permissões.
 - `desktop/updater.cjs`: eventos do electron-updater, estado, log limitado e reinício solicitado pelo usuário.
 - `desktop/preload.cjs`: API mínima entre a interface isolada e o app.
+- `desktop/preferences.cjs`: validação e persistência atômica das preferências locais.
+- `public/audio-meter.js`: análise de uma track já autorizada, sem pedir captura.
+- `build/protocol.nsh`: registro por usuário do convite no Windows e remoção com conferência do executável proprietário.
 - `server.mjs`: sala, autenticação, sinalização WebRTC, relay WebSocket e túnel.
 - `public/`: interface e captura; `room-media.js` mantém conexões WebRTC e receptores WebM independentes por participante.
 - `tests/`: validação de autenticação, reconexão, vídeo e áudio.

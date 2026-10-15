@@ -1,8 +1,8 @@
 // One bidirectional WebRTC connection per participant. Failed routes share an
 // encoder per publisher and receive authenticated, multiplexed WebM over WSS.
 export class RoomMedia {
-  constructor({ send, sendBytes, options, player, remove, update, error, fatal }) {
-    Object.assign(this, { send, sendBytes, options, player, remove, update, error, fatal });
+  constructor({ send, sendBytes, options, player, remove, update, error, fatal, compatibility = () => {} }) {
+    Object.assign(this, { send, sendBytes, options, player, remove, update, error, fatal, compatibility });
     this.peers = new Map(); this.members = new Map(); this.receivers = new Map(); this.targets = new Set();
     this.self = ''; this.stream = null; this.recorder = null;
   }
@@ -92,6 +92,7 @@ export class RoomMedia {
   addTarget(id, restart = false) {
     if (!this.peers.has(id)) return;
     const fresh = !this.targets.has(id); this.targets.add(id);
+    if (fresh && this.stream) this.compatibility();
     if (this.stream && (fresh || restart || !this.recorder)) this.startRecorder();
   }
   async message(msg) {
@@ -127,6 +128,7 @@ export class RoomMedia {
   relayPlayer(id, mime) {
     const member = this.members.get(id); if (!member?.stream.active) return;
     if (!MediaSource.isTypeSupported(mime)) { this.error('O formato recebido não é suportado neste PC.'); return; }
+    this.compatibility();
     this.resetReceiver(id);
     const video = this.player(member); video.pause(); video.srcObject = null;
     const media = new MediaSource(), url = URL.createObjectURL(media);

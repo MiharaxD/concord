@@ -42,7 +42,7 @@ async function setup(t, options = {}) {
 
 test('Interface pública funciona; administração continua exclusiva do PC dono', async t => {
   const { app, api } = await setup(t);
-  for (const file of ['/', '/app.js', '/room-media.js', '/invites.js', '/style.css']) assert.equal((await fetch(app.address + file)).status, 200);
+  for (const file of ['/', '/app.js', '/room-media.js', '/invites.js', '/audio-meter.js', '/style.css']) assert.equal((await fetch(app.address + file)).status, 200);
   for (const headers of [{}, { 'x-concord-host': app.hostToken, 'cf-connecting-ip': '1.2.3.4' }, { 'x-concord-host': 'é'.repeat(43) }])
     assert.equal((await fetch(app.address + '/api/session', { headers })).status, 403);
   const data = await (await api('/api/session')).json(); assert.match(data.guestInvite, /#join=[\w-]{22}$/);
@@ -127,4 +127,28 @@ test('Preparação concorrente usa um processo; cancelar permite nova tentativa'
   assert.equal((await (await api('/api/session')).json()).public, false);
   const retry = api('/api/tunnel', 'POST'); const fresh = await pids(2); assert.notEqual(fresh[1], original[0]);
   await api('/api/tunnel', 'DELETE'); assert.equal((await retry).status, 503);
+});
+
+test('429 bloqueia novos processos e reabrir respeita o prazo sem afetar a sala', async t => {
+  const directory = await mkdtemp(path.resolve('test-results/tunnel-rate-'));
+  const file = path.join(directory, 'pids.txt'), previous = process.env.CONCORD_TEST_PID_FILE; process.env.CONCORD_TEST_PID_FILE = file;
+  t.after(() => { if (previous === undefined) delete process.env.CONCORD_TEST_PID_FILE; else process.env.CONCORD_TEST_PID_FILE = previous; });
+  // Node executes the fixture named "tunnel" using the real subprocess path.
+  const fixture = path.resolve('tests/fixtures/tunnel-rate');
+  // Isolate the working directory/cache by copying only the fixture script.
+  const { copyFile } = await import('node:fs/promises'); await copyFile(path.join(fixture, 'tunnel'), path.join(directory, 'tunnel'));
+  const first = await setup(t, { cloudflared: process.execPath, tunnelCwd: directory });
+  const owner = await first.socket('host'); await owner.read(m => m.type === 'welcome');
+  const responses = await Promise.all([first.api('/api/tunnel', 'POST'), first.api('/api/tunnel', 'POST')]);
+  assert.ok(responses.every(res => res.status === 503));
+  const session = await (await first.api('/api/session')).json();
+  assert.equal(session.inviteError.code, 'RATE_LIMIT'); assert.ok(session.inviteError.retryAt > Date.now());
+  for (let i = 0; i < 3; i++) assert.equal((await first.api('/api/tunnel', 'POST')).status, 503);
+  assert.equal((await readFile(file, 'utf8')).trim().split('\n').length, 1, 'botão/API repetidos não criam processos');
+  assert.equal(owner.ws.readyState, WebSocket.OPEN); assert.equal(session.members.length, 1);
+  await first.app.close();
+  const second = await setup(t, { cloudflared: process.execPath, tunnelCwd: directory });
+  assert.equal((await second.api('/api/tunnel', 'POST')).status, 503);
+  assert.equal((await (await second.api('/api/session')).json()).inviteError.retryAt, session.inviteError.retryAt);
+  assert.equal((await readFile(file, 'utf8')).trim().split('\n').length, 1, 'reinício não burla limite');
 });

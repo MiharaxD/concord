@@ -14,6 +14,7 @@ try {
   app = await _electron.launch({ executablePath, args: [], env: { ...process.env, CONCORD_DATA_DIR: directory }, timeout: 45000 });
   const page = await app.firstWindow(); page.setDefaultTimeout(15000);
   await page.locator('#name-picker[open]').waitFor(); await page.locator('#display-name').fill('Teste do pacote'); await page.locator('#save-name').click();
+  if (await page.locator('#create-room').count()) await page.locator('#create-room').click();
   await page.waitForFunction(() => document.body.dataset.connected === 'true' || document.querySelector('#connection-status')?.textContent.includes('Sala conectada'));
   const config = await page.evaluate(() => window.concord.bootstrap()); assert.equal(config.version, pkg.version);
   const sources = await page.evaluate(() => window.concord.sources()); assert.ok(sources.length > 0);

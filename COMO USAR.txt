@@ -1,6 +1,6 @@
 CONCORD - SALA PESSOAL DE TELAS
 
-Envie Concord-0.3.4-Setup.exe para seus amigos. Windows 64 bits.
+Envie Concord-0.4.3-Setup.exe para seus amigos. Windows 64 bits.
 Abra o instalador, escolha se quer atalho na Area de Trabalho e clique em Instalar.
 Depois, abra Concord pelo menu Iniciar. Nao precisa de Node, Python ou comandos.
 Instala somente para seu usuario, sem pedir administrador.
@@ -22,15 +22,24 @@ O portatil antigo precisa instalar este Setup uma vez para ter atualizacoes.
 Novas versoes precisam ser publicadas com seus metadados na Release do GitHub.
 
 O convite e preparado em segundo plano logo que o app abre.
-Enquanto isso, escolha tela/janela, qualidade, taxa de bits e audio.
-Quando ficar pronto, copie o convite e mande para as pessoas.
+No Painel, escolha Criar sala ou Entrar em uma sala.
+Criar sala abre os controles e participantes, sem iniciar captura.
+Na sala, escolha tela/janela, qualidade, FPS e audio.
+Codigo sendo carregado aparece enquanto o convite prepara.
+Quando ficar pronto, clique em Copiar codigo e mande para as pessoas.
 Se abrir e copiar imediatamente, ainda pode haver espera.
-Cancelar preparacao interrompe; Preparar convite tenta de novo.
+Cancelar preparacao interrompe; Tentar novamente retoma ou tenta apos erro.
+Se a Cloudflare limitar pedidos, aparece o motivo e uma contagem para tentar de novo.
+A espera local comeca em 1 minuto e cresce ate 5 minutos se o bloqueio se repetir.
+Fechar e reabrir respeita esse prazo. Quando terminar, clique para tentar novamente.
+Essa contagem nao garante quando o servico externo vai liberar a criacao.
 
 QUEM ENTRA PELO CONVITE
-Na mesma tela dos controles de compartilhar, cole o convite no campo
-Entrar na sala de um amigo e clique em Entrar na sala.
-Convite curto comeca com concord:; nao precisa abrir no navegador.
+Clique em Entrar em uma sala, cole o convite no pop-up e confirme em Entrar na sala.
+Cancelar ou Esc fecha o pop-up. Erro de convite aparece ali mesmo.
+O instalador registra concord: no Windows para abrir o app com um convite.
+Abrir esse link so preenche o codigo e pede confirmacao; nao entra sozinho.
+Convites antigos https:// com #join= continuam aceitos.
 Todos precisam de 0.3.0 ou mais nova para participar da sala nova.
 
 NA MESMA SALA
@@ -42,6 +51,16 @@ Na grade, toca o som de todas as streams recebidas.
 Em foco, toca so o som escolhido. Sua previa fica muda para evitar eco.
 Volume e silenciar sao respeitados. Tela cheia funciona nos dois modos.
 Nomes e fotos dos participantes aparecem no menu lateral.
+Clique no nome ou avatar de alguem na sala para abrir o cartao de perfil.
+Mostra so nome/foto atuais, ou iniciais se nao houver foto.
+Tab e Enter/Espaco tambem abrem. Feche no X, clicando fora ou por Esc.
+O cartao preserva foco das telas, som e transmissoes, e fecha se a pessoa sair.
+Painel e sala atual preservam a transmissao ao alternar a visualizacao.
+Criar sala quando voce ja e dono preserva sua sala.
+Criar sala estando na sala de um amigo muda para sua sala propria.
+Sair da sala encerra sua transmissao e volta ao Painel.
+Atalhos: M silencia/ativa som recebido, F alterna tela cheia, Esc volta a grade.
+Atalhos nao atuam ao digitar nem enquanto um pop-up esta aberto.
 
 PERFIL
 Nome e miniatura da foto PNG/JPG ficam salvos no PC do proprio usuario.
@@ -49,16 +68,24 @@ A miniatura e enviada aos participantes, sem armazenamento online.
 Nao tem camera, lista de amigos, tags ou cadastro.
 
 QUALIDADE E AUDIO
-720p, 1080p, 1440p ou 4K, em 30 ou 60 FPS.
-Taxa automatica por qualidade ou personalizada de 1 a 60 Mbps.
+Qualidade: 720p, 1080p, 1440p ou 4K. FPS: 30 ou 60 em outro controle.
+Opcoes avancadas: taxa automatica por qualidade/FPS ou personalizada de 1 a 60 Mbps.
+Essas preferencias e modo de audio ficam salvos localmente para a proxima abertura.
+Tela/janela e app sonoro sempre precisam ser escolhidos; microfone abre desligado.
 Use 720p / 30 FPS em salas maiores ou internet lenta.
 Mais pessoas e streams exigem mais upload e processamento.
-Conexao Automatica tenta WebRTC por dupla; Compatibilidade usa o tunel.
+A conexao escolhe automaticamente entre direta e compatibilidade.
+Mensagens curtas avisam quando reconecta ou usa compatibilidade.
 Somente do jogo / app exige Windows 11 / build 20348+, inclui filhos
 do app escolhido e deixa programas independentes de fora.
 Todo o computador inclui os sons de TODOS os apps.
 Microfone acompanha sua tela; nao ha voz independente de uma stream.
 Qualidade, fonte e bitrate sao ajustados antes de transmitir.
+O medidor mostra o nivel da fonte autorizada durante a transmissao.
+Para conferir antes, escolha o app e clique em Testar audio do app.
+Parar teste de audio encerra essa captura local, sem transmitir.
+No modo Todo o computador, o nivel aparece somente ao transmitir.
+Selecionar modo/fonte e abrir o app nao ativam o medidor nem capturam por conta propria.
 
 ENCERRAR
 Encerrar transmissao para so sua tela; os outros continuam na sala.

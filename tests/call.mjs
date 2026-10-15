@@ -15,6 +15,8 @@ async function launch(name, data = path.join(run, name), fresh = true) {
     const session = await page.evaluate(() => window.concord.session()); assert.equal(session.active, false, 'abertura não captura tela');
     await page.locator('#display-name').fill(name); await page.locator('#save-name').click();
   }
+  await page.locator('#profile-button').waitFor();
+  if (await page.locator('#create-room').count()) await page.locator('#create-room').click();
   await page.waitForFunction(() => document.body.dataset.connected === 'true' || document.querySelector('#connection-status')?.textContent.includes('Sala conectada'));
   await page.evaluate(() => { const PC = RTCPeerConnection; window.testPeers = []; window.RTCPeerConnection = class extends PC { constructor(...args) { super(...args); window.testPeers.push(this); } }; });
   return { app, page, data };
@@ -36,11 +38,13 @@ async function capture(page, color, frequency) {
   }, { color, frequency });
 }
 async function start(page, mode = 'auto') {
-  await page.locator('#connection-mode').selectOption(mode);
+  if (await page.locator('#connection-mode').count()) await page.locator('#connection-mode').selectOption(mode);
+  else if (mode === 'relay') await page.evaluate(() => { for (const pc of window.testPeers) { Object.defineProperty(pc, 'connectionState', { configurable: true, value: 'failed' }); pc.dispatchEvent(new Event('connectionstatechange')); } });
   await page.locator('#choose-source').click(); await page.locator('.source-choice').first().click(); await page.locator('#start-button').click();
   await page.locator('#stop-button').waitFor();
 }
 async function join(page, invite) {
+  if (await page.locator('#join-room-nav').count()) await page.locator('#join-room-nav').click();
   await page.locator('#join-input').fill(invite); await page.locator('#join-button').click();
   await page.waitForFunction(() => document.body.dataset.connected === 'true' || document.querySelector('#connection-status')?.textContent.includes('Sala conectada'));
 }

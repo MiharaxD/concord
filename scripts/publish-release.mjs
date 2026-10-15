@@ -44,7 +44,21 @@ if (release && !release.draft) throw new Error('Essa versao ja esta publicada. A
 if (!release) {
   release = await api(`${base}/releases`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
     tag_name: tag, target_commitish: commit, name: `Concord ${pkg.version}`, draft: true, prerelease: false,
-    body: 'Instale o Concord pelo arquivo Setup.exe. Versoes com atualizador recebem este update pelo proprio aplicativo. Nome e foto sao preservados.'
+    body: [
+      '## Novidades do Concord 0.4.3',
+      '',
+      '- Painel inicial com **Criar sala** e **Entrar em uma sala**, convite com confirmação e preparação/cópia do código em segundo plano.',
+      '- Participantes com cartão de perfil usando nome e foto locais; várias transmissões na mesma sala, grade adaptável, foco por clique e áudio conforme a visualização.',
+      '- Qualidade e FPS separados, bitrate em **Opções avançadas**, preferências de vídeo/áudio salvas e medidor da fonte de áudio.',
+      '- Transporte automático, avisos de reconexão/compatibilidade e atalhos **M**, **F** e **Esc**.',
+      '- Convites `concord:` podem abrir o aplicativo instalado no Windows e pedir confirmação antes de entrar.',
+      '- Falhas ao preparar convites agora são explicadas; se a Cloudflare responder com limite 429, o Concord mostra uma contagem antes da próxima tentativa.',
+      '- Ajustes visuais no painel, ícones, textos e encerramento da transmissão.',
+      '',
+      '**Limite conhecido:** a criação de convites depende da Cloudflare. Durante o bloqueio 429 observado em 15/10/2026, novos convites públicos podem não ser gerados até o provedor liberar novas tentativas.',
+      '',
+      'Instale pelo arquivo Setup.exe. Versões com atualizador recebem esta versão pelo próprio aplicativo. Nome e foto são preservados.'
+    ].join('\n')
   }) });
 }
 // Keep the release invisible to clients until every installer/metadata upload succeeds.

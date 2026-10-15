@@ -19,6 +19,8 @@ globalThis.fetch = async (url, options = {}) => {
   if (options.method === 'DELETE') { deletes.push(url); return new Response(null, { status: 204 }); }
   if (options.method === 'POST' && String(url).endsWith('/releases')) {
     const body = JSON.parse(options.body); assert.equal(body.draft, true); assert.equal(body.tag_name, `v${pkg.version}`);
+    assert.match(body.body, /Novidades do Concord 0\.4\.3/);
+    assert.match(body.body, /Cloudflare responder com limite 429/);
     creates++;
     return Response.json({ id: 1, assets: [], upload_url: 'https://uploads.github.com/repos/MiharaxD/concord/releases/1/assets{?name,label}' });
   }

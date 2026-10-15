@@ -1,0 +1,4 @@
+import { appendFileSync } from 'node:fs';
+appendFileSync(process.env.CONCORD_TEST_PID_FILE, process.pid + '\n');
+process.stderr.write('quick tunnel provisioning failed with status 429\n');
+process.exitCode = 1;
