@@ -2,8 +2,8 @@
 
 ## Versão e distribuição
 
-- **0.4.3 local, verificada em 15/10/2026**: `dist/installer/0.4.3/Concord-0.4.3-Setup.exe`, 134.785.084 bytes, SHA-256 `68bd2dd27d15c5982393ab1a5f7a04fa95884de9071d7afc9ee88f62dd51daf2`. Setup/blockmap/checksum/latest.yml consistentes. Sem commit/push/tag/publicação. Instaladores/relatórios anteriores preservados; hashes 0.4.2 (`39862d78194d7ae82323536b48e1b614f4294e808950b6115f617f3a7bde7b2f`) e 0.4.1 (`1f1e0b4311e8bccb5573852b08eccff896234d5828ae3b7a03d05da389f2f4b6`) conferidos.
-- Última publicação registrada neste checkout: [0.3.4](https://github.com/MiharaxD/concord/releases/tag/v0.3.4), validada em 07/10. Cópia pública em `dist/installer/0.3.4/github/`, SHA-256 do Setup `6c35d9efa6ab32a177247eed46913aa023a1b80cfb0bdf3a826f990bde7d014c`. Consulta/download público do updater por um cliente 0.3.3 passaram naquela rodada.
+- **0.4.3 publicada em 15/10/2026**: [GitHub Release](https://github.com/MiharaxD/concord/releases/tag/v0.4.3), commit `a6708d06eb587c7cca5f27d3e8f877444a51efda`. GitHub Actions passou nos testes e gerou/publicou Setup, blockmap, SHA-256 e `latest.yml`; Setup público: 125.200.210 bytes, SHA-256 `0238a3c0e024a613fc2ff2984d014ade31ff1d794b1bb0c4c13c98405900b3b4`. Descrição enumera as mudanças e informa o limite externo 429 da Cloudflare. Build local preservado separadamente: `dist/installer/0.4.3/Concord-0.4.3-Setup.exe`, 134.785.084 bytes, SHA-256 `68bd2dd27d15c5982393ab1a5f7a04fa95884de9071d7afc9ee88f62dd51daf2`.
+- Publicação anterior: [0.3.4](https://github.com/MiharaxD/concord/releases/tag/v0.3.4), validada em 07/10. Cópia pública em `dist/installer/0.3.4/github/`, SHA-256 do Setup `6c35d9efa6ab32a177247eed46913aa023a1b80cfb0bdf3a826f990bde7d014c`. Consulta/download público do updater por um cliente 0.3.3 passaram naquela rodada.
 - 0.3.5 local preservada (correção de Minha sala), SHA-256 `127b5f432b3a0fa55ae34d3515bef67f426e35c2d7912661329afd13b8d404e7`. Todos os instaladores/portáteis anteriores e relatórios específicos permanecem em suas pastas. `dist/` é ignorada pelo Git.
 
 ## Produto e comportamento atual

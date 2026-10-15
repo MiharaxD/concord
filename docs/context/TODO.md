@@ -2,7 +2,7 @@
 
 ## Agora
 
-0.4.3 local trata falha de convite com motivo seguro e espera persistente para 429, sem bloquear controles ou repetir pedidos ao reabrir. 26 unidades, fluxo de convite controlado e duas instâncias com duas streams/perfis passaram no app extraído. Criação pública real ainda recusada pela Cloudflare (429 em 15/10/2026); não considerar resolvida a disponibilidade externa. Instaladores/relatórios anteriores preservados, sem push/Release; última publicação registrada é 0.3.4.
+0.4.3 publicada pelo GitHub Actions em 15/10/2026; testes, build Windows e quatro artefatos confirmados. Convites públicos ainda dependem da Cloudflare, que retornou 429 no teste de 15/10/2026. Instaladores e relatórios anteriores preservados.
 
 ## Depois
 

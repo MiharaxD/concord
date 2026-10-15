@@ -1,6 +1,12 @@
 # Verificação do Concord 0.4.3
 
-Data: 15/10/2026, Windows x64. Build local, sem commit/push/tag/Release.
+Data: 15/10/2026, Windows x64. Build local e publicação da versão 0.4.3.
+
+## Publicação GitHub
+
+Release: https://github.com/MiharaxD/concord/releases/tag/v0.4.3. Commit/tag: `a6708d06eb587c7cca5f27d3e8f877444a51efda`. O Actions concluiu com sucesso os testes, build Windows e publicação. A descrição lista as mudanças e registra que a criação pública de convites ainda depende da Cloudflare após o 429 observado.
+
+O Setup público foi gerado pelo Actions e tem 125.200.210 bytes, SHA-256 `0238a3c0e024a613fc2ff2984d014ade31ff1d794b1bb0c4c13c98405900b3b4`. A Release contém Setup, `.blockmap`, `.sha256` e `latest.yml`. O instalador local abaixo é um build separado e permanece preservado.
 
 Instalador: `dist/installer/0.4.3/Concord-0.4.3-Setup.exe`, **134.785.084 bytes**.
 SHA-256: `68bd2dd27d15c5982393ab1a5f7a04fa95884de9071d7afc9ee88f62dd51daf2`.
@@ -48,4 +54,4 @@ Defender no Setup final: **found no threats**, código 0. Binário sem assinatur
 
 Instaladores/relatórios anteriores preservados. Hashes 0.4.2 `39862d78194d7ae82323536b48e1b614f4294e808950b6115f617f3a7bde7b2f` e 0.4.1 `1f1e0b4311e8bccb5573852b08eccff896234d5828ae3b7a03d05da389f2f4b6` conferidos.
 
-Suíte extensa de WASAPI, fallback/reconexão e protocolo Windows permanece documentada na 0.4.0, sem repetição integral. Duas máquinas físicas/redes distintas, aplicação do update público e clique do protocolo pelo shell após instalação continuam pendentes. Nenhuma publicação automática.
+Suíte extensa de WASAPI, fallback/reconexão e protocolo Windows permanece documentada na 0.4.0, sem repetição integral. Duas máquinas físicas/redes distintas e clique do protocolo pelo shell após instalação continuam pendentes. A Release pública já pode ser consultada pelo atualizador; a aplicação/reinício em máquina de teste continua pendente.
