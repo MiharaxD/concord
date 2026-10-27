@@ -2,7 +2,7 @@
 
 ## Agora
 
-0.5.2 local concluída em 27/10/2026: preparo só em Criar sala, com duas instâncias/fluxos de convite testados no instalador extraído e zero provisionamentos reais. Usuário solicitou push e edição da mesma Release publicada (ID 425643743), sem criar outra entrada. Em preparação: atualizar a entrada para v0.5.2 e seus quatro anexos, preservando cópia local dos anexos 0.5.1 e a tag antiga. Confirmar identidade da Release, download e checksums antes de registrar conclusão.
+0.5.2 pública em 27/10/2026: push concluído e a mesma Release ID 425643743 editada de 0.5.1 para 0.5.2, sem nova entrada. Quatro anexos, download e SHA-256/SHA-512 conferidos; updater latest aponta para 0.5.2. Tag e cópias locais dos anexos 0.5.1 preservadas; workflow de publicação restaurado ativo. Preparo só em Criar sala validado com duas instâncias, sem novos túneis reais. Edição solicitada está concluída.
 
 ## Depois
 

@@ -1,6 +1,6 @@
 # Verificação do Concord 0.5.2
 
-27/10/2026, Windows x64. Build local, sem commit/push/Release nesta alteração. Última versão pública: 0.5.1; instaladores/relatórios anteriores preservados.
+27/10/2026, Windows x64. Build local testado, push concluído e publicação por edição da mesma Release anterior, conforme autorização explícita. Versão pública atual: 0.5.2; instaladores/relatórios anteriores preservados.
 
 ## Mudança
 
@@ -15,6 +15,14 @@
 `dist/installer/0.5.2/Concord-0.5.2-Setup.exe`, **138.029.638 bytes**.
 SHA-256: `ae9117702e4ff03d977b1ae1a4ffcf790917c4aa5afe9d000c2681d7e3d5060a`.
 Build terminou com código 0, gerando Setup, blockmap, checksum e latest.yml. Conteúdo extraído em `test-results/installer-0.5.2-verified/` e executado em QA, sem instalar sobre a cópia pessoal.
+
+## Edição da Release confirmada
+
+[Release atual v0.5.2](https://github.com/MiharaxD/concord/releases/tag/v0.5.2), **mesmo ID 425643743** da antiga 0.5.1. Conjunto de IDs de Releases antes/depois idêntico: nenhuma nova entrada foi criada. Commit/tag 0.5.2: `942641e5921fc7f9616f12dffe0f9c40980520d4`. Tag 0.5.1 permanece no commit original; seus quatro anexos foram conferidos e preservados localmente antes da troca.
+
+Binário já testado publicado diretamente pela API oficial; sem reconstrução por CI nesta edição. Workflow automático de publicação pausado apenas durante o push da tag para evitar criar outra Release, e restaurado ao estado ativo imediatamente depois. A descrição acrescenta a correção do preparo em Criar sala e mantém as demais novidades.
+
+Quatro anexos públicos baixados em `dist/installer/0.5.2/github/`; tamanhos/digest SHA-256 da API, arquivo SHA-256 e manifesto SHA-512 conferem. Setup público idêntico ao local: 138.029.638 bytes, SHA-256 `ae9117702e4ff03d977b1ae1a4ffcf790917c4aa5afe9d000c2681d7e3d5060a`. Endpoint latest aponta para v0.5.2, com manifesto versão 0.5.2. Evidências `test-results/release-edit-0.5.2/result.json` e `test-results/public-release-0.5.2.json`.
 
 ## Validação
 
@@ -32,4 +40,4 @@ Build terminou com código 0, gerando Setup, blockmap, checksum e latest.yml. Co
 
 Uma primeira versão do novo teste recarregava a janela antes de o loadURL inicial terminar, causando ERR_ABORTED e diálogo nativo na janela de QA. A porta 57988 mostrada pelo usuário foi identificada como processo de desenvolvimento com perfil test-results/invite-start; somente essa janela de teste foi encerrada. O teste foi corrigido para concluir nome/carga inicial antes da recarga instrumentada e passou nas duas execuções seguintes. Não foi atribuído esse erro à Cloudflare nem alterado o tratamento de falhas do app para ocultá-lo.
 
-Não houve envio real de convite Discord, captura pessoal, reinstalação, teste de oito streams ou publicação. Regressões de mídia e validação pública anteriores continuam nos relatórios da 0.5.0/0.5.1; não foram repetidas para mudar o gatilho do convite.
+Não houve envio real de convite Discord, captura pessoal, reinstalação, teste de oito streams ou instalação/reinício de update público nesta rodada. Regressões de mídia e validação pública anteriores continuam nos relatórios da 0.5.0/0.5.1; não foram repetidas para mudar o gatilho do convite.
