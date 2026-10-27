@@ -21,6 +21,8 @@ Até **8 pessoas** na mesma sala, com várias transmissões simultâneas. Sem ca
 3. Para participar, abra o link ou cole o convite em **Entrar em uma sala** e confirme.
 4. Escolha a tela ou janela, ajuste qualidade e áudio e clique em **Compartilhar tela**.
 
+O convite começa a ser preparado ao clicar em **Criar sala**, sem bloquear os controles. Abrir o app ou entrar na sala de outra pessoa não gera um convite próprio.
+
 Clique em uma transmissão para focar; clique novamente para voltar à grade. Na grade, você ouve todas as streams recebidas; em foco, apenas a selecionada.
 
 **Parar a transmissão mantém a sala aberta. Fechar o Concord de quem criou a sala encerra a sala e seu link.**

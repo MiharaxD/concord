@@ -1,6 +1,6 @@
 {
   "name": "concord",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "private": true,
   "author": "Concord",
   "license": "UNLICENSED",
@@ -23,6 +23,7 @@
     "test:profiles": "node tests/member-profile.mjs",
     "test:discord": "node tests/discord-links.mjs",
     "test:invitation": "node tests/invite-retry.mjs",
+    "test:invite-start": "node tests/invite-start.mjs",
     "test:experience": "node tests/experience.mjs",
     "test:installer": "node tests/installer.mjs",
     "test:updater": "node tests/updater.mjs"

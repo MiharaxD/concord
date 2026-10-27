@@ -2,7 +2,7 @@
 
 ## Agora
 
-0.5.1 publicada em 27/10/2026, commit/tag `1e111d2773789c96c21c789e92338d8d21fd6b1b`. Actions 40531442838 passou; Setup, blockmap, checksum e latest.yml públicos baixados e conferidos. App extraído público confirma versão/logo/runtime/SDK. Descrição inclui Discord/perfil/banner/amigos/DM/links e novo logo. Instaladores anteriores preservados. Pendências abaixo continuam independentes da publicação concluída.
+0.5.2 local concluída em 27/10/2026: preparo só em Criar sala, com duas instâncias/fluxos de convite testados no instalador extraído e zero provisionamentos reais. Usuário solicitou push e edição da mesma Release publicada (ID 425643743), sem criar outra entrada. Em preparação: atualizar a entrada para v0.5.2 e seus quatro anexos, preservando cópia local dos anexos 0.5.1 e a tag antiga. Confirmar identidade da Release, download e checksums antes de registrar conclusão.
 
 ## Depois
 
@@ -14,5 +14,5 @@
 
 ## Se voltar a ocorrer
 
-- [ ] Falha pública: Cloudflare voltou a provisionar em 27/10 (`test-results/discord-live-1793112149649/result.json`). Distinguir sala/túnel fechado (1033), limite 429 e falha com app ativo. Respeitar prazo e não usar testes comuns para criar túneis repetidamente.
+- [ ] Falha pública: Cloudflare provisionou em 27/10 (`test-results/discord-live-1793112149649/result.json`), depois usuário relatou novo bloqueio. Não fazer pedidos reais só para diagnosticar esse limite. Distinguir sala/túnel fechado (1033), limite 429 e falha com app ativo. Respeitar prazo; testes comuns de convite usam cache/IPC controlado.
 - [ ] Bloqueio de download: obter texto exato/nome da ameaça e antivírus antes de diagnosticar ou alterar distribuição. Varredura local limpa não comprova falso positivo.

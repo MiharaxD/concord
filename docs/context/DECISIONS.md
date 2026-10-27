@@ -16,7 +16,7 @@ Decisão: recusa 429 na criação do Quick Tunnel mostra o motivo e bloqueia nov
 
 ## Compartilhamento explícito e privado
 
-Decisão: preparar acesso público em segundo plano ao abrir, conforme solicitado pelo usuário; captura continua dependendo de escolha explícita. Sala com até 8 pessoas e chave aleatória revogável.
+Decisão atual (0.5.2): preparar acesso público somente ao clicar em Criar sala, em segundo plano e sem bloquear controles. Abrir o app, escolher nome ou entrar em outra sala não solicita túnel próprio. Substitui o preparo ao abrir, conforme novo pedido do usuário para reduzir pedidos à Cloudflare. Cliques repetidos/navegação na sala própria reutilizam o preparo/convite; erro ou cancelamento mantêm Tentar novamente explícito. Captura continua dependendo de escolha explícita. Sala com até 8 pessoas e chave aleatória revogável.
 Consequência: preparar não captura tela/áudio. Cancelar/fechar acesso interrompe o preparo e não reinicia automaticamente na mesma execução. Sem gravação de mídia em disco, controle remoto ou câmera. Nunca ampliar silenciosamente uma captura de áudio para todo o sistema.
 
 ## Convite curto sem serviço extra
@@ -53,9 +53,11 @@ Decisão: preservar binários anteriores; novas versões usam nome e diretório 
 Motivo: permitir retorno à versão funcional e evitar grandes binários no histórico. O executável 0.1.0 excede o limite normal por arquivo do repositório GitHub.
 Consequência: distribuir via anexos de Releases, sem publicar automaticamente nem alegar que mudança de hospedagem resolve alertas de antivírus.
 
+Exceção autorizada em 27/10/2026: para esta correção 0.5.2, o usuário pediu editar a mesma entrada da Release 0.5.1, sem criar outra. Manter ID da Release, atualizar sua versão/tag para v0.5.2 (para o updater reconhecer a correção) e substituir anexos após conferir backup local dos anteriores. Preservar a tag v0.5.1 no commit original; não mover tags antigas. Esta autorização não torna edição de futuras releases automática.
+
 ## Instalação e atualizações
 
-Interface: linguagem neutra e direta, sem “galera”, “bora” ou frases promocionais. Painel minimalista, “Compartilhamento de tela” no vazio, relógio somente enquanto transmite e “Desenvolvido por Yuri Mihara” no rodapé inferior direito. Sem texto orientativo no rodapé ou aviso de sucesso ao encerrar transmissão; erros permanecem. Minha sala usa SVG de cômodo; Entrar em uma sala usa o mesmo SVG de tomada no menu e no Painel. Código em painel pequeno: “Código sendo carregado…”, Copiar link, erro/tentar novamente e gerenciamento recolhido. Preparo continua ao abrir, sem bloquear controles. Reconexão/compatibilidade têm aviso curto quando necessário.
+Interface: linguagem neutra e direta, sem “galera”, “bora” ou frases promocionais. Painel minimalista, “Compartilhamento de tela” no vazio, relógio somente enquanto transmite e “Desenvolvido por Yuri Mihara” no rodapé inferior direito. Sem texto orientativo no rodapé ou aviso de sucesso ao encerrar transmissão; erros permanecem. Minha sala usa SVG de cômodo; Entrar em uma sala usa o mesmo SVG de tomada no menu e no Painel. Código em painel pequeno: “Código sendo carregado…”, Copiar link, erro/tentar novamente e gerenciamento recolhido. Preparo começa em Criar sala, sem bloquear controles. Reconexão/compatibilidade têm aviso curto quando necessário.
 
 Identidade visual (0.5.1): usar exatamente o SVG de câmera fornecido em `icone_camera_vetor.svg`, mantendo desenho/cores/transparência em `public/icon.svg`. ICO Windows e PNG 512 da prévia derivam do mesmo vetor. Logo substituído na interface, favicon, executável, instalador e página/prévia de convite; URL da imagem Open Graph com revisão para não reutilizar a imagem antiga em cache. Mensagens já enviadas no Discord podem manter a prévia em cache.
 

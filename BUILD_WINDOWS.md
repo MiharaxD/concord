@@ -46,10 +46,10 @@ O comando instala as dependências pelo lockfile, verifica o SHA-256 oficial do 
 Resultado da versão atual:
 
 ```text
-dist/installer/0.5.1/Concord-0.5.1-Setup.exe
-dist/installer/0.5.1/Concord-0.5.1-Setup.exe.sha256
-dist/installer/0.5.1/Concord-0.5.1-Setup.exe.blockmap
-dist/installer/0.5.1/latest.yml
+dist/installer/0.5.2/Concord-0.5.2-Setup.exe
+dist/installer/0.5.2/Concord-0.5.2-Setup.exe.sha256
+dist/installer/0.5.2/Concord-0.5.2-Setup.exe.blockmap
+dist/installer/0.5.2/latest.yml
 ```
 
 **Envie o `.exe`** para a instalação inicial dos amigos. Todos os componentes estão dentro dele. Na GitHub Release, publique também `.blockmap` e `latest.yml`: são necessários para o atualizador. `win-unpacked` e relatórios não precisam ser enviados. Para gerar também o formato portátil, use `pnpm build`; sua saída fica em `dist/<versão>/`.
@@ -104,8 +104,8 @@ O comando gera o pacote local e usa a API oficial do GitHub para criar/reutiliza
 Alternativa pelo GitHub Actions, após enviar os commits à branch principal:
 
 ```powershell
-git tag v0.5.1
-git push origin v0.5.1
+git tag v0.5.2
+git push origin v0.5.2
 ```
 
 O workflow em Windows confere se tag/`package.json` concordam, usa Node 24/pnpm fixado, executa testes de unidade, gera NSIS e publica os quatro artefatos. Recebe apenas o `GITHUB_TOKEN` temporário com `contents: write`; não precisa de token pessoal nos PCs dos amigos. Assinatura pode ser adicionada futuramente via secrets de CI. [Autenticação oficial do Actions](https://docs.github.com/en/actions/tutorials/authenticate-with-github_token).
@@ -132,11 +132,12 @@ Para certificado no repositório de certificados do Windows/token, use `CONCORD_
 
 ```powershell
 pnpm test
-$env:CONCORD_EXE = (Join-Path (Get-Location) 'dist/installer/0.5.1/win-unpacked/Concord.exe')
+$env:CONCORD_EXE = (Join-Path (Get-Location) 'dist/installer/0.5.2/win-unpacked/Concord.exe')
 node tests/smoke.mjs
 pnpm test:navigation
 pnpm test:experience
 pnpm test:discord
+pnpm test:invite-start
 node tests/protocol.mjs
 pnpm test:installer
 ```

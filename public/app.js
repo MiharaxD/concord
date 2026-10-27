@@ -51,8 +51,10 @@ function showView(view) {
   $('room-name').textContent = role === 'viewer' ? 'Sala atual' : 'Minha sala'; renderInvite(); renderTiles();
 }
 function createRoom() {
-  if (role !== 'host' || !target) { stopSharing(); connect(config.address, config.hostToken, 'host'); }
+  const creating = role !== 'host' || !target;
+  if (creating) { stopSharing(); connect(config.address, config.hostToken, 'host'); }
   showView('room');
+  if (creating && !invite && !invitePending) void makeInvite();
 }
 function openJoin(value) {
   if (!uiReady) { if (value) queuedInvite = value; return; }
@@ -645,7 +647,7 @@ try {
   config = await native.bootstrap(); $('app-version').textContent = 'Concord ' + config.version; renderProfile(); applyPreferences(config.preferences);
   native.onInvite(value => openJoin(value));
   native.onUpdate(renderUpdate); renderUpdate(await native.updatesReady());
-  const session = await native.session(); if (session.public) showInvite(session); else void makeInvite();
+  const session = await native.session(); if (session.public) showInvite(session);
   if (!config.profile.name) await chooseName();
   uiReady = true; status('Esperando sala'); showView('home');
   for (const id of ['create-room', 'join-room', 'join-room-nav']) $(id).disabled = false;

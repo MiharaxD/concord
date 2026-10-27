@@ -1,6 +1,6 @@
 CONCORD - SALA PESSOAL DE TELAS
 
-Envie Concord-0.5.1-Setup.exe para seus amigos. Windows 64 bits.
+Envie Concord-0.5.2-Setup.exe para seus amigos. Windows 64 bits.
 Abra o instalador, escolha se quer atalho na Area de Trabalho e clique em Instalar.
 Depois, abra Concord pelo menu Iniciar. Nao precisa de Node, Python ou comandos.
 Instala somente para seu usuario, sem pedir administrador.
@@ -21,7 +21,8 @@ Sem internet, o app continua abrindo normalmente.
 O portatil antigo precisa instalar este Setup uma vez para ter atualizacoes.
 Novas versoes precisam ser publicadas com seus metadados na Release do GitHub.
 
-O convite e preparado em segundo plano logo que o app abre.
+O convite comeca a ser preparado em segundo plano ao clicar em Criar sala.
+Abrir o programa ou entrar na sala de outra pessoa nao cria um convite proprio.
 No Painel, escolha Criar sala ou Entrar em uma sala.
 Criar sala abre os controles e participantes, sem iniciar captura.
 Na sala, escolha tela/janela, qualidade, FPS e audio.

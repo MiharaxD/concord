@@ -47,6 +47,7 @@ if (!release) {
     body: [
       `## Novidades do Concord ${pkg.version}`,
       '',
+      '- O convite passa a ser preparado somente ao clicar em **Criar sala**, reduzindo pedidos desnecessários à Cloudflare ao abrir o app ou entrar em outra sala.',
       '- Novo logo de câmera no aplicativo, ícone do Windows, instalador e página/prévia dos convites.',
       '- Vinculação opcional com Discord para importar nome, foto, banner e cor do perfil, com atualização e desvinculação no app.',
       '- Banner local: escolher/remover e exibir no cartão dos participantes da sala.',

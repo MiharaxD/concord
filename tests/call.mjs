@@ -11,7 +11,7 @@ async function launch(name, data = path.join(run, name), fresh = true) {
   const page = await app.firstWindow(); pages.push(page); page.setDefaultTimeout(20000); page.on('pageerror', error => console.error('PAGE ERROR:', error.name, error.message, error.stack));
   if (fresh) {
     await page.locator('#name-picker[open]').waitFor();
-    assert.ok(await page.locator('#invite-button').isDisabled(), 'convite prepara durante escolha do nome');
+    assert.equal(await page.locator('#invite-status').textContent(), '', 'convite não prepara durante escolha do nome');
     const session = await page.evaluate(() => window.concord.session()); assert.equal(session.active, false, 'abertura não captura tela');
     await page.locator('#display-name').fill(name); await page.locator('#save-name').click();
   }
