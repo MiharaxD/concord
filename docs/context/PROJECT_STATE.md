@@ -2,10 +2,11 @@
 
 ## Versão e distribuição
 
-- **0.5.1 local concluída em 27/10/2026**, sem commit/push/publicação: `dist/installer/0.5.1/Concord-0.5.1-Setup.exe`, 138.029.717 bytes, SHA-256 `db08ca0079998b69120c0c042e20b745e1257804563fea724a407b4b5ccc426d`. Novo logo de câmera do SVG fornecido em todas as superfícies. Build código 0, Setup extraído/aberto e ícones nativos conferidos; evidência `test-results/logo-0.5.1/result.json`. Relatório atual em VERIFICACAO.md; relatório anterior preservado junto da 0.5.0.
-- **0.5.0 local concluída em 27/10/2026**, sem commit/push/publicação: `dist/installer/0.5.0/Concord-0.5.0-Setup.exe`, 137.916.599 bytes, SHA-256 `b47864fa0df8b02bdb1f11ba7f515add78912006143d18e5c9b3c6e787b738a7`. Build terminou com código 0; Setup extraído e executado em QA. Blockmap/checksum/latest.yml gerados. Detalhes em `VERIFICACAO.md`.
-- **0.4.3 é a última publicação confirmada**, em 15/10/2026: [Release](https://github.com/MiharaxD/concord/releases/tag/v0.4.3), commit/tag `a6708d06eb587c7cca5f27d3e8f877444a51efda`. Actions publicou os quatro artefatos; Setup público 125.200.210 bytes, SHA-256 `0238a3c0e024a613fc2ff2984d014ade31ff1d794b1bb0c4c13c98405900b3b4`. Setup local separado 134.785.084 bytes, SHA-256 `68bd2dd27d15c5982393ab1a5f7a04fa95884de9071d7afc9ee88f62dd51daf2`.
-- Instaladores/portáteis e relatórios anteriores preservados em `dist/`, ignorada pelo Git. Gerar pacote não publica. A página de download do convite aponta para a última Release pública, não para a versão local.
+- **0.5.1 publicada em 27/10/2026**: [Release](https://github.com/MiharaxD/concord/releases/tag/v0.5.1), commit/tag `1e111d2773789c96c21c789e92338d8d21fd6b1b`. [Actions 40531442838](https://github.com/MiharaxD/concord/actions/runs/40531442838) concluiu testes/build/publicação com sucesso. Quatro anexos públicos e checksums verificados por download; Setup 128.356.529 bytes, SHA-256 `0aa181b62cd639f1cfb20325293880f3c15b840e8d7a476e2a0daac25aca19ba`. Cópia em `dist/installer/0.5.1/github/`. Descrição inclui Discord/perfil/banner/amigos/DM/links e novo logo. Endpoint latest aponta para v0.5.1.
+- Build local 0.5.1 preservado separadamente: `dist/installer/0.5.1/Concord-0.5.1-Setup.exe`, 138.029.717 bytes, SHA-256 `db08ca0079998b69120c0c042e20b745e1257804563fea724a407b4b5ccc426d`. Novo logo em todas as superfícies; ícones e pacote verificados em `test-results/logo-0.5.1/result.json`. Relatório atual em VERIFICACAO.md.
+- 0.5.0 local preservada: `dist/installer/0.5.0/Concord-0.5.0-Setup.exe`, 137.916.599 bytes, SHA-256 `b47864fa0df8b02bdb1f11ba7f515add78912006143d18e5c9b3c6e787b738a7`. Não houve Release 0.5.0; funcionalidades publicadas na 0.5.1. Detalhes no relatório junto da 0.5.0.
+- Publicação anterior 0.4.3, em 15/10/2026: [Release](https://github.com/MiharaxD/concord/releases/tag/v0.4.3), commit/tag `a6708d06eb587c7cca5f27d3e8f877444a51efda`. Setup público SHA-256 `0238a3c0e024a613fc2ff2984d014ade31ff1d794b1bb0c4c13c98405900b3b4`; local separado `68bd2dd27d15c5982393ab1a5f7a04fa95884de9071d7afc9ee88f62dd51daf2`.
+- Instaladores/portáteis e relatórios anteriores preservados em `dist/`, ignorada pelo Git. Gerar pacote não publica. Página de download do convite /releases/latest agora oferece a 0.5.1 pública.
 
 ## Produto atual
 
@@ -24,6 +25,7 @@
 
 ## Validação confirmada
 
+- Publicação 0.5.1: 35 unidades locais e teste simulado do publisher passaram antes do push. Actions real passou; quatro anexos públicos conferidos por tamanho/SHA-256 e manifesto SHA-512. Setup público extraído e aberto em QA, versão/logo/14 arquivos runtime e DLL/probe SDK conferidos; normalização só de CRLF/LF nos textos. Evidências `test-results/public-release-0.5.1.json` e `test-results/public-runtime-0.5.1/result.json`. Isso não é uma validação de instalação/reinício do update público em máquina pessoal.
 - 0.5.1, mudança visual: 12 testes de servidor passaram; Setup extraído em `test-results/installer-0.5.1-verified-2/`, quatro arquivos runtime/ativos conferem com fonte e SVG confere byte a byte com o anexo. Sidebar e página renderizadas, PNG Open Graph servido com revisão/tamanho/tipo corretos, ícones reais do EXE/Setup lidos pelo Windows e inspecionados. Sem pageerror. Não houve novo envio/autorização Discord nem repetição da suíte de mídia nesta troca de logo.
 - Validações abaixo pertencem à base 0.5.0; relatórios específicos preservados nessa versão.
 - 35 unidades passaram: OAuth/PKCE/cancelamento/refresh, proteção/separação de credenciais, ponte SDK, perfis, links, servidor, preferências, bitrate, retry e updater.

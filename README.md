@@ -1,8 +1,8 @@
 # Concord
 
-Instalador público: [Concord 0.4.3 para Windows](https://github.com/MiharaxD/concord/releases/download/v0.4.3/Concord-0.4.3-Setup.exe). [Todos os arquivos da Release](https://github.com/MiharaxD/concord/releases/tag/v0.4.3).
+Instalador público: [Concord 0.5.1 para Windows](https://github.com/MiharaxD/concord/releases/download/v0.5.1/Concord-0.5.1-Setup.exe). [Todos os arquivos da Release](https://github.com/MiharaxD/concord/releases/tag/v0.5.1).
 
-Versão local 0.5.1: novo logo de câmera, conforme SVG fornecido, no app, Windows, instalador e página/prévia de convite no Discord. Vinculação opcional, nome/foto/banner, amigos/DM e **Copiar link** preservados. Instalador em `dist/installer/0.5.1/Concord-0.5.1-Setup.exe`; esta versão ainda não foi publicada no GitHub. Versões anteriores preservadas.
+Versão 0.5.1 publicada em 27/10/2026: novo logo de câmera, conforme SVG fornecido, no app, Windows, instalador e página/prévia de convite no Discord. Vinculação opcional, nome/foto/banner, amigos/DM e **Copiar link** incluídos. A Release contém instalador e metadados do atualizador. Builds locais e versões anteriores preservados em `dist/`.
 
 App pessoal para Windows: até 8 pessoas na mesma sala, sem cadastro no Concord, domínio ou servidor próprio. Todos usam o mesmo executável Electron + JavaScript; vincular o Discord é opcional.
 

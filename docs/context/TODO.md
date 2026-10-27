@@ -2,7 +2,7 @@
 
 ## Agora
 
-Publicação da 0.5.1 solicitada em 27/10/2026; em preparação pelo workflow de Release. Código/binário locais e 35 unidades verificados; incluir Discord/perfil/banner/amigos/DM/links e novo logo na descrição. Confirmar conclusão do Actions, quatro anexos e checksums antes de registrar como publicada. Última pública confirmada enquanto isso: 0.4.3. Instaladores anteriores preservados.
+0.5.1 publicada em 27/10/2026, commit/tag `1e111d2773789c96c21c789e92338d8d21fd6b1b`. Actions 40531442838 passou; Setup, blockmap, checksum e latest.yml públicos baixados e conferidos. App extraído público confirma versão/logo/runtime/SDK. Descrição inclui Discord/perfil/banner/amigos/DM/links e novo logo. Instaladores anteriores preservados. Pendências abaixo continuam independentes da publicação concluída.
 
 ## Depois
 

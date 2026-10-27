@@ -1,12 +1,22 @@
 # Verificação do Concord 0.5.1
 
-27/10/2026, Windows x64. Troca focada de identidade visual; sem commit, push ou Release.
+27/10/2026, Windows x64. Troca focada de identidade visual e publicação autorizada da 0.5.1, incluindo as funcionalidades Discord da base 0.5.0.
 
-## Instalador
+## Instalador local preservado
 
 `dist/installer/0.5.1/Concord-0.5.1-Setup.exe`, **138.029.717 bytes**.
 SHA-256: `db08ca0079998b69120c0c042e20b745e1257804563fea724a407b4b5ccc426d`.
-Build Windows terminou com código 0; Setup/blockmap/checksum/latest.yml gerados. Versões anteriores preservadas, incluindo o Setup/relatório 0.5.0. Última publicação confirmada continua 0.4.3.
+Build Windows terminou com código 0; Setup/blockmap/checksum/latest.yml gerados. Versões anteriores preservadas, incluindo o Setup/relatório 0.5.0. Instalador público é um build separado do Actions, detalhado abaixo.
+
+## Publicação GitHub confirmada
+
+[Release v0.5.1](https://github.com/MiharaxD/concord/releases/tag/v0.5.1), commit/tag `1e111d2773789c96c21c789e92338d8d21fd6b1b`. [Actions 40531442838](https://github.com/MiharaxD/concord/actions/runs/40531442838) concluiu testes, build e publicação com sucesso. Push de main e tag concluídos; descrição inclui logo, Discord/perfil/banner/amigos/DM/links e seus limites.
+
+Setup público: **128.356.529 bytes**, SHA-256 `0aa181b62cd639f1cfb20325293880f3c15b840e8d7a476e2a0daac25aca19ba`. Quatro anexos (Setup, blockmap, SHA-256, latest.yml) baixados e verificados por tamanho/hash; manifesto SHA-512 confere. Endpoint /releases/latest aponta para v0.5.1. Cópia preservada em `dist/installer/0.5.1/github/`, evidência `test-results/public-release-0.5.1.json`.
+
+App público extraído/aberto com perfil isolado: versão, logo, 14 arquivos runtime, DLL oficial e probe do SDK conferidos, sem substituir instalação pessoal. Textos comparados normalizando apenas CRLF/LF; imagens/ICO/DLL por bytes/hash. Evidência `test-results/public-runtime-0.5.1/result.json`. Não equivale a instalar/reiniciar atualização pública em uma máquina pessoal.
+
+Antes do push, 35 unidades locais e teste do publisher com API simulada passaram. O workflow real também concluiu seus testes. Binários local e público têm hashes/tamanhos distintos por serem builds separados; os anteriores não foram sobrescritos.
 
 ## Alteração
 
