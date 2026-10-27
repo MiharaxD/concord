@@ -2,11 +2,15 @@ import { qualityPreset, videoBitrate, formatMbps } from './stream-settings.js';
 import { parseInvite } from './invites.js';
 import { RoomMedia } from './room-media.js';
 import { AudioMeter } from './audio-meter.js';
+import { visualProfile } from './profile.js';
 const $ = id => document.getElementById(id);
 const native = window.concord, video = $('screen-video');
 let config, role = null, socket, target, reconnectTimer, terminal = false, retries = 0, processing = Promise.resolve();
 let media, self = '', members = [], focus = null, muted = false;
 let viewedMember = null, profilePointerOutside = false;
+let discordPending = false;
+let discordFriends = [], friendsGeneration = 0, friendsInvite = '', friendPhotoObserver;
+const friendInvites = new Map();
 const tiles = new Map();
 let stream, display, microphone, audioContext, selectedSource, starting = false, liveSince = 0;
 let selectedAudioSource, appAudioContext, appAudioNode, unsubscribeAppAudio, unsubscribeAppAudioError;
@@ -44,7 +48,7 @@ function showView(view) {
   document.body.dataset.view = view; $('home-view').hidden = view !== 'home'; $('room-view').hidden = view !== 'room';
   $('home-tab').classList.toggle('selected', view === 'home'); $('host-tab').classList.toggle('selected', view === 'room');
   $('host-tab').hidden = !target; $('resume-room').hidden = !target; $('room-people').hidden = view !== 'room';
-  $('room-name').textContent = role === 'viewer' ? 'Sala do amigo' : 'Minha sala'; renderInvite(); renderTiles();
+  $('room-name').textContent = role === 'viewer' ? 'Sala atual' : 'Minha sala'; renderInvite(); renderTiles();
 }
 function createRoom() {
   if (role !== 'host' || !target) { stopSharing(); connect(config.address, config.hostToken, 'host'); }
@@ -112,10 +116,19 @@ function sendBytes(blob) {
   return true;
 }
 function avatar(profile, className = '') {
+  profile = visualProfile(profile);
   const element = document.createElement(profile.photo ? 'img' : 'span'); element.className = 'avatar ' + className;
   if (profile.photo) { element.src = profile.photo; element.alt = ''; }
   else element.textContent = (profile.name || 'A').slice(0, 2).toUpperCase();
   return element;
+}
+function renderBanner(element, profile) {
+  const safe = visualProfile(profile);
+  element.style.backgroundColor = safe.accentColor || '';
+  element.style.backgroundImage = safe.accentColor ? 'none' : '';
+  if (element.id === 'name-banner') element.hidden = !safe.banner && !safe.accentColor;
+  element.replaceChildren();
+  if (safe.banner) { const image = document.createElement('img'); image.src = safe.banner; image.alt = ''; element.append(image); }
 }
 function tile(member, own = false) {
   let item = tiles.get(member.id);
@@ -174,7 +187,7 @@ function renderTiles() {
 }
 function renderMembers() {
   const others = members.filter(member => member.id !== self);
-  $('friend-label').textContent = others.length ? others.length + (others.length === 1 ? ' pessoa na sala' : ' pessoas na sala') : 'Aguardando seus amigos';
+  $('friend-label').textContent = others.length ? others.length + (others.length === 1 ? ' pessoa na sala' : ' pessoas na sala') : 'Nenhum outro participante';
   $('friend-dot').classList.toggle('green', others.length > 0); $('audience-list').replaceChildren();
   for (const member of others) {
     const row = document.createElement('button'); row.type = 'button'; row.className = 'audience-person'; row.dataset.member = member.id;
@@ -194,6 +207,7 @@ function renderMemberProfile() {
   if (!member || !self || document.body.dataset.view !== 'room') { closeMemberProfile(); return; }
   $('member-profile-photo').replaceChildren(avatar(member, 'member-card-avatar'));
   $('member-profile-name').textContent = member.name;
+  renderBanner($('member-profile-banner'), member);
 }
 function openMemberProfile(id) {
   if (document.body.dataset.view !== 'room' || socket?.readyState !== WebSocket.OPEN || !members.some(person => person.id === id && person.id !== self)) return;
@@ -207,6 +221,7 @@ function closeMemberProfile() {
   const id = viewedMember; viewedMember = null;
   if (dialog.open) dialog.close();
   $('member-profile-photo').replaceChildren(); $('member-profile-name').textContent = '';
+  renderBanner($('member-profile-banner'), {});
   for (const row of $('audience-list').children) row.setAttribute('aria-expanded', 'false');
   if (document.body.dataset.view === 'room') {
     const origin = [...$('audience-list').children].find(row => row.dataset.member === id);
@@ -238,6 +253,7 @@ function updateBitrateControls() {
 }
 function publishState() { send({ type: 'stream-state', active: Boolean(stream), label: selectedSource?.name || '', quality: stream ? qualityLabel() : '', relay: false }); }
 function disconnect() {
+  closeDiscordFriends();
   terminal = true; clearTimeout(reconnectTimer); clearTimeout(joinTimer); const previous = socket; socket = undefined; previous?.close();
   media?.close(); media = null; self = ''; for (const id of [...tiles.keys()]) removeTile(id); members = []; renderMembers();
 }
@@ -443,6 +459,27 @@ async function closeInvite() {
 function renderProfile() {
   $('profile-name').textContent = config.profile.name || 'Escolha seu nome';
   $('profile-avatar').replaceChildren(avatar(config.profile)); $('name-avatar').replaceChildren(avatar(config.profile, 'tile-avatar'));
+  renderBanner($('name-banner'), config.profile); renderDiscord();
+  $('remove-banner').hidden = !config.profile.banner;
+}
+function renderDiscord() {
+  const state = config.discord || {};
+  $('link-discord').hidden = Boolean(state.linked); $('link-discord').disabled = discordPending || !state.configured;
+  $('refresh-discord').hidden = $('unlink-discord').hidden = !state.linked;
+  $('refresh-discord').disabled = $('unlink-discord').disabled = discordPending;
+  $('cancel-discord').hidden = !discordPending;
+  $('discord-status').textContent = discordPending ? 'Conclua a autorização no navegador e volte ao Concord.' : state.linked ? 'Vinculado como ' + state.name : 'Use seu perfil do Discord ou escolha nome e foto aqui.';
+  for (const id of ['photo-button', 'remove-photo', 'banner-button', 'remove-banner', 'display-name', 'save-name']) $(id).disabled = discordPending;
+}
+async function discordAction(action) {
+  if (discordPending) return;
+  discordPending = true; $('name-error').textContent = ''; renderDiscord();
+  try {
+    const result = await action(); config.profile = result.profile; config.discord = result.discord;
+    if (!result.error) { $('display-name').value = config.profile.name; send({ type: 'profile', ...visualProfile(config.profile) }); }
+    $('name-error').textContent = result.error || result.warning || '';
+  } catch { $('name-error').textContent = 'Não consegui concluir a operação do Discord. Tente novamente.'; }
+  finally { discordPending = false; renderProfile(); }
 }
 async function chooseName() {
   $('display-name').value = config.profile.name; $('name-error').textContent = ''; $('cancel-name').hidden = !config.profile.name; renderProfile();
@@ -464,7 +501,91 @@ $('photo-button').onclick = async () => {
   finally { $('photo-button').disabled = false; }
 };
 $('remove-photo').onclick = async () => { config.profile = await native.removePhoto(); renderProfile(); send({ type: 'profile', ...config.profile }); };
+async function changeBanner(action) {
+  $('banner-button').disabled = $('remove-banner').disabled = true;
+  try { config.profile = await action(); renderProfile(); send({ type: 'profile', ...visualProfile(config.profile) }); $('name-error').textContent = ''; }
+  catch (error) { $('name-error').textContent = error.message; }
+  finally { $('banner-button').disabled = $('remove-banner').disabled = false; }
+}
+$('banner-button').onclick = () => void changeBanner(() => native.chooseBanner());
+$('remove-banner').onclick = () => void changeBanner(() => native.removeBanner());
 $('profile-button').onclick = () => void chooseName();
+$('link-discord').onclick = () => void discordAction(() => native.linkDiscord());
+$('refresh-discord').onclick = () => void discordAction(() => native.refreshDiscord());
+$('unlink-discord').onclick = () => void discordAction(() => native.unlinkDiscord());
+$('cancel-discord').onclick = () => void native.cancelDiscord();
+$('name-picker').addEventListener('close', () => { if (discordPending) void native.cancelDiscord(); });
+function closeDiscordFriends() {
+  ++friendsGeneration; friendPhotoObserver?.disconnect(); discordFriends = []; friendsInvite = ''; friendInvites.clear();
+  if ($('discord-friends').open) { $('discord-friends').close(); $('discord-friend-list').replaceChildren(); $('invite-discord-button').focus({ preventScroll: true }); }
+}
+function renderDiscordFriends() {
+  const generation = friendsGeneration, query = $('discord-friend-search').value.trim().toLocaleLowerCase('pt-BR');
+  const filtered = discordFriends.filter(friend => (friend.name + ' ' + friend.username).toLocaleLowerCase('pt-BR').includes(query));
+  $('discord-friend-list').replaceChildren(); friendPhotoObserver?.disconnect();
+  $('discord-friends-status').textContent = filtered.length ? filtered.length + (filtered.length === 1 ? ' amigo' : ' amigos') : 'Nenhum amigo encontrado.';
+  friendPhotoObserver = new IntersectionObserver(entries => {
+    for (const entry of entries) if (entry.isIntersecting) {
+      friendPhotoObserver.unobserve(entry.target); const id = entry.target.dataset.friend;
+      void native.discordFriendPhoto(id).then(photo => {
+        if (generation !== friendsGeneration || !entry.target.isConnected || !photo) return;
+        const friend = discordFriends.find(value => value.id === id); if (!friend) return;
+        friend.photo = photo; entry.target.querySelector('.friend-avatar').replaceChildren(avatar(friend));
+      }).catch(() => {});
+    }
+  }, { root: $('discord-friend-list') });
+  for (const friend of filtered) {
+    const row = document.createElement('div'); row.className = 'discord-friend'; row.dataset.friend = friend.id;
+    const icon = document.createElement('span'); icon.className = 'friend-avatar'; icon.append(avatar(friend));
+    const text = document.createElement('span'); text.className = 'discord-friend-name';
+    const name = document.createElement('strong'); name.textContent = friend.name;
+    const username = document.createElement('small'); username.textContent = friend.username;
+    const state = friendInvites.get(friend.id), error = document.createElement('small'); error.className = 'form-error'; error.textContent = state?.error || '';
+    text.append(name, username, error);
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'button secondary';
+    button.textContent = state?.phase === 'sent' ? 'Enviado' : state?.phase === 'pending' ? 'Enviando…' : 'Convidar'; button.disabled = Boolean(state?.phase);
+    button.setAttribute('aria-label', 'Convidar ' + friend.name);
+    button.onclick = async () => {
+      if (!friendsInvite || socket?.readyState !== WebSocket.OPEN || friendInvites.get(friend.id)?.phase) return;
+      const code = friendsInvite; friendInvites.set(friend.id, { phase: 'pending' }); renderDiscordFriends();
+      try {
+        const result = await native.sendDiscordInvite(friend.id, code);
+        if (result.error) throw new Error(result.error);
+        if (result.value !== true) throw new Error('O Discord não confirmou o envio.');
+        if (generation === friendsGeneration) friendInvites.set(friend.id, { phase: 'sent' });
+        notice('Convite enviado.');
+      } catch (error) { if (generation === friendsGeneration) friendInvites.set(friend.id, { error: error.message }); }
+      if (generation === friendsGeneration) renderDiscordFriends();
+    };
+    row.append(icon, text, button); $('discord-friend-list').append(row); if (!friend.photo) friendPhotoObserver.observe(row);
+  }
+}
+async function openDiscordFriends() {
+  const code = $('invite-link').value; if (!code || socket?.readyState !== WebSocket.OPEN) return;
+  const generation = ++friendsGeneration; friendsInvite = code; discordFriends = []; friendInvites.clear();
+  $('discord-friend-list').replaceChildren(); $('discord-friend-search').value = ''; $('discord-friend-search').disabled = true;
+  $('discord-friends-authorize').hidden = $('discord-friends-retry').hidden = true;
+  if (!$('discord-friends').open) $('discord-friends').showModal();
+  $('discord-friends-status').textContent = 'Carregando amigos do Discord…';
+  if (!config.discord?.social) {
+    $('discord-friends-status').textContent = 'Autorize o acesso aos amigos no Discord para usar os convites.'; $('discord-friends-authorize').hidden = false; return;
+  }
+  try {
+    const result = await native.discordFriends(); if (generation !== friendsGeneration) return;
+    if (result.error) { $('discord-friends-status').textContent = result.error; $('discord-friends-authorize').hidden = result.code !== 'RELINK'; $('discord-friends-retry').hidden = result.code === 'RELINK'; return; }
+    discordFriends = result.value; $('discord-friend-search').disabled = false; renderDiscordFriends(); $('discord-friend-search').focus();
+  } catch { if (generation === friendsGeneration) { $('discord-friends-status').textContent = 'Não foi possível carregar os amigos do Discord.'; $('discord-friends-retry').hidden = false; } }
+}
+$('invite-discord-button').onclick = () => void openDiscordFriends();
+$('close-discord-friends').onclick = closeDiscordFriends;
+$('discord-friends').addEventListener('cancel', event => { event.preventDefault(); closeDiscordFriends(); });
+$('discord-friends').addEventListener('keydown', event => { if (event.key === 'Escape') event.stopPropagation(); });
+$('discord-friend-search').oninput = renderDiscordFriends;
+$('discord-friends-retry').onclick = () => void openDiscordFriends();
+$('discord-friends-authorize').onclick = async () => {
+  closeDiscordFriends(); const done = chooseName(); await discordAction(() => native.linkDiscord()); await done;
+  if (config.discord?.social) void openDiscordFriends();
+};
 $('close-member-profile').onclick = closeMemberProfile;
 $('member-profile').addEventListener('cancel', event => { event.preventDefault(); closeMemberProfile(); });
 $('member-profile').addEventListener('keydown', event => { if (event.key === 'Escape') event.stopPropagation(); });
@@ -488,7 +609,10 @@ $('bitrate-slider').oninput = () => { $('bitrate-value').value = $('bitrate-slid
 $('bitrate-value').oninput = () => { if ($('bitrate-value').validity.valid) { $('bitrate-slider').value = $('bitrate-value').value; savePreferences(); } };
 $('close-picker').onclick = () => $('source-picker').close(); $('start-button').onclick = startSharing; $('stop-button').onclick = () => { stopSharing(); notice(''); };
 $('invite-button').onclick = makeInvite; $('close-invite').onclick = closeInvite; $('cancel-invite').onclick = closeInvite;
-$('copy-button').onclick = async () => { try { await native.copyInvite($('invite-link').value); notice('Código copiado.'); } catch { $('invite-link').select(); notice('Use Ctrl+C para copiar.'); } };
+$('copy-link-button').onclick = async () => {
+  try { await native.copyLink($('invite-link').value); notice('Link copiado.'); }
+  catch { notice('Não consegui copiar o link. Tente novamente.', true); }
+};
 $('renew-button').onclick = async () => { try { showInvite(await native.renewInvite()); notice('Convite trocado. O anterior não funciona mais.'); } catch (error) { notice(error.message, true); } };
 $('join-form').onsubmit = event => {
   event.preventDefault(); if (joining) return;

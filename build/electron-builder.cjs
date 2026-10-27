@@ -12,7 +12,10 @@ module.exports = {
     { from: '.runtime/cloudflared.exe', to: 'cloudflared.exe' },
     { from: '.runtime/cloudflared-version.json', to: 'cloudflared-version.json' },
     { from: '.runtime/cloudflared-LICENSE.txt', to: 'cloudflared-LICENSE.txt' },
-    { from: '.runtime/ConcordAudio.exe', to: 'ConcordAudio.exe' }
+    { from: '.runtime/ConcordAudio.exe', to: 'ConcordAudio.exe' },
+    { from: '.runtime/ConcordDiscord.exe', to: 'ConcordDiscord.exe' },
+    { from: '.runtime/discord_partner_sdk.dll', to: 'discord_partner_sdk.dll' },
+    { from: '.runtime/discord-sdk-LICENSE.txt', to: 'discord-sdk-LICENSE.txt' }
   ],
   asar: true,
   compression: 'normal',

@@ -1,12 +1,12 @@
 CONCORD - SALA PESSOAL DE TELAS
 
-Envie Concord-0.4.3-Setup.exe para seus amigos. Windows 64 bits.
+Envie Concord-0.5.1-Setup.exe para seus amigos. Windows 64 bits.
 Abra o instalador, escolha se quer atalho na Area de Trabalho e clique em Instalar.
 Depois, abra Concord pelo menu Iniciar. Nao precisa de Node, Python ou comandos.
 Instala somente para seu usuario, sem pedir administrador.
 Na primeira abertura, escolha seu nome. Foto e opcional.
-Clique no perfil do menu lateral para editar nome/foto depois.
-Nome/foto ficam em %APPDATA%\Concord, separados da pasta do programa.
+Clique no perfil do menu lateral para editar nome/foto/banner depois.
+O perfil fica em %APPDATA%\Concord, separado da pasta do programa.
 Atualizar e desinstalar normalmente preservam esses dados.
 Feche o Concord antes de instalar manualmente ou desinstalar por Aplicativos instalados.
 
@@ -26,7 +26,8 @@ No Painel, escolha Criar sala ou Entrar em uma sala.
 Criar sala abre os controles e participantes, sem iniciar captura.
 Na sala, escolha tela/janela, qualidade, FPS e audio.
 Codigo sendo carregado aparece enquanto o convite prepara.
-Quando ficar pronto, clique em Copiar codigo e mande para as pessoas.
+Quando ficar pronto, clique em Copiar link. O aviso mostra Link copiado.
+Para copiar so o codigo, selecione na caixa e use Ctrl+C.
 Se abrir e copiar imediatamente, ainda pode haver espera.
 Cancelar preparacao interrompe; Tentar novamente retoma ou tenta apos erro.
 Se a Cloudflare limitar pedidos, aparece o motivo e uma contagem para tentar de novo.
@@ -39,8 +40,16 @@ Clique em Entrar em uma sala, cole o convite no pop-up e confirme em Entrar na s
 Cancelar ou Esc fecha o pop-up. Erro de convite aparece ali mesmo.
 O instalador registra concord: no Windows para abrir o app com um convite.
 Abrir esse link so preenche o codigo e pede confirmacao; nao entra sozinho.
+O link HTTPS abre uma pagina com Abrir no Concord e Baixar Concord.
+O download aponta para a ultima Release publica no GitHub.
+No Discord, a previa pode mostrar o logo e Entrar na sala de <nome>.
+Nao exige bot; a exibicao tambem depende das configuracoes/cache do Discord.
+O link exige que o Concord de quem criou a sala continue aberto.
+Fechar o app ou Fechar acesso deixa o endereco indisponivel.
+Erro 1033 da Cloudflare indica tunel desconectado. Parar so a tela mantem a sala.
 Convites antigos https:// com #join= continuam aceitos.
 Todos precisam de 0.3.0 ou mais nova para participar da sala nova.
+Para colar o novo link HTTPS diretamente no app, use 0.5.0 ou mais nova.
 
 NA MESMA SALA
 Ate 8 pessoas podem entrar e compartilhar ao mesmo tempo.
@@ -52,7 +61,7 @@ Em foco, toca so o som escolhido. Sua previa fica muda para evitar eco.
 Volume e silenciar sao respeitados. Tela cheia funciona nos dois modos.
 Nomes e fotos dos participantes aparecem no menu lateral.
 Clique no nome ou avatar de alguem na sala para abrir o cartao de perfil.
-Mostra so nome/foto atuais, ou iniciais se nao houver foto.
+Mostra nome/foto/banner atuais, ou iniciais se nao houver foto.
 Tab e Enter/Espaco tambem abrem. Feche no X, clicando fora ou por Esc.
 O cartao preserva foco das telas, som e transmissoes, e fecha se a pessoa sair.
 Painel e sala atual preservam a transmissao ao alternar a visualizacao.
@@ -63,9 +72,26 @@ Atalhos: M silencia/ativa som recebido, F alterna tela cheia, Esc volta a grade.
 Atalhos nao atuam ao digitar nem enquanto um pop-up esta aberto.
 
 PERFIL
-Nome e miniatura da foto PNG/JPG ficam salvos no PC do proprio usuario.
-A miniatura e enviada aos participantes, sem armazenamento online.
-Nao tem camera, lista de amigos, tags ou cadastro.
+Nome e miniaturas da foto/banner PNG/JPG ficam salvos no PC do proprio usuario.
+Escolher banner e Remover banner ficam no perfil.
+Miniaturas sao enviadas aos participantes, sem hospedagem de perfil pelo Concord.
+Nao tem camera, tags ou cadastro no Concord.
+
+DISCORD OPCIONAL
+No perfil, Vincular Discord abre a autorizacao oficial no navegador.
+Importa nome, foto, banner quando existir e cor de destaque.
+Atualizar do Discord repete a importacao. Sem banner no Discord, preserva o manual.
+Desvincular revoga/remove a autorizacao sem apagar a aparencia salva.
+A autorizacao fica criptografada pelo Windows, separada do perfil compartilhado.
+Nao forneca senha ou token dentro do Concord.
+Na sala, Convidar pelo Discord abre os amigos da conta autorizada.
+Busque a pessoa e clique em Convidar para enviar o link por mensagem direta.
+Enviado aparece so depois de confirmacao do Discord.
+Se o envio nao for confirmado, confira a conversa antes de repetir.
+Abrir a lista ou vincular a conta nao envia convites automaticamente.
+A lista de amigos fica em memoria; nao existe uma rede de amigos do Concord.
+O SDK oficial tem cota de desenvolvimento: 100 DMs a cada 2 horas para o app inteiro.
+Criar, entrar e transmitir continuam funcionando sem vincular o Discord.
 
 QUALIDADE E AUDIO
 Qualidade: 720p, 1080p, 1440p ou 4K. FPS: 30 ou 60 em outro controle.

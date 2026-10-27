@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { _electron } from 'playwright';
+import { webInvite } from '../public/invites.js';
 
 const root = process.cwd(), run = path.join(root, 'test-results', 'invite-ui-' + Date.now()), errors = [];
 const data = path.join(run, 'profile'); await mkdir(path.join(data, 'tunnel'), { recursive: true });
@@ -62,7 +63,7 @@ try {
   await app.evaluate(({ clipboard }) => { clipboard.writeText = value => { global.inviteUiCopied = value; }; });
   await page.locator('#invite-button').click(); await page.locator('#cancel-invite').waitFor();
   await app.evaluate((_, code) => { global.resolveInviteUi({ public: true, guestInvite: code }); }, code);
-  await page.locator('#copy-button').click(); assert.equal(await app.evaluate(() => global.inviteUiCopied), code);
+  await page.locator('#copy-link-button').click(); assert.equal(await app.evaluate(() => global.inviteUiCopied), webInvite(code));
   assert.equal(await page.locator('#invite-link').inputValue(), code);
   assert.equal(await page.locator('#invite-status').isVisible(), false);
   assert.equal(await page.locator('#invite-button').isVisible(), false);

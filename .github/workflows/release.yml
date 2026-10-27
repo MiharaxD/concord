@@ -29,7 +29,7 @@ jobs:
           }
           # Retry an interrupted release without moving its tag or changing shipped code.
           if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch' -and (git tag --list "v$version")) {
-            git diff --quiet "v$version" HEAD -- desktop public native server.mjs package.json pnpm-lock.yaml build scripts/prepare.mjs scripts/build-audio.ps1
+            git diff --quiet "v$version" HEAD -- desktop public native vendor server.mjs package.json pnpm-lock.yaml build scripts/prepare.mjs scripts/build-audio.ps1 scripts/build-discord.ps1
             if ($LASTEXITCODE -ne 0) { throw 'O app mudou desde a tag. Aumente a versao antes de publicar.' }
           }
       - name: Preparar pnpm

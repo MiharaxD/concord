@@ -22,20 +22,30 @@ Consequência: preparar não captura tela/áudio. Cancelar/fechar acesso interro
 ## Convite curto sem serviço extra
 
 Decisão: convites públicos usam `concord:<nome do túnel>:<chave de 22 caracteres>`. O receptor reconstrói localmente o endereço HTTPS Cloudflare. Chave curta independente, aleatória de 128 bits; administração e links legados continuam usando suas chaves de 256 bits.
-Motivo: reduzir 45 caracteres sem conta, serviço de encurtamento, banco externo ou divulgação da chave para outro provedor.
+Motivo: manter um código compacto sem conta, serviço de encurtamento ou banco externo.
 Consequência: código pode ser colado no dialog ou aberto pelo protocolo `concord:` registrado pelo instalador Windows. Abertura fria/segunda instância preenchem e pedem confirmação; nunca entram nem interrompem captura sozinhas. URL antiga continua aceita. Renovar revoga as duas chaves e remove todos os convidados. Loopback preserva origem/porta no formato URL.
+
+Decisão atual (0.5.0): ação principal **Copiar link**, com aviso exato **Link copiado.**, copia URL HTTPS normal `/invite?join=<chave>`. Não há botão Copiar código; caixa continua selecionável. Página pública oferece Abrir no Concord e Baixar Concord (última Release pública). Discord recebe um cartão clicável com logo/nome da sala, sem bot ou botão nativo de jogo. Chave na consulta é necessária porque a prévia do Discord remove fragmentos do destino; passa pelo provedor do túnel e serviço de prévia. Não inserir chave no HTML/OG/logs nem expor participantes. Link funciona enquanto o app hospedeiro/túnel estiver aberto; sem infraestrutura própria para manter uma página após fechar.
 
 ## Sala com várias transmissões e perfil local
 
 Decisão: Painel inicial com Criar sala/Entrar em uma sala e pop-up de convite. Sala mantém compartilhar e assistir na mesma interface. Até 8 participantes podem compartilhar; grade adaptável, clique alterna foco e grade, com “Ver todas”. Grade habilita sons recebidos; foco só o selecionado. Própria prévia sempre muda; volume/mute permanecem respeitados. M/F/Esc controlam som recebido/tela cheia/grade, sem atalhos ao digitar.
-Decisão: nome obrigatório na primeira execução e foto opcional, salvos no PC e editáveis pelo perfil. Miniatura JPEG 128×128 enviada aos participantes da sala, sem guardar fotos online. Nomes/fotos são descritivos, não autenticação.
+Decisão: nome obrigatório na primeira execução, foto e banner opcionais, salvos no PC e editáveis pelo perfil. Miniaturas JPEG 128×128 e 512×192 enviadas aos participantes da sala, sem hospedar perfis online. Aparência é descritiva, não autenticação.
 Decisão: navegar entre Painel/sala atual preserva captura/conexão; Criar sala quando já é dono preserva sua sala. Criar sala enquanto convidado muda para a sala própria. Sair da sala encerra a própria captura e retorna ao Painel; parar só a transmissão mantém a sala. Nenhuma ação de criar/entrar começa a capturar automaticamente.
-Motivo: usuário descartou lista de amigos e tags e não quer servidor próprio/domínio. Entrar continua sendo por convite; participantes aparecem no menu lateral, removendo o bloco “Sua sala particular”.
+Motivo: usuário não quer cadastro, tags ou rede de amigos própria do Concord, nem servidor/domínio próprios. Entrar continua sendo por convite; participantes aparecem no menu lateral. Pedido posterior autorizou a importação opcional de amigos do Discord, conforme seção abaixo.
 Consequência: todos precisam de 0.3.0 ou mais nova para o protocolo de sala. 0.3.1 muda somente a interação com foco, mantendo compatibilidade com 0.3.0. WebRTC negocia por dupla; falhas usam relay com streams separadas. Upload/CPU crescem com participantes. Microfone acompanha a tela, sem chamada de voz independente.
 
 ## Consulta de perfil na sala
 
-Decisão: consultar perfil somente de participantes presentes na sala, pelo nome/avatar na lista lateral. Cartão com faixa roxa fixa, foto sobreposta ou mesmas iniciais e nome; nenhum apelido, descrição, status ou dado novo. Modal nativo acessível por teclado, com fechar visível/clique fora/Esc e retorno de foco à linha. Abrir/fechar não altera foco das streams nem áudio/captura/conexão. Perfil acompanha dados atuais e fecha quando o participante sai; não cria lista de amigos, armazenamento ou serviço.
+Decisão: consultar perfil somente de participantes presentes na sala, pelo nome/avatar na lista lateral. Cartão com banner/cor quando presentes, faixa roxa padrão, foto sobreposta ou mesmas iniciais e nome; sem descrição/status inventados. Modal nativo acessível por teclado, com fechar visível/clique fora/Esc e retorno de foco à linha. Abrir/fechar não altera foco das streams nem áudio/captura/conexão. Perfil acompanha dados atuais e fecha quando o participante sai.
+
+## Discord opcional
+
+Decisão: vincular pelo OAuth oficial de cliente público com PKCE, sem Client Secret/backend. Importar nome/foto/banner/cor para o perfil local; atualizar explicitamente e permitir desvincular sem apagar aparência. Banner manual continua disponível e é preservado quando o Discord não tem banner. Sem replicar descrição, badges, decorações, assinatura Nitro ou dados que o app não usa.
+
+Decisão: amigos/convites usam somente o Social SDK oficial habilitado pelo titular. Modal **Convidar pelo Discord** mostra amigos da conta autorizada, busca e **Convidar** por pessoa. Clique envia o link da sala via DM; não há mensagens automáticas ao autorizar/abrir. **Enviado** exige confirmação do SDK; falha/timeout não é prova de entrega e não dispara retry automático. Não usar token de usuário copiado, selfbot ou scraping.
+
+Consequência: Discord apresenta permissões sociais em pacote; o Concord usa perfil/amigos/envio solicitado. Credenciais criptografadas pelo Windows em arquivo separado, somente no principal e no stdin privado do auxiliar; nunca em perfil/roster/renderer/linha de comando. Lista e avatares de amigos ficam em memória. Limite de desenvolvimento atual: 100 DMs/2h para toda a aplicação; expansão depende do Discord. Vinculação não é requisito para criar/entrar/transmitir.
 
 ## Releases preservadas
 
@@ -45,7 +55,9 @@ Consequência: distribuir via anexos de Releases, sem publicar automaticamente n
 
 ## Instalação e atualizações
 
-Interface: Painel minimalista, “Compartilhamento de tela” no vazio, relógio somente enquanto transmite e crédito Yuri Mihara no rodapé inferior direito. Removidos texto orientativo no rodapé e aviso de sucesso ao encerrar a transmissão; avisos de erro permanecem. Minha sala usa SVG transparente de cômodo; Entrar em uma sala compartilha o mesmo SVG de tomada no menu e no Painel, baseados nas referências fornecidas. Código em painel pequeno na sala: “Código sendo carregado…”, Copiar código, erro/tentar novamente e gerenciamento recolhido. Preparo continua ao abrir, sem bloquear controles. Reconexão/compatibilidade têm aviso curto quando necessário.
+Interface: linguagem neutra e direta, sem “galera”, “bora” ou frases promocionais. Painel minimalista, “Compartilhamento de tela” no vazio, relógio somente enquanto transmite e “Desenvolvido por Yuri Mihara” no rodapé inferior direito. Sem texto orientativo no rodapé ou aviso de sucesso ao encerrar transmissão; erros permanecem. Minha sala usa SVG de cômodo; Entrar em uma sala usa o mesmo SVG de tomada no menu e no Painel. Código em painel pequeno: “Código sendo carregado…”, Copiar link, erro/tentar novamente e gerenciamento recolhido. Preparo continua ao abrir, sem bloquear controles. Reconexão/compatibilidade têm aviso curto quando necessário.
+
+Identidade visual (0.5.1): usar exatamente o SVG de câmera fornecido em `icone_camera_vetor.svg`, mantendo desenho/cores/transparência em `public/icon.svg`. ICO Windows e PNG 512 da prévia derivam do mesmo vetor. Logo substituído na interface, favicon, executável, instalador e página/prévia de convite; URL da imagem Open Graph com revisão para não reutilizar a imagem antiga em cache. Mensagens já enviadas no Discord podem manter a prévia em cache.
 
 Decisão: Qualidade e FPS separados; bitrate automático/manual existente em Opções avançadas. Transporte automático, sem seletor; compatibilidade interna e protocolo preservados. Salvar resolução/FPS/bitrate/modo de áudio localmente, sem restaurar tela/janela ou iniciar captura. Medidor usa somente áudio autorizado da fonte; teste prévio do app exige clique, enquanto áudio do computador só mede durante transmissão. Microfone segue controle separado, desligado ao abrir.
 

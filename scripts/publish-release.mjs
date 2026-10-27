@@ -45,19 +45,20 @@ if (!release) {
   release = await api(`${base}/releases`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
     tag_name: tag, target_commitish: commit, name: `Concord ${pkg.version}`, draft: true, prerelease: false,
     body: [
-      '## Novidades do Concord 0.4.3',
+      `## Novidades do Concord ${pkg.version}`,
       '',
-      '- Painel inicial com **Criar sala** e **Entrar em uma sala**, convite com confirmação e preparação/cópia do código em segundo plano.',
-      '- Participantes com cartão de perfil usando nome e foto locais; várias transmissões na mesma sala, grade adaptável, foco por clique e áudio conforme a visualização.',
-      '- Qualidade e FPS separados, bitrate em **Opções avançadas**, preferências de vídeo/áudio salvas e medidor da fonte de áudio.',
-      '- Transporte automático, avisos de reconexão/compatibilidade e atalhos **M**, **F** e **Esc**.',
-      '- Convites `concord:` podem abrir o aplicativo instalado no Windows e pedir confirmação antes de entrar.',
-      '- Falhas ao preparar convites agora são explicadas; se a Cloudflare responder com limite 429, o Concord mostra uma contagem antes da próxima tentativa.',
-      '- Ajustes visuais no painel, ícones, textos e encerramento da transmissão.',
+      '- Novo logo de câmera no aplicativo, ícone do Windows, instalador e página/prévia dos convites.',
+      '- Vinculação opcional com Discord para importar nome, foto, banner e cor do perfil, com atualização e desvinculação no app.',
+      '- Banner local: escolher/remover e exibir no cartão dos participantes da sala.',
+      '- **Convidar pelo Discord** abre os amigos da conta autorizada, permite buscar e enviar o convite por mensagem direta usando o Social SDK oficial.',
+      '- **Copiar link** gera um link HTTPS clicável; a página oferece **Abrir no Concord**, código selecionável e **Baixar Concord**.',
+      '- Prévia de convite no Discord com logo e nome da sala, sem bot. Abrir o convite continua pedindo confirmação no app.',
+      '- Linguagem mais direta e aviso **Link copiado.**, com remoção do botão Copiar código.',
+      '- Salas, transmissões simultâneas, grade/foco, áudio, preferências e atualizador preservados.',
       '',
-      '**Limite conhecido:** a criação de convites depende da Cloudflare. Durante o bloqueio 429 observado em 15/10/2026, novos convites públicos podem não ser gerados até o provedor liberar novas tentativas.',
+      '**Limites:** o link depende de o Concord hospedeiro/túnel continuar aberto. A cota de desenvolvimento do Discord é de 100 mensagens diretas a cada 2 horas para toda a aplicação. As prévias também dependem das configurações/cache do Discord.',
       '',
-      'Instale pelo arquivo Setup.exe. Versões com atualizador recebem esta versão pelo próprio aplicativo. Nome e foto são preservados.'
+      'Instale pelo arquivo Setup.exe. Versões com atualizador recebem esta versão pelo próprio aplicativo. Perfil e preferências são preservados; o Discord continua opcional.'
     ].join('\n')
   }) });
 }

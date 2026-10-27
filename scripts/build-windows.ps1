@@ -26,6 +26,7 @@ try {
     Invoke-BuildStep 'Preparando as ferramentas de desenvolvimento...' $pnpmCommand @('install', '--frozen-lockfile')
     Invoke-BuildStep 'Conferindo e preparando o componente de conexao...' $nodeCommand @('scripts/prepare.mjs')
     Invoke-BuildStep 'Compilando o capturador de audio...' 'powershell.exe' @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', 'scripts/build-audio.ps1')
+    Invoke-BuildStep 'Compilando o componente do Discord...' 'powershell.exe' @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', 'scripts/build-discord.ps1')
 
     $config = if ($Target -eq 'installer') { 'build/installer.cjs' } else { 'build/electron-builder.cjs' }
     $builderTarget = if ($Target -eq 'installer') { 'nsis' } else { 'portable' }

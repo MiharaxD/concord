@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { _electron } from 'playwright';
 import { QUALITY_PRESETS } from '../public/stream-settings.js';
+import { webInvite } from '../public/invites.js';
 
 const root = process.cwd(), run = path.join(root, 'test-results', 'experience-' + Date.now()), apps = [];
 await mkdir(run, { recursive: true });
@@ -91,7 +92,7 @@ try {
     assert.match(await host.page.locator('#bitrate-mode option').first().textContent(), new RegExp(`${preset.bitrate / 1e6} Mbps`));
   }
   await host.app.evaluate(({ clipboard }, code) => { clipboard.writeText = text => { global.testCopied = text; }; global.testInviteResolve({ guestInvite: code }); }, sampleInvite);
-  await host.page.locator('#copy-button').click(); assert.equal(await host.app.evaluate(() => global.testCopied), sampleInvite);
+  await host.page.locator('#copy-link-button').click(); assert.equal(await host.app.evaluate(() => global.testCopied), webInvite(sampleInvite));
   result.checks.push('Painel sem captura, criar sala, oito combinações resolução/FPS, preparo não bloqueante, erro/tentar novamente/cópia do código');
 
   await host.page.locator('#advanced-options summary').click(); await host.page.locator('#quality').selectOption('1440'); await host.page.locator('#fps').selectOption('60');

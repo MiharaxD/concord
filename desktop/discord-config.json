@@ -1,0 +1,5 @@
+{
+  "clientId": "1564636773710037073",
+  "redirectUri": "http://127.0.0.1:41697/discord/callback",
+  "scopes": "identify openid sdk.social_layer"
+}

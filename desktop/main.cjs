@@ -1,11 +1,11 @@
-const { app, BrowserWindow, desktopCapturer, ipcMain, session, dialog, clipboard, nativeImage } = require('electron');
+const { app, BrowserWindow, desktopCapturer, ipcMain, session, dialog, clipboard, nativeImage, shell, safeStorage } = require('electron');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { mkdir, readFile, writeFile, rename, stat } = require('node:fs/promises');
 const { mkdirSync } = require('node:fs');
 const { spawn } = require('node:child_process');
 
-let window, concord, selection, quitting = false, appAudio, updates, shutdownPromise, appAudioGeneration = 0;
+let window, concord, selection, quitting = false, appAudio, updates, discord, discordSocial, shutdownPromise, appAudioGeneration = 0;
 let pendingInvite, invitesReady = false;
 const pendingProfiles = new Set(), stoppingAudio = new Set();
 app.setName('Concord');
@@ -19,7 +19,7 @@ if (!primaryInstance) app.quit();
 function receiveInvite(args) {
   const value = args.find(arg => typeof arg === 'string' && /^concord:/i.test(arg));
   if (value) {
-    pendingInvite = value.slice(0, 2049);
+    pendingInvite = value.slice(0, 4097);
     if (invitesReady && window && !window.isDestroyed()) {
       window.webContents.send('concord:open-invite', pendingInvite); pendingInvite = undefined;
     }
@@ -48,6 +48,8 @@ async function shutdown() {
   if (shutdownPromise) return shutdownPromise;
   quitting = true;
   shutdownPromise = (async () => {
+    await discord?.close();
+    await discordSocial?.close();
     await Promise.all([...pendingProfiles]);
     stopAppAudio();
     await Promise.all([concord?.close(), ...stoppingAudio]);
@@ -62,9 +64,10 @@ if (primaryInstance) app.whenReady().then(async () => {
   await mkdir(tunnelCwd, { recursive: true });
   const profilePath = path.join(app.getPath('userData'), 'profile.json');
   const preferences = await require('./preferences.cjs').createPreferences(path.join(app.getPath('userData'), 'preferences.json'));
-  const { parseInvite } = await import(pathToFileURL(path.join(__dirname, '..', 'public', 'invites.js')).href);
+  const { parseInvite, webInvite } = await import(pathToFileURL(path.join(__dirname, '..', 'public', 'invites.js')).href);
+  const { visualProfile } = await import(pathToFileURL(path.join(__dirname, '..', 'public', 'profile.js')).href);
   let profile = { name: '', photo: '' };
-  try { const saved = JSON.parse(await readFile(profilePath, 'utf8')); if (typeof saved.name === 'string') profile.name = saved.name.slice(0, 32); if (typeof saved.photo === 'string' && saved.photo.length < 60000 && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(saved.photo)) profile.photo = saved.photo; }
+  try { profile = visualProfile(JSON.parse(await readFile(profilePath, 'utf8'))); }
   catch (error) { if (error.code !== 'ENOENT') throw new Error('Não consegui ler seu nome salvo. Confira o arquivo profile.json do Concord.'); }
   concord = await createConcord({ port: 0, tunnelCwd,
     cloudflared: app.isPackaged ? path.join(process.resourcesPath, 'cloudflared.exe') : path.join(__dirname, '..', '.runtime', 'cloudflared.exe')
@@ -74,7 +77,7 @@ if (primaryInstance) app.whenReady().then(async () => {
     if (!allowed(event)) throw new Error('Acesso negado.');
     if (quitting) throw new Error('O Concord está fechando.');
     const result = Promise.resolve().then(() => fn(...args));
-    if (['concord:set-name', 'concord:choose-photo', 'concord:remove-photo', 'concord:preferences'].includes(name)) {
+    if (['concord:set-name', 'concord:choose-photo', 'concord:remove-photo', 'concord:choose-banner', 'concord:remove-banner', 'concord:preferences', 'concord:discord-link', 'concord:discord-refresh', 'concord:discord-unlink'].includes(name)) {
       pendingProfiles.add(result);
       result.then(() => pendingProfiles.delete(result), () => pendingProfiles.delete(result));
     }
@@ -86,13 +89,13 @@ if (primaryInstance) app.whenReady().then(async () => {
     if (!response.ok) throw new Error(body.error);
     return body;
   }
-  handle('concord:bootstrap', () => ({ address: concord.address, hostToken: concord.hostToken, version: app.getVersion(), profile, preferences: preferences.get(), preferencesWarning: preferences.warning }));
+  handle('concord:bootstrap', () => ({ address: concord.address, hostToken: concord.hostToken, version: app.getVersion(), profile, discord: discord.state(), preferences: preferences.get(), preferencesWarning: preferences.warning }));
   handle('concord:preferences', value => preferences.save(value));
   handle('concord:invites-ready', () => { invitesReady = true; const value = pendingInvite; pendingInvite = undefined; return value || null; });
   let profileQueue = Promise.resolve();
   function saveProfile(change) {
     const saved = profileQueue.then(async () => {
-      const next = { ...profile, ...change };
+      const next = visualProfile({ ...profile, ...change });
       await writeFile(profilePath + '.tmp', JSON.stringify(next), 'utf8'); await rename(profilePath + '.tmp', profilePath); profile = next; return profile;
     });
     profileQueue = saved.catch(() => {});
@@ -102,16 +105,58 @@ if (primaryInstance) app.whenReady().then(async () => {
     if (typeof value !== 'string' || !value.trim() || value.trim().length > 32 || /[\u0000-\u001f\u007f-\u009f]/.test(value)) throw new Error('Escolha um nome de 1 a 32 caracteres.');
     return saveProfile({ name: value.trim() });
   });
-  handle('concord:choose-photo', async () => {
-    const result = await dialog.showOpenDialog(window, { title: 'Escolha sua foto', properties: ['openFile'], filters: [{ name: 'Imagens PNG/JPG', extensions: ['png', 'jpg', 'jpeg'] }] });
+  function profileImage(original, kind) {
+    if (original.isEmpty()) throw new Error('Não foi possível abrir a imagem. Use PNG ou JPG.');
+    const size = original.getSize(), ratio = kind === 'avatar' ? 1 : 8 / 3;
+    const width = Math.min(size.width, Math.max(1, Math.floor(size.height * ratio))), height = Math.min(size.height, Math.max(1, Math.floor(width / ratio)));
+    const image = original.crop({ x: Math.floor((size.width - width) / 2), y: Math.floor((size.height - height) / 2), width, height })
+      .resize({ width: kind === 'avatar' ? 128 : 512, height: kind === 'avatar' ? 128 : 192 });
+    for (const quality of [75, 55, 35]) {
+      const data = 'data:image/jpeg;base64,' + image.toJPEG(quality).toString('base64');
+      if (data.length < (kind === 'avatar' ? 20000 : 40000)) return data;
+    }
+    throw new Error('A imagem é muito grande para o perfil.');
+  }
+  async function chooseProfileImage(kind) {
+    const result = await dialog.showOpenDialog(window, { title: kind === 'avatar' ? 'Escolher foto' : 'Escolher banner', properties: ['openFile'], filters: [{ name: 'Imagens PNG/JPG', extensions: ['png', 'jpg', 'jpeg'] }] });
     if (result.canceled) return profile;
     const file = result.filePaths[0]; if ((await stat(file)).size > 20 * 1024 * 1024) throw new Error('Escolha uma imagem de até 20 MB.');
-    const original = nativeImage.createFromPath(file); if (original.isEmpty()) throw new Error('Não consegui abrir essa imagem. Use PNG ou JPG.');
-    const size = original.getSize(), side = Math.min(size.width, size.height);
-    const image = original.crop({ x: Math.floor((size.width - side) / 2), y: Math.floor((size.height - side) / 2), width: side, height: side }).resize({ width: 128, height: 128 });
-    return saveProfile({ photo: 'data:image/jpeg;base64,' + image.toJPEG(75).toString('base64') });
-  });
+    return saveProfile({ [kind === 'avatar' ? 'photo' : 'banner']: profileImage(nativeImage.createFromPath(file), kind) });
+  }
+  handle('concord:choose-photo', () => chooseProfileImage('avatar'));
   handle('concord:remove-photo', () => saveProfile({ photo: '' }));
+  handle('concord:choose-banner', () => chooseProfileImage('banner'));
+  handle('concord:remove-banner', () => saveProfile({ banner: '' }));
+  const normalizeDiscordImage = (bytes, kind) => {
+      const original = nativeImage.createFromBuffer(bytes), size = original.getSize();
+      if (original.isEmpty() || size.width > 4096 || size.height > 4096) throw new Error('Não consegui importar a imagem do Discord.');
+      return profileImage(original, kind);
+  };
+  discord = await require('./discord.cjs').createDiscordLink({ file: path.join(app.getPath('userData'), 'discord-link.bin'), storage: safeStorage,
+    openExternal: url => shell.openExternal(url), normalizeImage: normalizeDiscordImage
+  });
+  discordSocial = require('./discord-social.cjs').createDiscordSocial({
+    binary: app.isPackaged ? path.join(process.resourcesPath, 'ConcordDiscord.exe') : path.join(__dirname, '..', '.runtime', 'ConcordDiscord.exe'),
+    cwd: app.getPath('userData'), authorization: () => discord.socialToken(), normalizeImage: normalizeDiscordImage
+  });
+  const discordAction = async task => {
+    try { const result = await task(); if (result && typeof result === 'object') {
+        const change = { ...result }; if (!change.banner) delete change.banner; await saveProfile(change);
+      }
+      return { profile, discord: discord.state(), warning: typeof result === 'string' ? result : '' }; }
+    catch (error) { return { profile, discord: discord.state(), error: error.message }; }
+  };
+  handle('concord:discord-link', () => discordAction(async () => { await discordSocial.disconnect(); return discord.link(); }));
+  handle('concord:discord-refresh', () => discordAction(() => discord.refresh()));
+  handle('concord:discord-unlink', () => discordAction(async () => { await discordSocial.disconnect(); return discord.unlink(); }));
+  handle('concord:discord-cancel', () => { discord.cancel(); return true; });
+  const socialAction = async task => { try { return { value: await task() }; } catch (error) { return { error: error.message, code: error.code || 'DISCORD' }; } };
+  handle('concord:discord-friends', () => socialAction(() => discordSocial.friends()));
+  handle('concord:discord-friend-photo', id => typeof id === 'string' ? discordSocial.photo(id) : '');
+  handle('concord:discord-send-invite', (id, value) => socialAction(() => {
+    if (typeof value !== 'string' || value.length > 2048) throw new Error('Convite inválido.');
+    return discordSocial.invite(id, webInvite(value));
+  }));
   updates = require('./updater.cjs').createUpdater({ app, shutdown,
     send: state => { if (window && !window.isDestroyed()) window.webContents.send('concord:update-state', state); }
   });
@@ -127,6 +172,10 @@ if (primaryInstance) app.whenReady().then(async () => {
     if (value !== undefined) { if (typeof value !== 'string' || value.length > 2048) throw new Error('Convite inválido.'); parseInvite(value); }
     const code = value === undefined ? (await api('/api/session')).guestInvite : value;
     clipboard.writeText(code); return true;
+  });
+  handle('concord:copy-link', async value => {
+    if (typeof value !== 'string' || value.length > 2048) throw new Error('Convite inválido.');
+    clipboard.writeText(webInvite(value)); return true;
   });
   handle('concord:stop-app-audio', () => { stopAppAudio(); return true; });
   handle('concord:start-app-audio', async id => {

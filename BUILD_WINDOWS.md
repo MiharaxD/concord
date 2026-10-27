@@ -11,8 +11,11 @@ O distribuível principal é um instalador **NSIS `.exe`**, gerado por **electro
 | `server.mjs` e `ws` 8.22.0 | Servidor HTTP/WebSocket interno em loopback e porta dinâmica | Dentro do pacote; sem serviço instalado no Windows |
 | Cloudflared 2026.10.0 | Convite público e conexão pela internet | EXE, identificação/checksum e licença incluídos em `resources/` |
 | `native/AppAudio.cs` | Captura WASAPI por processo | Compilado como `resources/ConcordAudio.exe` |
+| `native/DiscordSocial.cs` | Ponte privada com o SDK oficial de amigos/mensagens | Compilado como `resources/ConcordDiscord.exe` |
+| Discord Social SDK 1.10.19337 Windows x64 | Amigos e envio de convite pela conta autorizada | DLL e avisos de licença incluídos em `resources/`; origem/hash em `vendor/discord-social-sdk/` |
 | `electron-updater` 6.8.9 | Consulta, download/checksum e instalação NSIS | Dependência de runtime incluída no app |
-| Perfil | Nome e miniatura da foto | `%APPDATA%\Concord\profile.json`; não acompanha o instalador |
+| Perfil | Nome, foto, banner e cor opcional | `%APPDATA%\Concord\profile.json`; não acompanha o instalador |
+| Discord opcional | Autorização criptografada pelo Windows | `%APPDATA%\Concord\discord-link.bin`; nunca acompanha o instalador ou o perfil enviado à sala |
 | Preferências | Resolução, FPS, bitrate e modo de áudio | `%APPDATA%\Concord\preferences.json`; sem fontes de captura ou microfone persistidos |
 
 Não há banco de dados. Captura e mídia ficam em memória. Não há Python, Git ou compilador em runtime. O servidor encerra junto do app; nenhum serviço/tarefa agendada é criado. O programa instalado resolve arquivos pelo pacote e `process.resourcesPath`, sem depender da pasta do código ou do diretório de onde foi aberto.
@@ -38,15 +41,15 @@ Altere `version` em `package.json`, mantendo `name`, `appId` e o diretório de d
 pnpm build:installer
 ```
 
-O comando instala as dependências pelo lockfile, verifica o SHA-256 oficial do Cloudflared, inclui sua licença, compila o áudio e gera o instalador completo. Recria somente `win-unpacked` da versão atual dentro de `dist/`; não limpa versões anteriores nem dados do usuário. Caminhos com links são recusados na limpeza. Não publica arquivos no GitHub.
+O comando instala as dependências pelo lockfile, verifica o SHA-256 oficial do Cloudflared, inclui sua licença, compila o áudio e gera o instalador completo. `scripts/build-discord.ps1` verifica o SHA-256 da DLL oficial fixada, compila a ponte C# e executa `--probe` para confirmar a versão antes de empacotar DLL/auxiliar/licença. Recria somente `win-unpacked` da versão atual dentro de `dist/`; não limpa versões anteriores nem dados do usuário. Caminhos com links são recusados na limpeza. Não publica arquivos no GitHub.
 
 Resultado da versão atual:
 
 ```text
-dist/installer/0.4.3/Concord-0.4.3-Setup.exe
-dist/installer/0.4.3/Concord-0.4.3-Setup.exe.sha256
-dist/installer/0.4.3/Concord-0.4.3-Setup.exe.blockmap
-dist/installer/0.4.3/latest.yml
+dist/installer/0.5.1/Concord-0.5.1-Setup.exe
+dist/installer/0.5.1/Concord-0.5.1-Setup.exe.sha256
+dist/installer/0.5.1/Concord-0.5.1-Setup.exe.blockmap
+dist/installer/0.5.1/latest.yml
 ```
 
 **Envie o `.exe`** para a instalação inicial dos amigos. Todos os componentes estão dentro dele. Na GitHub Release, publique também `.blockmap` e `latest.yml`: são necessários para o atualizador. `win-unpacked` e relatórios não precisam ser enviados. Para gerar também o formato portátil, use `pnpm build`; sua saída fica em `dist/<versão>/`.
@@ -56,7 +59,7 @@ dist/installer/0.4.3/latest.yml
 - Instalação somente para o usuário atual, normalmente em `%LOCALAPPDATA%\Programs\Concord`; sem solicitar administrador.
 - Entrada no menu Iniciar, opção de atalho na Área de Trabalho, nome/versão/ícone e desinstalador em **Aplicativos instalados**.
 - Atualização/reinstalação mantém o mesmo identificador e substitui os arquivos do programa. Feche o Concord antes de atualizar ou desinstalar; o instalador pede isso e não mata uma sala à força.
-- Nome/foto, preferências e dados do Chromium continuam em `%APPDATA%\Concord`. Atualização e desinstalação normal preservam essa pasta. Instalar depois de usar o portátil continua usando o mesmo perfil.
+- Perfil visual, autorização opcional do Discord, preferências e dados do Chromium continuam em `%APPDATA%\Concord`. Atualização e desinstalação normal preservam essa pasta. Instalar depois de usar o portátil continua usando o mesmo perfil. A autorização é protegida pelo Windows do usuário; copiar `discord-link.bin` para outro PC não é uma migração de credenciais suportada.
 - NSIS registra `concord:` em `HKCU\Software\Classes\concord`, usando o caminho instalado e `%1` entre aspas; remove na desinstalação somente se o comando ainda pertence ao próprio executável. Macros em `build/protocol.nsh`, chamadas pelo include existente. Desenvolvimento/QA/portátil não se registram no Windows. O principal recebe abertura fria/segunda instância e pede confirmação no dialog antes de entrar, conforme o fluxo de [deep links do Electron](https://www.electronjs.org/docs/latest/tutorial/launch-app-from-url-in-another-app).
 - Para testes, `CONCORD_DATA_DIR` aponta a um perfil separado. Não é uma configuração necessária para usar o programa.
 
@@ -70,10 +73,15 @@ dist/installer/0.4.3/latest.yml
 | Página/atalho e pedido de fechamento | `build/installer.nsh` |
 | Preparação e limpeza de staging | `scripts/build-windows.ps1` |
 | Atualizador principal e IPC | `desktop/updater.cjs`, `desktop/main.cjs`, `desktop/preload.cjs` |
+| Discord: OAuth público/PKCE e ponte privada | `desktop/discord.cjs`, `desktop/discord-social.cjs`, `native/DiscordSocial.cs` |
+| Application ID público, redirecionamento e permissões | `desktop/discord-config.json` |
+| SDK oficial fixado e compilação | `vendor/discord-social-sdk/`, `scripts/build-discord.ps1` |
 | Publicação completa / CI por tag | `scripts/publish-release.mjs`, `.github/workflows/release.yml` |
-| Ícone | `desktop/icon.ico`; ícone da interface em `public/icon.svg` |
+| Ícone | `public/icon.svg` é o vetor fornecido pelo usuário; `desktop/icon.ico` tem DIB 32 bits em 16/24/32/48/64/128 px e PNG 256 px; `public/invite-icon.png` é a prévia 512 px do mesmo desenho |
 
 Não mude `appId: local.concord.desktop` após distribuir: ele identifica atualizações e a entrada de desinstalação. `desktop/main.cjs` usa o mesmo identificador de janela. Não mude o nome/diretório de dados sem implementar migração do perfil.
+
+O aplicativo Discord configurado é um cliente público, com retorno `http://127.0.0.1:41697/discord/callback` e Social SDK habilitado. Não adicione Client Secret nem token no código, CI ou instalador. A porta do retorno existe somente durante a autorização. Amigos ficam em memória; o token chega ao auxiliar por stdin privado. O envio usa `SendUserMessage` para o destinatário escolhido, com o link da sala. A cota de desenvolvimento do Discord é 100 DMs por 2 horas para toda a aplicação; uma distribuição maior depende dos requisitos/aprovação do serviço. SDK obtido pelo painel oficial após cadastro/termos do titular; consulte `vendor/discord-social-sdk/README.md` antes de substituir a dependência.
 
 ## Atualização automática
 
@@ -96,8 +104,8 @@ O comando gera o pacote local e usa a API oficial do GitHub para criar/reutiliza
 Alternativa pelo GitHub Actions, após enviar os commits à branch principal:
 
 ```powershell
-git tag v0.4.3
-git push origin v0.4.3
+git tag v0.5.1
+git push origin v0.5.1
 ```
 
 O workflow em Windows confere se tag/`package.json` concordam, usa Node 24/pnpm fixado, executa testes de unidade, gera NSIS e publica os quatro artefatos. Recebe apenas o `GITHUB_TOKEN` temporário com `contents: write`; não precisa de token pessoal nos PCs dos amigos. Assinatura pode ser adicionada futuramente via secrets de CI. [Autenticação oficial do Actions](https://docs.github.com/en/actions/tutorials/authenticate-with-github_token).
@@ -124,10 +132,11 @@ Para certificado no repositório de certificados do Windows/token, use `CONCORD_
 
 ```powershell
 pnpm test
-$env:CONCORD_EXE = (Join-Path (Get-Location) 'dist/installer/0.4.3/win-unpacked/Concord.exe')
+$env:CONCORD_EXE = (Join-Path (Get-Location) 'dist/installer/0.5.1/win-unpacked/Concord.exe')
 node tests/smoke.mjs
 pnpm test:navigation
 pnpm test:experience
+pnpm test:discord
 node tests/protocol.mjs
 pnpm test:installer
 ```
@@ -148,7 +157,7 @@ pnpm test:updater
 node tests/release.mjs
 ```
 
-O build normal da 0.4.3 deve existir primeiro. A fixture 0.3.2 acima serve somente para QA: não substitui o instalador 0.3.2 preservado, que não possui atualização automática. `CONCORD_UPDATE_BASELINE` e `CONCORD_UPDATE_OLD_VERSION` aceitam outros pares. Use uma versão maior no pacote de destino.
+O build normal da versão atual deve existir primeiro. A fixture 0.3.2 acima serve somente para QA: não substitui o instalador 0.3.2 preservado, que não possui atualização automática. `CONCORD_UPDATE_BASELINE` e `CONCORD_UPDATE_OLD_VERSION` aceitam outros pares. Use uma versão maior no pacote de destino.
 
 `tests/updater.mjs` instala a fixture anterior, modifica somente seu `app-update.yml` **instalado** para um feed HTTP em loopback e executa o electron-updater real. Verifica offline/silêncio, consulta única/manual, download/progresso/checksum, fechamento comum sem instalar, clique com áudio/túnel ativos, instalação NSIS, reinício automático, versão nova e nome/foto preservados. O artefato distribuído continua apontando para GitHub; não existe override de feed por IPC/env no app. O teste desinstala sua própria instalação e guarda screenshots/resultados em `test-results/updater-*`.
 

@@ -48,6 +48,25 @@ test('Interface pública funciona; administração continua exclusiva do PC dono
   const data = await (await api('/api/session')).json(); assert.match(data.guestInvite, /#join=[\w-]{22}$/);
   assert.equal(data.public, false); assert.equal((await fetch(app.address + '/server.mjs')).status, 404);
 });
+
+test('Convite tem prévia com nome escapado/logo, sem chave nem conexão automática, e aparência chega ao participante', async t => {
+  const { app, socket } = await setup(t, { publicUrl: 'https://quiet-river-blue-frog.trycloudflare.com' });
+  const host = await socket('host', undefined, { name: 'Yuri <QA> "', photo: '', banner: 'data:image/jpeg;base64,YWJj', accentColor: '#AABBCC', accessToken: 'must-not-leak' });
+  await host.read(msg => msg.type === 'welcome');
+  const viewer = await socket('viewer'); const roster = await viewer.read(msg => msg.type === 'welcome');
+  assert.equal(roster.members[0].banner, 'data:image/jpeg;base64,YWJj'); assert.equal(roster.members[0].accentColor, '#aabbcc');
+  assert.equal(JSON.stringify(roster).includes('must-not-leak'), false);
+  const response = await fetch(app.address + '/invite'); const html = await response.text();
+  assert.match(html, /og:title" content="Entrar na sala de Yuri &lt;QA&gt; &quot;/);
+  assert.match(html, /og:image" content="https:\/\/quiet-river-blue-frog\.trycloudflare\.com\/invite-icon\.png/);
+  assert.equal(html.includes(app.guestToken), false); assert.match(response.headers.get('content-security-policy'), /connect-src 'none'/);
+  assert.equal(response.headers.get('referrer-policy'), 'no-referrer');
+  assert.equal((await fetch(app.address + '/invite-icon.png')).headers.get('content-type'), 'image/png');
+  const old = await (await fetch(app.address + '/', { headers: { 'cf-connecting-ip': '1.2.3.4' } })).text(); assert.match(old, /og:title/);
+  assert.match(await (await fetch(app.address + '/')).text(), /id="room-view"/);
+  host.send({ type: 'profile', banner: 'https://evil.test', accentColor: 'red' });
+  const updated = await viewer.read(msg => msg.type === 'room' && msg.members[0].banner === ''); assert.equal(updated.members[0].accentColor, '');
+});
 test('Chave curta não vira administrador; renovação remove todos e invalida ambas as chaves', async t => {
   const { app, socket, api } = await setup(t);
   const key = parseInvite((await (await api('/api/session')).json()).guestInvite).token, oldFull = app.guestToken;

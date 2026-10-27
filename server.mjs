@@ -8,6 +8,7 @@ import { spawn } from 'node:child_process';
 import { resolve4 } from 'node:dns/promises';
 import { WebSocketServer, WebSocket } from 'ws';
 import { shortInvite } from './public/invites.js';
+import { visualProfile } from './public/profile.js';
 import inviteRetry from './desktop/invite-retry.cjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -24,7 +25,7 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
   let inviteError = null;
   const retry = inviteRetry.createInviteRetry(path.join(tunnelCwd, 'invite-retry.json'));
   const members = new Map();
-  const roster = () => [...members.values()].map(ws => ({ id: ws.memberId, name: ws.profile.name, photo: ws.profile.photo, stream: ws.streamState }));
+  const roster = () => [...members.values()].map(ws => ({ id: ws.memberId, ...ws.profile, stream: ws.streamState }));
   const broadcast = value => { for (const peer of members.values()) send(peer, value); };
   const sockets = new Set();
   const attempts = new Map();
@@ -33,6 +34,11 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
     ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
     ['/stream-settings.js', ['stream-settings.js', 'text/javascript; charset=utf-8']],
     ['/invites.js', ['invites.js', 'text/javascript; charset=utf-8']],
+    ['/profile.js', ['profile.js', 'text/javascript; charset=utf-8']],
+    ['/invite', ['invite.html', 'text/html; charset=utf-8']],
+    ['/invite.js', ['invite.js', 'text/javascript; charset=utf-8']],
+    ['/invite.css', ['invite.css', 'text/css; charset=utf-8']],
+    ['/invite-icon.png', ['invite-icon.png', 'image/png']],
     ['/room-media.js', ['room-media.js', 'text/javascript; charset=utf-8']],
     ['/app-audio-worklet.js', ['app-audio-worklet.js', 'text/javascript; charset=utf-8']],
     ['/audio-meter.js', ['audio-meter.js', 'text/javascript; charset=utf-8']],
@@ -147,9 +153,19 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
         return json(res, 404, { error: 'Não encontrado.' });
       }
       if (!['GET', 'HEAD'].includes(req.method)) return json(res, 405, { error: 'Método não permitido.' });
-      const file = files.get(url.pathname);
+      const file = url.pathname === '/' && !isLocal(req) ? files.get('/invite') : files.get(url.pathname);
       if (!file) return json(res, 404, { error: 'Não encontrado.' });
-      const content = await readFile(path.join(ROOT, 'public', file[0]));
+      let content = await readFile(path.join(ROOT, 'public', file[0]));
+      if (file[0] === 'invite.html') {
+        // Preview HTML never contains the invite key or a participant roster. No request/access logging.
+        const escape = value => String(value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+        const name = host?.profile.name, title = name ? 'Entrar na sala de ' + name : 'Convite para o Concord';
+        const origin = new URL(tunnelUrl || `http://127.0.0.1:${server.address().port}`).origin;
+        const meta = `<meta property="og:type" content="website"><meta property="og:site_name" content="Concord"><meta property="og:title" content="${escape(title)}"><meta property="og:description" content="Abra este convite no aplicativo Concord e confirme sua entrada na sala."><meta property="og:image" content="${escape(origin)}/invite-icon.png?v=camera-1"><meta property="og:image:width" content="512"><meta property="og:image:height" content="512"><meta name="theme-color" content="#9b86ff">`;
+        content = Buffer.from(content.toString('utf8').replace('<!--INVITE_META-->', meta).replace('<title>Convite para o Concord</title>', '<title>' + escape(title) + '</title>'));
+        res.setHeader('Permissions-Policy', 'camera=(), microphone=(), display-capture=()');
+        res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'");
+      }
       res.writeHead(200, { 'Content-Type': file[1] }); res.end(req.method === 'HEAD' ? undefined : content);
     } catch (error) { json(res, 503, { error: error.message || 'Falha no servidor.' }); }
   });
@@ -183,8 +199,7 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
           if ([...members.values()].filter(member => member.role === 'viewer').length >= 7) { ws.close(4002, 'A sala já tem 7 convidados.'); return; }
           ws.role = 'viewer'; ws.memberId = randomBytes(12).toString('base64url');
         } else { ws.close(4001, 'Convite inválido ou expirado'); return; }
-        ws.profile = { name: typeof auth.profile?.name === 'string' ? auth.profile.name.replace(/[\u0000-\u001f\u007f-\u009f]/g, '').trim().slice(0, 32) || 'Amigo' : 'Amigo',
-          photo: typeof auth.profile?.photo === 'string' && auth.profile.photo.length < 60000 && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(auth.profile.photo) ? auth.profile.photo : '' };
+        ws.profile = visualProfile(auth.profile); ws.profile.name ||= 'Amigo';
         ws.streamState = { active: false }; ws.relayTargets = new Set();
         members.set(ws.memberId, ws); clearTimeout(timeout);
         send(ws, { type: 'welcome', role: ws.role, self: ws.memberId, members: roster() });
@@ -211,6 +226,10 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
       if (msg.type === 'profile') {
         if (typeof msg.name === 'string' && msg.name.trim() && msg.name.length <= 32) ws.profile.name = msg.name.replace(/[\u0000-\u001f\u007f-\u009f]/g, '').trim();
         if (typeof msg.photo === 'string' && msg.photo.length < 60000 && (!msg.photo || /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(msg.photo))) ws.profile.photo = msg.photo;
+        const appearance = visualProfile(msg);
+        if (msg.banner !== undefined) ws.profile.banner = appearance.banner;
+        if (msg.accentColor !== undefined) ws.profile.accentColor = appearance.accentColor;
+        ws.profile = visualProfile(ws.profile);
         broadcast({ type: 'room', members: roster() });
       } else if (msg.type === 'stream-state') {
         ws.streamState = { active: Boolean(msg.active), label: String(msg.label || '').slice(0, 120), quality: String(msg.quality || '').slice(0, 60), relay: Boolean(msg.relay) };
