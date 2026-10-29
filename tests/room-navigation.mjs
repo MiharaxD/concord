@@ -39,7 +39,7 @@ async function launch(name) {
 }
 
 async function start(page) {
-  await page.locator('#audio-mode').selectOption('system');
+  await page.locator('#advanced-options').evaluate(details => { details.open = true; }); await page.locator('#audio-mode').selectOption('system');
   // Generated moving video/tone: this test never transmits the user's screen/audio.
   await page.evaluate(() => {
     navigator.mediaDevices.getDisplayMedia = async options => {

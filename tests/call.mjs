@@ -22,7 +22,7 @@ async function launch(name, data = path.join(run, name), fresh = true) {
   return { app, page, data };
 }
 async function capture(page, color, frequency) {
-  await page.locator('#audio-mode').selectOption('system');
+  await page.locator('#advanced-options').evaluate(details => { details.open = true; }); await page.locator('#audio-mode').selectOption('system');
   await page.evaluate(({ color, frequency }) => {
     navigator.mediaDevices.getDisplayMedia = async options => {
       const canvas = document.createElement('canvas'); canvas.width = options.video.width.ideal; canvas.height = options.video.height.ideal;

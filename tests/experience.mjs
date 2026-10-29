@@ -96,7 +96,7 @@ try {
 
   await host.page.locator('#advanced-options summary').click(); await host.page.locator('#quality').selectOption('1440'); await host.page.locator('#fps').selectOption('60');
   await host.page.locator('#bitrate-mode').selectOption('manual'); await host.page.locator('#bitrate-value').fill('11.5');
-  await host.page.locator('#audio-mode').selectOption('system');
+  await host.page.locator('#advanced-options').evaluate(details => { details.open = true; }); await host.page.locator('#audio-mode').selectOption('system');
   const png = await host.page.evaluate(() => { const canvas = document.createElement('canvas'); canvas.width = canvas.height = 64; canvas.getContext('2d').fillRect(0, 0, 64, 64); return canvas.toDataURL('image/png'); });
   const photo = path.join(run, 'photo.png'); await writeFile(photo, Buffer.from(png.split(',')[1], 'base64'));
   await host.app.evaluate(({ dialog }, photo) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [photo] }); }, photo);
@@ -113,7 +113,7 @@ try {
   await guest.page.locator('#join-room').click(); await guest.page.locator('#join-input').fill(invite); await guest.page.locator('#join-button').click();
   await host.page.locator('#audience-list').filter({ hasText: 'Amigo' }).waitFor();
   await guest.page.waitForFunction(() => document.querySelector('#audience-list img')?.naturalWidth === 128);
-  await guest.page.locator('#audio-mode').selectOption('system');
+  await guest.page.locator('#advanced-options').evaluate(details => { details.open = true; }); await guest.page.locator('#audio-mode').selectOption('system');
   await synthetic(host.page, '#493876'); await synthetic(guest.page, '#236b56');
   await start(host.page); await moving(guest.page, 1); await start(guest.page);
   result.directFrames = await moving(host.page, 2); await moving(guest.page, 2);
@@ -185,6 +185,14 @@ try {
     document.title = 'Jogo QA Concord'; const audio = new AudioContext(), tone = audio.createOscillator(), gain = audio.createGain();
     gain.gain.value = .04; tone.connect(gain).connect(audio.destination); tone.start(); window.testPhysicalTone = audio;
   });
+  // Automatic audio: a window shares only that app; a whole screen (listed first) shares the whole PC.
+  await host.page.locator('#advanced-options').evaluate(details => { details.open = true; }); await host.page.locator('#audio-mode').selectOption('auto');
+  await host.page.locator('#choose-source').click(); await host.page.locator('.source-choice').filter({ hasText: 'Jogo QA Concord' }).click();
+  await host.page.locator('#audio-summary').filter({ hasText: 'Som de Jogo QA Concord' }).waitFor();
+  assert.equal(await host.page.locator('#test-audio').isVisible(), true); assert.equal(await host.page.locator('#choose-audio-source').isHidden(), true);
+  await host.page.locator('#choose-source').click(); await host.page.locator('.source-choice').first().click();
+  await host.page.locator('#audio-summary').filter({ hasText: 'Som de todo o computador' }).waitFor(); assert.equal(await host.page.locator('#test-audio').isHidden(), true);
+  result.checks.push('Áudio automático: janela usa só o som do app; tela inteira usa o som do computador');
   await host.page.locator('#audio-mode').selectOption('application'); await host.page.locator('#choose-audio-source').click();
   await host.page.locator('.source-choice').filter({ hasText: 'Jogo QA Concord' }).click();
   assert.equal(await host.page.locator('#audio-level').evaluate(el => el.value), 0, 'selecionar fonte não inicia teste');
@@ -194,7 +202,7 @@ try {
   await host.page.locator('#test-audio').click(); await host.page.locator('#test-audio').click();
   await pause(300); assert.equal(await host.page.locator('#audio-level').evaluate(el => el.value), 0);
   await host.page.locator('#test-audio').click(); await host.page.waitForFunction(() => document.querySelector('#audio-level').value > 1);
-  await host.page.locator('#audio-mode').selectOption('system'); assert.equal(await host.page.locator('#audio-level').evaluate(el => el.value), 0);
+  await host.page.locator('#advanced-options').evaluate(details => { details.open = true; }); await host.page.locator('#audio-mode').selectOption('system'); assert.equal(await host.page.locator('#audio-level').evaluate(el => el.value), 0);
   await host.page.evaluate(() => window.testPhysicalTone.close());
   result.checks.push('Medidor real via WASAPI/Worklet antes da transmissão somente após Testar áudio; parar/trocar modo libera captura');
   await host.page.screenshot({ path: path.join(run, 'sala.png') });

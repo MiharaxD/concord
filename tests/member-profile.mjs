@@ -33,7 +33,7 @@ async function launch(name) {
   return { app, page, data };
 }
 async function start(page, color) {
-  await page.locator('#audio-mode').selectOption('system');
+  await page.locator('#advanced-options').evaluate(details => { details.open = true; }); await page.locator('#audio-mode').selectOption('system');
   await page.locator('#quality').selectOption('720'); await page.locator('#fps').selectOption('30');
   // Both clients transmit generated moving video/tone, never the user's screen/audio.
   await page.evaluate(color => {

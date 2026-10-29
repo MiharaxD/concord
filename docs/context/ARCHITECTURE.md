@@ -62,7 +62,7 @@ Consulte apenas para captura, mídia, perfis, transporte, permissões ou empacot
 ## Captura e áudio
 
 - Captura começa após seleção explícita, inclusive para quem entrou pelo convite. Escolha de fonte expira em 15 segundos. Encerrar/mudar de sala/fechar deve liberar tracks, contexto de áudio e helper.
-- Áudio de computador inteiro é opção explícita. Modo somente jogo/app usa helper C# WASAPI process-loopback, incluindo filhos, em Windows build 20348+; falha não amplia captura.
+- Modo de áudio (0.7.1+): Automático por padrão — janela compartilhada usa o helper só daquele app; tela inteira usa o loopback do computador. `preferences.json` ganhou `audioVersion: 2`; perfis sem ele com `application` (antigo padrão) migram para `auto`. Seleção manual (app/computador) fica em Opções avançadas. Áudio de computador inteiro só por automático com tela inteira ou escolha explícita. Modo somente jogo/app usa helper C# WASAPI process-loopback, incluindo filhos, em Windows build 20348+; falha não amplia captura.
 - Helper envia PCM estéreo 48 kHz por pipe/IPC; AudioWorklet com buffer limitado gera uma track usada no mesmo RTC/relay. Microfone pode ser misturado, sem voz independente de uma stream.
 - Captura ao vivo fica em memória, sem gravação automática em disco.
 - AudioMeter somente observa track já autorizada da fonte escolhida, antes de misturar microfone, com saída local silenciosa. Não pede nem encerra captura. Teste prévio somente por botão explícito do jogo/app, usando o helper existente; computador inteiro mede somente durante transmissão. Parar/trocar fonte/modo/navegar/sair libera preview, worklet, contextos e helper. Gerações invalidam inicializações tardias, inclusive enumeração nativa cancelada e captura de tela pendente.

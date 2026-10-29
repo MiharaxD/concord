@@ -37,6 +37,10 @@ async function api(url, options = {}, allow404 = false) {
 const notes = [
       `## Novidades do Concord ${pkg.version}`,
       '',
+      '- **Áudio automático:** compartilhando uma janela (como um jogo), vai só o som dela; compartilhando a tela inteira, vai o som do computador. A escolha manual da fonte do áudio foi para **Opções avançadas**.',
+      '',
+      '### Da 0.7.0',
+      '',
       '- **Câmera:** transmita a webcam sozinha ou junto com a tela pelo botão **Ligar câmera**.',
       '- Quem assiste vê a câmera no cantinho da sua tela, com botões para **tela cheia** e para **separar** em um quadro próprio (e voltar ao canto).',
       '- A câmera só é liberada quando você clica em Ligar câmera. Quem ainda está na 0.6.x continua vendo a tela, sem a câmera.',

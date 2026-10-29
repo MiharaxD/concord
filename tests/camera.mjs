@@ -22,7 +22,7 @@ async function launch(name) {
   return { app, page, name };
 }
 async function fakeScreen(page) {
-  await page.locator('#audio-mode').selectOption('system');
+  await page.locator('#advanced-options').evaluate(details => { details.open = true; }); await page.locator('#audio-mode').selectOption('system');
   await page.evaluate(() => {
     navigator.mediaDevices.getDisplayMedia = async () => {
       const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 360; const ctx = canvas.getContext('2d'); let frame = 0;

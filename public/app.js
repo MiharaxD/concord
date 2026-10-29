@@ -110,7 +110,7 @@ function cancelJoin() {
 }
 function preferenceValues() {
   return { resolution: $('quality').value, fps: $('fps').value, bitrateMode: $('bitrate-mode').value,
-    bitrateMbps: Number($('bitrate-value').value), audioMode: $('audio-mode').value, audioEnabled: $('system-audio').checked };
+    bitrateMbps: Number($('bitrate-value').value), audioMode: $('audio-mode').value, audioEnabled: $('system-audio').checked, audioVersion: 2 };
 }
 function savePreferences() {
   if (!$('bitrate-value').validity.valid) return;
@@ -358,7 +358,7 @@ function setLive(active) {
 function showVideo() { renderTiles(); }
 function lockSettings(locked) {
   for (const id of ['choose-source', 'choose-audio-source', 'audio-mode', 'quality', 'fps', 'bitrate-mode', 'bitrate-value', 'bitrate-slider', 'system-audio', 'microphone']) $(id).disabled = locked;
-  $('test-audio').hidden = Boolean(stream) || starting || $('audio-mode').value !== 'application';
+  $('test-audio').hidden = Boolean(stream) || starting || audioMode() !== 'application';
   $('start-button').hidden = Boolean(stream); $('stop-button').hidden = !stream;
   $('start-button').disabled = locked || !selectedSource || socket?.readyState !== WebSocket.OPEN;
   $('camera-button').disabled = cameraStarting || socket?.readyState !== WebSocket.OPEN;
@@ -424,14 +424,23 @@ function openSocket() {
     status('Reconectando'); retries++; reconnectTimer = setTimeout(openSocket, Math.min(1000 * 2 ** Math.min(retries-1,4),15000));
   };
 }
+// Automatic audio follows the shared source: a window sends only that app; a whole screen sends the whole PC
+// (Windows has no per-monitor audio). Opções avançadas can pick another app or the whole PC explicitly.
+function audioMode() {
+  const mode = $('audio-mode').value;
+  return mode !== 'auto' ? mode : selectedSource?.id.startsWith('window:') ? 'application' : 'system';
+}
 function updateAudioControls() {
-  const appOnly = $('audio-mode').value === 'application';
+  const appOnly = audioMode() === 'application', manual = $('audio-mode').value === 'application';
   $('audio-settings').hidden = !$('system-audio').checked;
   $('audio-meter-panel').hidden = !$('system-audio').checked;
   $('test-audio').hidden = !appOnly || Boolean(stream) || starting;
   $('test-audio').disabled = !selectedAudioSource;
   $('test-audio').textContent = audioPreviewTrack || testingAudio ? 'Parar teste de áudio' : 'Testar áudio do app';
-  $('choose-audio-source').hidden = !appOnly;
+  $('choose-audio-source').hidden = !manual;
+  $('audio-summary').textContent = !$('system-audio').checked ? 'Sem som na transmissão.'
+    : appOnly ? (selectedAudioSource ? 'Som de ' + selectedAudioSource.name + ', sem outros apps.' : 'Escolha o jogo / app em Opções avançadas.')
+    : $('audio-mode').value === 'system' || selectedSource ? 'Som de todo o computador.' : 'Automático: janela usa o som do app; tela inteira usa o som do computador.';
   $('audio-source-name').textContent = selectedAudioSource?.name || 'Escolher jogo / app';
   $('audio-source-hint').textContent = appOnly ? 'Só o app escolhido e seus processos. Outros apps ficam de fora.' : 'Inclui Discord, notificações e os sons de todos os apps.';
 }
@@ -485,7 +494,7 @@ function stopAudioPreview() {
   updateAudioControls();
 }
 async function testAudio() {
-  if (stream || starting || $('audio-mode').value !== 'application' || !$('system-audio').checked || !selectedAudioSource) return;
+  if (stream || starting || audioMode() !== 'application' || !$('system-audio').checked || !selectedAudioSource) return;
   if (audioPreviewTrack || testingAudio) { stopAudioPreview(); return; }
   const generation = ++audioGeneration; testingAudio = true; updateAudioControls();
   $('audio-level-label').textContent = 'Iniciando teste do app escolhido…';
@@ -501,8 +510,8 @@ async function testAudio() {
 async function startSharing() {
   if (starting || stream || !selectedSource) return;
   if ($('bitrate-mode').value === 'manual' && !$('bitrate-value').validity.valid) { $('advanced-options').open = true; $('bitrate-value').reportValidity(); return; }
-  const appOnly = $('system-audio').checked && $('audio-mode').value === 'application';
-  if (appOnly && !selectedAudioSource) { notice('Escolha o jogo/app em Fonte do áudio. Você pode compartilhar um monitor inteiro e ouvir só esse app.', true); return; }
+  const appOnly = $('system-audio').checked && audioMode() === 'application';
+  if (appOnly && !selectedAudioSource) { $('advanced-options').open = true; notice('Escolha o jogo/app em Opções avançadas › Fonte do áudio. Você pode compartilhar um monitor inteiro e ouvir só esse app.', true); return; }
   stopAudioPreview(); const generation = ++captureGeneration;
   starting = true; lockSettings(true); notice('');
   try {

@@ -70,6 +70,8 @@ Exceção autorizada em 29/10/2026: a correção 0.6.1 (entrada direta pelo link
 
 Exceção autorizada em 29/10/2026 (de novo): a 0.7.0 (câmera) edita a mesma entrada da Release 0.6.1 (ID 428460958) em vez de criar outra, pelo mesmo arquivo de uso único ; tag v0.6.1 preservada.
 
+Exceção autorizada em 29/10/2026 (terceira): a 0.7.1 (áudio automático) também edita a mesma entrada (ID 428460958), de v0.7.0 para v0.7.1, com tag v0.7.0 preservada.
+
 ## Instalação e atualizações
 
 Interface: linguagem neutra e direta, sem “galera”, “bora” ou frases promocionais. Painel minimalista, “Compartilhamento de tela” no vazio, relógio somente enquanto transmite e “Desenvolvido por Yuri Mihara” no rodapé inferior direito. Sem texto orientativo no rodapé ou aviso de sucesso ao encerrar transmissão; erros permanecem. Minha sala usa SVG de cômodo; Entrar em uma sala usa o mesmo SVG de tomada no menu e no Painel. Código em painel pequeno: “Código sendo carregado…”, Copiar link, erro/tentar novamente e gerenciamento recolhido. Preparo começa em Criar sala, sem bloquear controles. Reconexão/compatibilidade têm aviso curto quando necessário.
@@ -86,7 +88,7 @@ Motivo: distribuição para usuários comuns, atualização simples e dados loca
 
 ## Isolamento de áudio sem driver
 
-Decisão: capturador C# próprio sobre WASAPI por processo, compilado localmente e embutido; modo somente do jogo/app como padrão, áudio do computador inteiro como opção explícita.
+Decisão: capturador C# próprio sobre WASAPI por processo, compilado localmente e embutido; desde 0.7.1 o padrão é Automático (janela compartilhada → só o som daquele app; tela inteira → som do computador, pois o Windows não separa áudio por monitor); escolha manual de app ou computador inteiro fica em Opções avançadas.
 Motivo: excluir Discord e outros apps sem instalar driver de áudio virtual nem depender de addon Node sem manutenção.
 Consequência: requer Windows 11/build 20348+, captura processos filhos e pode incluir outras janelas do mesmo aplicativo. Em monitor inteiro, o usuário escolhe separadamente o app sonoro. Falhas não ampliam a captura para o sistema.
 

@@ -2,6 +2,8 @@
 
 ## Agora
 
+0.7.1 (áudio automático) pronta localmente, sem commit: aguardando decisão de publicação.
+
 0.7.0 (câmera) publicada em 29/10/2026 editando a mesma Release.
 - [ ] Testar com webcam física real e com outra pessoa (PiP, separar, tela cheia).
 

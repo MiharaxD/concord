@@ -1,6 +1,6 @@
 const { readFile, writeFile, rename } = require('node:fs/promises');
 
-const defaults = Object.freeze({ resolution: '1080', fps: '30', bitrateMode: 'auto', bitrateMbps: 12, audioMode: 'application', audioEnabled: true });
+const defaults = Object.freeze({ resolution: '1080', fps: '30', bitrateMode: 'auto', bitrateMbps: 12, audioMode: 'auto', audioEnabled: true, audioVersion: 2 });
 function normalizePreferences(value = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) value = {};
   const number = Number(value.bitrateMbps);
@@ -9,8 +9,10 @@ function normalizePreferences(value = {}) {
     fps: ['30', '60'].includes(value.fps) ? value.fps : defaults.fps,
     bitrateMode: ['auto', 'manual'].includes(value.bitrateMode) ? value.bitrateMode : defaults.bitrateMode,
     bitrateMbps: Number.isFinite(number) && number >= 1 && number <= 60 && Number.isInteger(number * 2) ? number : defaults.bitrateMbps,
-    audioMode: ['application', 'system'].includes(value.audioMode) ? value.audioMode : defaults.audioMode,
-    audioEnabled: typeof value.audioEnabled === 'boolean' ? value.audioEnabled : defaults.audioEnabled
+    // Before audioVersion 2 'application' was only the default; those profiles move to the automatic mode.
+    audioMode: value.audioVersion !== 2 && value.audioMode === 'application' ? 'auto' : ['auto', 'application', 'system'].includes(value.audioMode) ? value.audioMode : defaults.audioMode,
+    audioEnabled: typeof value.audioEnabled === 'boolean' ? value.audioEnabled : defaults.audioEnabled,
+    audioVersion: 2
   };
 }
 async function createPreferences(file) {

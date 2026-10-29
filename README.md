@@ -7,7 +7,7 @@
 <p align="center">Compartilhamento de tela em salas privadas para Windows.</p>
 
 <p align="center">
-  <a href="https://github.com/MiharaxD/concord/releases/download/v0.7.0/Concord-0.7.0-Setup.exe"><strong>Baixar para Windows · v0.7.0</strong></a>
+  <a href="https://github.com/MiharaxD/concord/releases/download/v0.7.1/Concord-0.7.1-Setup.exe"><strong>Baixar para Windows · v0.7.1</strong></a>
   &nbsp;·&nbsp;
   <a href="https://github.com/MiharaxD/concord/releases">Todas as versões</a>
 </p>
@@ -53,7 +53,7 @@ Os atalhos ficam desativados enquanto você digita ou usa um pop-up.
 ## Requisitos e limites
 
 - **Windows 10/11 de 64 bits.** O instalador inclui os componentes; não exige Node.js ou ferramentas de desenvolvimento.
-- Áudio **somente do jogo/app** exige Windows build 20348+; Windows 11 é recomendado. Pode incluir outras janelas do mesmo processo.
+- O áudio é **automático**: ao compartilhar uma janela, vai só o som daquele app; ao compartilhar a tela inteira, vai o som do computador (o Windows não separa som por monitor). Dá para trocar em **Opções avançadas**. Som só do app exige Windows build 20348+; Windows 11 é recomendado. Pode incluir outras janelas do mesmo processo.
 - Convites usam servidores MQTT públicos só para os PCs se encontrarem (mensagens cifradas) e uma página no GitHub Pages. A Cloudflare entra apenas quando a conexão direta falha e pode ter bloqueios temporários.
 - Salas criadas na 0.6.0 ou mais nova exigem a 0.6.0 ou mais nova para entrar.
 - O Discord é opcional. A cota atual de desenvolvimento é de **100 mensagens diretas a cada 2 horas para o aplicativo inteiro**.

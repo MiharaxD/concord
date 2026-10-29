@@ -45,8 +45,8 @@ try {
       return play.call(this);
     };
   });
-  await host.locator('#audio-mode').selectOption('system');
-  if (await host.locator('#fps').count()) { await host.locator('#quality').selectOption('1440'); await host.locator('#fps').selectOption('60'); await host.locator('#advanced-options summary').click(); }
+  await host.locator('#advanced-options').evaluate(details => { details.open = true; }); await host.locator('#audio-mode').selectOption('system');
+  if (await host.locator('#fps').count()) { await host.locator('#quality').selectOption('1440'); await host.locator('#fps').selectOption('60'); await host.locator('#advanced-options').evaluate(details => { details.open = true; }); }
   else await host.locator('#quality').selectOption('1440:60');
   assert.match(await host.locator('#bitrate-mode option').first().textContent(), /24 Mbps/);
   await host.locator('#bitrate-mode').selectOption('manual'); await host.locator('#bitrate-value').fill('11.5');
@@ -121,7 +121,7 @@ try {
   // Verify the Worklet path, not just helper PCM: choose the same native audio window in the UI.
   await host.evaluate(async () => { await window.testPhysicalTone.close(); });
   await viewer.evaluate(async () => { await window.testPhysicalTone.close(); });
-  await host.locator('#quality').selectOption(await host.locator('#fps').count() ? '720' : '720:30'); await host.locator('#bitrate-mode').selectOption('auto'); await host.locator('#audio-mode').selectOption('application');
+  await host.locator('#quality').selectOption(await host.locator('#fps').count() ? '720' : '720:30'); await host.locator('#bitrate-mode').selectOption('auto'); await host.locator('#advanced-options').evaluate(details => { details.open = true; }); await host.locator('#audio-mode').selectOption('application');
   await host.locator('#choose-audio-source').click(); await host.locator('.source-choice').filter({ hasText: 'Jogo de teste Concord' }).click();
   await host.evaluate(() => {
     const ac = new AudioContext(), tone = ac.createOscillator(), gain = ac.createGain(); tone.frequency.value = 440; gain.gain.value = .025;
