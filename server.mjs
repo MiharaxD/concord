@@ -25,7 +25,7 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
   let inviteError = null;
   const retry = inviteRetry.createInviteRetry(path.join(tunnelCwd, 'invite-retry.json'));
   const members = new Map();
-  const roster = () => [...members.values()].map(ws => ({ id: ws.memberId, ...ws.profile, stream: ws.streamState }));
+  const roster = () => [...members.values()].map(ws => ({ id: ws.memberId, ...ws.profile, stream: ws.streamState, features: ws.features }));
   const broadcast = value => { for (const peer of members.values()) send(peer, value); };
   const sockets = new Set();
   const attempts = new Map();
@@ -52,7 +52,7 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self' wss: ws://127.0.0.1:* ws://localhost:*; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
-    res.setHeader('Permissions-Policy', 'camera=(), display-capture=(self), microphone=(self)');
+    res.setHeader('Permissions-Policy', 'camera=(self), display-capture=(self), microphone=(self)');
   }
   function json(res, status, value) { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(value)); }
   const admin = req => isLocal(req) && same(req.headers['x-concord-host'], hostToken);
@@ -204,19 +204,24 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
           ws.role = 'viewer'; ws.memberId = randomBytes(12).toString('base64url');
         } else { ws.close(4001, 'Convite inválido ou expirado'); return; }
         ws.profile = visualProfile(auth.profile); ws.profile.name ||= 'Amigo';
-        ws.streamState = { active: false }; ws.relayTargets = new Set();
+        ws.streamState = { active: false }; ws.relayTargets = new Set(); ws.cameraTargets = new Set(); ws.relayStream = 'screen';
+        // 0.7.0+: members that can send/receive a second (camera) video.
+        ws.features = Array.isArray(auth.features) && auth.features.includes('camera') ? ['camera'] : [];
         members.set(ws.memberId, ws); clearTimeout(timeout);
-        send(ws, { type: 'welcome', role: ws.role, self: ws.memberId, members: roster() });
+        send(ws, { type: 'welcome', role: ws.role, self: ws.memberId, members: roster(), features: ['camera'] });
         broadcast({ type: 'room', members: roster() });
         return;
       }
       if (ws.readyState !== WebSocket.OPEN) return;
       if (binary) {
-        if (!ws.streamState.active || !ws.relayTargets.size) { ws.close(4001, 'Inicie sua transmissão antes de enviar mídia'); return; }
+        const targets = ws.relayStream === 'camera' ? ws.cameraTargets : ws.relayTargets;
+        if (!ws.streamState.active) { ws.close(4001, 'Inicie sua transmissão antes de enviar mídia'); return; }
+        // A target may have just left; late chunks are dropped instead of closing the publisher.
+        if (!targets.size) return;
         // Prefix each chunk with the authenticated publisher, never a client-supplied ID.
-        const id = Buffer.from(ws.memberId);
+        const id = Buffer.from(ws.memberId + (ws.relayStream === 'camera' ? ':camera' : ''));
         const packet = Buffer.concat([Buffer.from([id.length]), id, buffer]);
-        for (const targetId of ws.relayTargets) {
+        for (const targetId of targets) {
           const peer = members.get(targetId);
           if (peer?.readyState !== WebSocket.OPEN) continue;
           if (peer.bufferedAmount > 32 * 1024 * 1024) { peer.close(4004, 'Sua conexão ficou para trás. Reconecte.'); continue; }
@@ -236,17 +241,23 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
         ws.profile = visualProfile(ws.profile);
         broadcast({ type: 'room', members: roster() });
       } else if (msg.type === 'stream-state') {
-        ws.streamState = { active: Boolean(msg.active), label: String(msg.label || '').slice(0, 120), quality: String(msg.quality || '').slice(0, 60), relay: Boolean(msg.relay) };
-        if (!ws.streamState.active) ws.relayTargets.clear();
+        const active = Boolean(msg.active);
+        // Clients before 0.7.0 send only `active`, which always meant the screen.
+        ws.streamState = { active, screen: active && (msg.screen === undefined || Boolean(msg.screen)), camera: active && Boolean(msg.camera), label: String(msg.label || '').slice(0, 120), quality: String(msg.quality || '').slice(0, 60), relay: Boolean(msg.relay) };
+        if (!ws.streamState.active) { ws.relayTargets.clear(); ws.cameraTargets.clear(); }
         broadcast({ type: 'room', members: roster() });
       } else if (['offer', 'answer', 'ice', 'fallback'].includes(msg.type)) {
         const peer = members.get(msg.to);
         if (peer && peer !== ws) send(peer, { ...msg, from: ws.memberId });
+      } else if (msg.type === 'relay-stream') {
+        // Selects which of this member's encoders the following binary chunks belong to.
+        ws.relayStream = msg.stream === 'camera' ? 'camera' : 'screen';
       } else if (msg.type === 'relay-start' && ws.streamState.active) {
         if (!/^video\/webm;codecs=vp8(?:,opus)?$/.test(msg.mime || '')) return;
         const ids = Array.isArray(msg.to) ? msg.to.slice(0, 8) : [];
-        ws.relayTargets = new Set(ids.filter(id => id !== ws.memberId && members.has(id)));
-        for (const id of ws.relayTargets) send(members.get(id), { type: 'relay-start', from: ws.memberId, mime: msg.mime });
+        const targets = new Set(ids.filter(id => id !== ws.memberId && members.has(id)));
+        if (msg.stream === 'camera') ws.cameraTargets = targets; else ws.relayTargets = targets;
+        for (const id of targets) send(members.get(id), { type: 'relay-start', from: ws.memberId, mime: msg.mime, ...(msg.stream === 'camera' ? { stream: 'camera' } : {}) });
       }
     });
     ws.on('error', () => {});
@@ -255,7 +266,7 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
       if (ws === host) host = undefined;
       if (members.get(ws.memberId) === ws) {
         members.delete(ws.memberId);
-        for (const peer of members.values()) peer.relayTargets.delete(ws.memberId);
+        for (const peer of members.values()) { peer.relayTargets.delete(ws.memberId); peer.cameraTargets.delete(ws.memberId); }
         broadcast({ type: 'room', members: roster() });
       }
     });

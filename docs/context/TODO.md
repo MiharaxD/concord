@@ -2,6 +2,9 @@
 
 ## Agora
 
+0.7.0 (câmera) pronta localmente, sem commit: aguardando decisão de publicação.
+- [ ] Testar com webcam física real e com outra pessoa (PiP, separar, tela cheia).
+
 0.6.1 publicada em 29/10/2026 (P2P + Cloudflare como plano B; link entra direto). Usuário relatou o P2P funcionando.
 - [ ] Conferir a prévia do link do GitHub Pages no Discord (página já no ar e validada em 29/10).
 - [ ] Ainda não confirmado: plano B com túnel Cloudflare real entre redes diferentes.

@@ -92,3 +92,39 @@ test('ponte P2P entra como convidado e nunca como dono, mesmo em loopback', asyn
   const odd = await bridged('viewer', session.inviteKey, '?via=outro'); assert.notEqual(await odd.closed, 1000);
   for (const file of ['/p2p.js', '/mqtt.js']) assert.equal((await fetch(app.address + file)).status, 200);
 });
+
+test('câmera: recurso anunciado, estado separado e relay com id próprio', async t => {
+  const app = await createConcord({ port: 0 }).listen(); t.after(() => app.close());
+  const session = await (await fetch(app.address + '/api/session', { headers: { 'x-concord-host': app.hostToken } })).json();
+  async function join(role, token, features) {
+    const ws = new WebSocket(app.address.replace('http:', 'ws:') + '/socket', { origin: app.address }), inbox = [];
+    ws.on('message', (data, binary) => inbox.push(binary ? data : JSON.parse(data))); await once(ws, 'open');
+    ws.send(JSON.stringify({ type: 'auth', role, token, profile: { name: role }, ...(features ? { features } : {}) }));
+    const next = async (predicate, timeout = 2000) => { const end = Date.now() + timeout; while (Date.now() < end) { const index = inbox.findIndex(predicate); if (index >= 0) return inbox.splice(index, 1)[0]; await new Promise(resolve => setTimeout(resolve, 10)); } throw new Error('Mensagem não chegou'); };
+    return { ws, next, send: msg => ws.send(JSON.stringify(msg)) };
+  }
+  const host = await join('host', app.hostToken, ['camera']);
+  const welcome = await host.next(msg => msg.type === 'welcome'); assert.deepEqual(welcome.features, ['camera']);
+  const guest = await join('viewer', session.inviteKey, ['camera']), old = await join('viewer', session.inviteKey);
+  const guestId = (await guest.next(msg => msg.type === 'welcome')).self, oldId = (await old.next(msg => msg.type === 'welcome')).self;
+  const room = await host.next(msg => msg.type === 'room' && msg.members.length === 3);
+  assert.deepEqual(room.members.find(member => member.id === guestId).features, ['camera']);
+  assert.deepEqual(room.members.find(member => member.id === oldId).features, []);
+  host.send({ type: 'stream-state', active: true, screen: false, camera: true, label: 'Câmera' });
+  const state = (await guest.next(msg => msg.type === 'room' && msg.members.some(member => member.id === 'host' && member.stream.camera))).members.find(member => member.id === 'host').stream;
+  assert.equal(state.screen, false); assert.equal(state.active, true);
+  host.send({ type: 'stream-state', active: true });
+  const legacy = (await guest.next(msg => msg.type === 'room' && msg.members.some(member => member.id === 'host' && member.stream.screen))).members.find(member => member.id === 'host').stream;
+  assert.equal(legacy.camera, false, 'cliente antigo (só active) continua sendo tela');
+  host.send({ type: 'stream-state', active: true, screen: true, camera: true });
+  host.send({ type: 'relay-start', to: [guestId, oldId], mime: 'video/webm;codecs=vp8' });
+  host.send({ type: 'relay-start', to: [guestId], mime: 'video/webm;codecs=vp8', stream: 'camera' });
+  assert.equal((await guest.next(msg => msg.type === 'relay-start' && msg.stream === 'camera')).from, 'host');
+  host.send({ type: 'relay-stream', stream: 'camera' }); host.ws.send(Buffer.from([1, 2, 3]));
+  host.send({ type: 'relay-stream', stream: 'screen' }); host.ws.send(Buffer.from([4, 5]));
+  const id = packet => packet.subarray(1, 1 + packet[0]).toString();
+  assert.equal(id(await guest.next(item => Buffer.isBuffer(item) && id(item) === 'host:camera')), 'host:camera');
+  assert.equal(id(await guest.next(item => Buffer.isBuffer(item) && id(item) === 'host')), 'host');
+  const oldPacket = await old.next(item => Buffer.isBuffer(item)); assert.equal(id(oldPacket), 'host', 'cliente antigo só recebe a tela');
+  for (const client of [host, guest, old]) client.ws.close();
+});

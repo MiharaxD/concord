@@ -6,6 +6,11 @@ Decisão: Electron/JavaScript em instalador NSIS Windows x64, com a mesma aplica
 Motivo: o usuário rejeitou a versão em navegador e quer passar o programa ao amigo.
 Consequência: não exigir instalação de Node ou ferramentas de desenvolvimento no PC do destinatário.
 
+## Câmera junto ou no lugar da tela (0.7.0)
+
+Decisão: pedido do usuário em 29/10/2026. Webcam opcional por botão Ligar câmera, sozinha ou junto com a tela. Para quem assiste, a câmera aparece no canto da tela do publicador (picture-in-picture) com dois botões: tela cheia só da câmera e separar em quadro próprio (com volta ao canto). Sem tela, a câmera ocupa o quadro.
+Consequência: segundo vídeo por pessoa (mais upload, ~1,5 Mbps); salas com câmera precisam do host 0.7.0+; participantes 0.6.x continuam vendo só a tela. Permissão de câmera só por clique explícito.
+
 ## Acesso P2P com Cloudflare como plano B (0.6.0)
 
 Decisão: pedido do usuário em 29/10/2026 (opção B híbrida). Convites passam a ser P2P: brokers MQTT públicos (EMQX, HiveMQ) levam ofertas WebRTC cifradas com a chave do convite, e um DataChannel direto leva o protocolo de sala até o host, que faz ponte ao servidor local. Página do link estática no GitHub Pages (`site/`). Quick Tunnel só é criado quando um convidado não consegue conexão direta e pede o plano B.
@@ -23,7 +28,7 @@ Decisão: recusa 429 na criação do Quick Tunnel mostra o motivo e bloqueia nov
 ## Compartilhamento explícito e privado
 
 Decisão atual (0.5.2): preparar acesso público somente ao clicar em Criar sala, em segundo plano e sem bloquear controles. Abrir o app, escolher nome ou entrar em outra sala não solicita túnel próprio. Substitui o preparo ao abrir, conforme novo pedido do usuário para reduzir pedidos à Cloudflare. Cliques repetidos/navegação na sala própria reutilizam o preparo/convite; erro ou cancelamento mantêm Tentar novamente explícito. Captura continua dependendo de escolha explícita. Sala com até 8 pessoas e chave aleatória revogável.
-Consequência: preparar não captura tela/áudio. Cancelar/fechar acesso interrompe o preparo e não reinicia automaticamente na mesma execução. Sem gravação de mídia em disco, controle remoto ou câmera. Nunca ampliar silenciosamente uma captura de áudio para todo o sistema.
+Consequência: preparar não captura tela/áudio. Cancelar/fechar acesso interrompe o preparo e não reinicia automaticamente na mesma execução. Sem gravação de mídia em disco ou controle remoto. Câmera (0.7.0+) só por clique explícito em Ligar câmera. Nunca ampliar silenciosamente uma captura de áudio para todo o sistema.
 
 ## Convite curto sem serviço extra
 
@@ -62,6 +67,8 @@ Consequência: distribuir via anexos de Releases, sem publicar automaticamente n
 Exceção autorizada em 27/10/2026: para esta correção 0.5.2, o usuário pediu editar a mesma entrada da Release 0.5.1, sem criar outra. Manter ID da Release, atualizar sua versão/tag para v0.5.2 (para o updater reconhecer a correção) e substituir anexos após conferir backup local dos anteriores. Preservar a tag v0.5.1 no commit original; não mover tags antigas. Esta autorização não torna edição de futuras releases automática.
 
 Exceção autorizada em 29/10/2026: a correção 0.6.1 (entrada direta pelo link e aviso que some) edita a mesma entrada da Release 0.6.0 (ID 428460958) em vez de criar outra. O Actions faz a edição a partir de `build/replace-release.json` (uso único, removido depois): novos anexos, tag/nome/notas para v0.6.1, tag v0.6.0 preservada, anexos 0.6.0 com cópia em `dist/installer/0.6.0/github/`. Não torna edição de releases futuras automática.
+
+Exceção autorizada em 29/10/2026 (de novo): a 0.7.0 (câmera) edita a mesma entrada da Release 0.6.1 (ID 428460958) em vez de criar outra, pelo mesmo arquivo de uso único ; tag v0.6.1 preservada.
 
 ## Instalação e atualizações
 

@@ -30,3 +30,21 @@ main{display:flex;flex-direction:column;min-height:100vh;padding-bottom:20px}.ho
 .banner-actions{display:flex;justify-content:center;gap:14px;margin:10px 0 14px}#copy-link-button{margin-top:12px}
 
 #discord-friends{max-width:500px}#discord-friend-search{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text)}#discord-friend-list{max-height:45vh;overflow-y:auto;margin-top:14px}.discord-friend{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}.discord-friend .avatar{width:38px;height:38px;flex-shrink:0}.discord-friend-name{min-width:0;flex:1}.discord-friend-name strong{display:block;font-size:13px;overflow-wrap:anywhere}.discord-friend-name small{font-size:11px;color:var(--muted);overflow-wrap:anywhere}.discord-friend .button{flex-shrink:0;padding:8px 12px}#invite-discord-button{margin-top:8px}#discord-friends-status{font-size:12px;color:var(--muted)}
+.stream-tile:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.camera-settings{padding:14px 0;border-top:1px solid #2a2c33}
+.camera-settings label{font-size:10px;font-weight:500;display:block}
+.camera-settings .button{margin-top:10px}
+.camera-settings small{font-size:9px;color:var(--muted);display:block;margin-top:8px}
+.camera-pip{position:absolute;right:10px;bottom:10px;width:min(30%,300px);aspect-ratio:16/9;z-index:2;border-radius:8px;overflow:hidden;border:1px solid #ffffff2a;box-shadow:0 6px 24px #0009;background:#000}
+.stream-tile.camera-only .camera-pip{inset:0;width:auto;aspect-ratio:auto;border:0;border-radius:0;box-shadow:none;z-index:0}
+.camera-slot{position:absolute;inset:0}
+.camera-box{position:absolute;inset:0;background:#000}
+.stream-tile .camera-box video{opacity:1;object-fit:cover}
+.stream-tile.camera-only .camera-box video,.camera-slot .camera-box video,.camera-box:fullscreen video{object-fit:contain}
+.camera-actions{position:absolute;top:6px;right:6px;display:flex;gap:4px;opacity:0;transition:opacity .15s;z-index:3}
+.camera-box:hover .camera-actions,.camera-box:focus-within .camera-actions{opacity:1}
+.camera-action{width:28px;height:28px;display:grid;place-items:center;border:0;border-radius:6px;background:#101114d9;color:#eeedf6;cursor:pointer;padding:0}
+.camera-action:hover{background:#2f2a3d;color:#fff}
+.camera-action:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.camera-action svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.camera-box[data-mode="pip"] .camera-attach,.camera-box[data-mode="full"] .camera-attach,.camera-box[data-mode="full"] .camera-detach,.camera-box[data-mode="tile"] .camera-detach{display:none}

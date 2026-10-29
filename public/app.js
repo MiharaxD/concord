@@ -19,6 +19,8 @@ let invite, inviteGeneration = 0, invitePending = false, inviteRetryAt = 0;
 let ownInviteMessage = '', currentInvite = '', joining = false, joinTimer, uiReady = false, queuedInvite;
 let p2pHost, hosting = false, hostGeneration = 0, accessClosed = false, p2pOffline = false, fallbackPromise;
 let audioPreviewTrack, testingAudio = false, audioGeneration = 0, captureGeneration = 0;
+let cameraStream, cameraStarting = false, cameraGeneration = 0, roomCamera = false, relayStream = 'screen';
+const cameraViews = new Map(), cameraModes = new Map();
 const meter = new AudioMeter($('audio-level'), $('audio-level-label'));
 let noticeTimer;
 // Confirmations fade after a few seconds; errors stay until replaced.
@@ -57,7 +59,7 @@ function showView(view) {
 }
 function createRoom() {
   const creating = role !== 'host' || !target;
-  if (creating) { stopSharing(); connect(config.address, config.hostToken, 'host'); }
+  if (creating) { stopSharing(); stopCamera(); connect(config.address, config.hostToken, 'host'); }
   showView('room');
   if (!hosting && !accessClosed) void startHosting();
 }
@@ -84,7 +86,7 @@ function openJoin(value) {
   if (!uiReady) { if (value) queuedInvite = value; return; }
   if (joining) cancelJoin();
   $('join-error').textContent = ''; if (value !== undefined) $('join-input').value = value;
-  $('join-hint').textContent = stream ? 'Confirme para trocar de sala e encerrar sua transmissão atual.' : 'Cole o convite e confirme para entrar.';
+  $('join-hint').textContent = stream || cameraStream ? 'Confirme para trocar de sala e encerrar sua transmissão atual.' : 'Cole o convite e confirme para entrar.';
   if (!$('join-picker').open) $('join-picker').showModal();
   if (value !== undefined) { try { parseInvite(value); } catch (error) { $('join-error').textContent = error.message; } }
   $('join-input').focus();
@@ -92,7 +94,7 @@ function openJoin(value) {
 // Links opened from the invite page join at once when nothing would be interrupted;
 // inside a room or while sharing they still ask, so a link never ends the current session.
 function receiveInvite(value) {
-  if (uiReady && !target && !stream && !joining) {
+  if (uiReady && !target && !stream && !cameraStream && !joining) {
     try { parseInvite(value); openJoin(value); $('join-form').requestSubmit(); return; } catch {}
   }
   openJoin(value);
@@ -143,9 +145,11 @@ function renderUpdate(state) {
 $('check-updates').onclick = () => { void native.checkUpdates().then(renderUpdate).catch(() => {}); };
 $('install-update').onclick = () => { void native.installUpdate().catch(() => {}); };
 function send(value) { if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(value)); }
-function sendBytes(blob) {
+// Relay chunks of the screen and camera encoders share the socket; a marker selects the stream.
+function sendBytes(blob, kind = 'screen') {
   if (socket?.readyState !== WebSocket.OPEN) return true;
   if (socket.bufferedAmount + blob.size > 32 * 1024 * 1024) return false;
+  if (kind !== relayStream) { relayStream = kind; socket.send(JSON.stringify({ type: 'relay-stream', stream: kind })); }
   for (let offset = 0; offset < blob.size; offset += 1024 * 1024) socket.send(blob.slice(offset, offset + 1024 * 1024));
   return true;
 }
@@ -167,22 +171,102 @@ function renderBanner(element, profile) {
 function tile(member, own = false) {
   let item = tiles.get(member.id);
   if (!item) {
-    const element = document.createElement('button'); element.type = 'button'; element.className = 'stream-tile'; element.dataset.member = member.id;
+    const element = document.createElement('div'); element.className = 'stream-tile'; element.dataset.member = member.id; element.tabIndex = 0; element.setAttribute('role', 'button');
+    element.onkeydown = event => { if (event.target === element && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); element.click(); } };
     const player = own ? video : document.createElement('video'); player.autoplay = true; player.playsInline = true; player.className = 'call-video'; player.dataset.publisher = member.id;
     const placeholder = document.createElement('div'); placeholder.className = 'tile-placeholder';
     const label = document.createElement('span'); label.className = 'tile-label';
-    element.append(placeholder, player, label); element.onclick = () => { focus = focus === member.id ? null : member.id; renderTiles(); };
+    const pip = document.createElement('div'); pip.className = 'camera-pip'; pip.hidden = true;
+    // In picture-in-picture the camera has its own buttons; clicks there do not change focus.
+    pip.onclick = event => { if (!element.classList.contains('camera-only')) event.stopPropagation(); };
+    element.append(placeholder, player, pip, label); element.onclick = () => { focus = focus === member.id ? null : member.id; renderTiles(); };
     player.addEventListener('playing', () => { if (player.videoWidth) element.classList.add('playing'); renderTiles(); });
     player.addEventListener('emptied', () => element.classList.remove('playing'));
     player.addEventListener('canplay', () => media?.play(player));
     player.addEventListener('error', () => { if (media?.receivers.has(member.id)) media.recover(member.id); });
-    item = { element, video: player, placeholder, label, own, member }; tiles.set(member.id, item); $('streams-grid').append(element);
+    item = { element, video: player, placeholder, label, own, member, pip }; tiles.set(member.id, item); $('streams-grid').append(element);
   }
   item.member = member; item.placeholder.replaceChildren(avatar(member, 'tile-avatar'));
   item.label.textContent = member.name + (own ? ' · você' : '');
   applyAudio(); return item.video;
 }
-function localTile() { if (stream && self) tile({ id: self, ...config.profile, stream: { active: true } }, true); }
+function localTile() {
+  if (!self || (!stream && !cameraStream)) return;
+  tile({ id: self, ...config.profile, stream: { active: true } }, true);
+  if (cameraStream) { const view = cameraView(self); if (view.video.srcObject !== cameraStream) view.video.srcObject = cameraStream; placeCamera(self); }
+}
+const ICONS = { full: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5', split: 'M3 5h11v8H3zM10 13v6h11v-8h-4', join: 'M3 4h18v16H3zM12 11h7v7h-7' };
+function iconButton(className, label, icon, action) {
+  const button = document.createElement('button'); button.type = 'button'; button.className = 'camera-action ' + className; button.title = label; button.setAttribute('aria-label', label);
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'), path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true'); path.setAttribute('d', ICONS[icon]); svg.append(path); button.append(svg);
+  button.onclick = event => { event.stopPropagation(); action(); };
+  return button;
+}
+// One camera view per publisher; the same element moves between the corner, its own tile or the whole tile.
+function cameraView(id) {
+  let view = cameraViews.get(id);
+  if (!view) {
+    const box = document.createElement('div'); box.className = 'camera-box'; box.dataset.camera = id;
+    const video = document.createElement('video'); video.autoplay = true; video.playsInline = true; video.muted = true; video.className = 'camera-video';
+    const actions = document.createElement('div'); actions.className = 'camera-actions';
+    actions.append(
+      iconButton('camera-fullscreen', 'Câmera em tela cheia', 'full', () => { (document.fullscreenElement ? document.exitFullscreen() : box.requestFullscreen()).catch(error => notice(error.message, true)); }),
+      iconButton('camera-detach', 'Separar a câmera em outro quadro', 'split', () => { cameraModes.set(id, 'tile'); placeCamera(id); }),
+      iconButton('camera-attach', 'Voltar a câmera para o canto', 'join', () => { cameraModes.delete(id); placeCamera(id); }));
+    box.append(video, actions);
+    video.addEventListener('canplay', () => media?.play(video));
+    video.addEventListener('error', () => { if (media?.receivers.has(id + ':camera')) media.recover(id + ':camera'); });
+    view = { box, video }; cameraViews.set(id, view);
+  }
+  return view;
+}
+function cameraState(id) {
+  if (id === self) return { camera: Boolean(cameraStream), screen: Boolean(stream), member: { id: self, ...config.profile } };
+  const member = members.find(person => person.id === id);
+  return { camera: Boolean(member?.stream.camera), screen: member?.stream.screen !== false, member };
+}
+function placeCamera(id) {
+  const view = cameraViews.get(id), state = cameraState(id), main = tiles.get(id);
+  if (!view) return;
+  if (!state.camera || !main) { removeCamera(id); return; }
+  const detached = state.screen && cameraModes.get(id) === 'tile';
+  main.element.classList.toggle('camera-only', !state.screen);
+  if (detached) { const item = cameraTile(id, state.member); if (view.box.parentElement !== item.slot) item.slot.append(view.box); main.pip.hidden = true; }
+  else { removeCameraTile(id); if (view.box.parentElement !== main.pip) main.pip.append(view.box); main.pip.hidden = false; }
+  view.box.dataset.mode = detached ? 'tile' : state.screen ? 'pip' : 'full';
+  media?.play(view.video); renderTiles();
+}
+function cameraTile(id, member) {
+  const key = id + ':camera'; let item = tiles.get(key);
+  if (!item) {
+    const element = document.createElement('div'); element.className = 'stream-tile camera-tile playing'; element.dataset.member = key; element.tabIndex = 0; element.setAttribute('role', 'button');
+    const slot = document.createElement('div'); slot.className = 'camera-slot';
+    const label = document.createElement('span'); label.className = 'tile-label';
+    element.append(slot, label); element.onclick = () => { focus = focus === key ? null : key; renderTiles(); };
+    element.onkeydown = event => { if (event.target === element && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); element.click(); } };
+    item = { element, video: cameraViews.get(id).video, label, own: id === self, member: null, slot, camera: true }; tiles.set(key, item);
+    const main = tiles.get(id)?.element; if (main) main.after(element); else $('streams-grid').append(element);
+  }
+  item.member = { ...member, id: key, name: member.name + ' · câmera' };
+  item.label.textContent = item.member.name + (item.own ? ' · você' : '');
+  return item;
+}
+function removeCameraTile(id) {
+  const key = id + ':camera', item = tiles.get(key); if (!item) return;
+  item.element.remove(); tiles.delete(key); if (focus === key) focus = null;
+}
+function removeCamera(id) {
+  removeCameraTile(id); cameraModes.delete(id);
+  const view = cameraViews.get(id);
+  if (view) {
+    cameraViews.delete(id); if (document.fullscreenElement === view.box) document.exitFullscreen().catch(() => {});
+    view.video.pause(); view.video.srcObject = null; view.video.removeAttribute('src'); view.video.load(); view.box.remove();
+  }
+  const main = tiles.get(id); if (main) { main.pip.hidden = true; main.element.classList.remove('camera-only'); }
+  renderTiles();
+}
+function cameraPlayer(member) { tile(member); cameraView(member.id); placeCamera(member.id); return cameraViews.get(member.id)?.video; }
 function removeTile(id) {
   const item = tiles.get(id); if (!item) return;
   if (!item.own) { item.video.pause(); item.video.srcObject = null; item.video.removeAttribute('src'); item.video.load(); }
@@ -232,6 +316,7 @@ function renderMembers() {
     const state = document.createElement('small'); state.textContent = member.stream.active ? 'Compartilhando' : 'Assistindo';
     row.append(avatar(member), text, state); $('audience-list').append(row);
     const item = tiles.get(member.id); if (item) tile(member);
+    if (cameraViews.has(member.id)) placeCamera(member.id);
   }
   localTile(); renderTiles(); renderMemberProfile();
 }
@@ -276,6 +361,9 @@ function lockSettings(locked) {
   $('test-audio').hidden = Boolean(stream) || starting || $('audio-mode').value !== 'application';
   $('start-button').hidden = Boolean(stream); $('stop-button').hidden = !stream;
   $('start-button').disabled = locked || !selectedSource || socket?.readyState !== WebSocket.OPEN;
+  $('camera-button').disabled = cameraStarting || socket?.readyState !== WebSocket.OPEN;
+  $('camera-button').textContent = cameraStream ? 'Desligar câmera' : cameraStarting ? 'Ligando câmera…' : 'Ligar câmera';
+  $('camera-device').disabled = Boolean(cameraStream) || cameraStarting;
 }
 function bitrate() { return videoBitrate(qualityKey(), $('bitrate-mode').value === 'manual' ? $('bitrate-value').value : null); }
 function qualityLabel() { return $('quality').selectedOptions[0].textContent + ' · ' + $('fps').value + ' FPS · ' + formatMbps(bitrate()) + ' Mbps'; }
@@ -285,11 +373,13 @@ function updateBitrateControls() {
   $('bitrate-mode').options[0].textContent = 'Automática · ' + recommended + ' Mbps';
   $('bitrate-hint').textContent = manual ? 'Referência: ' + recommended + ' Mbps. Ajuste antes de transmitir.' : 'Mais bitrate preserva detalhes e usa mais upload.';
 }
-function publishState() { send({ type: 'stream-state', active: Boolean(stream), label: selectedSource?.name || '', quality: stream ? qualityLabel() : '', relay: false }); }
+function publishState() {
+  send({ type: 'stream-state', active: Boolean(stream || cameraStream), screen: Boolean(stream), camera: Boolean(cameraStream), label: stream ? selectedSource?.name || '' : cameraStream ? 'Câmera' : '', quality: stream ? qualityLabel() : '', relay: false });
+}
 function disconnect() {
   closeDiscordFriends();
   terminal = true; clearTimeout(reconnectTimer); clearTimeout(joinTimer); const previous = socket; socket = undefined; previous?.close();
-  media?.close(); media = null; self = ''; for (const id of [...tiles.keys()]) removeTile(id); members = []; renderMembers();
+  media?.close(); media = null; for (const id of [...cameraViews.keys()]) removeCamera(id); self = ''; for (const id of [...tiles.keys()]) removeTile(id); members = []; renderMembers();
 }
 function connect(address, token, connectionRole, p2p = false) {
   disconnect(); role = connectionRole; terminal = false; retries = 0; target = { address, token, role: connectionRole, p2p }; openSocket();
@@ -301,12 +391,12 @@ function joinStage(stage) {
 function openSocket() {
   if (terminal || !target) return;
   const ws = target.p2p ? connectRoom(target.token, { parseInvite, onStage: joinStage }) : new WebSocket(target.address.replace(/^http/, 'ws') + '/socket');
-  socket = ws; ws.binaryType = 'arraybuffer'; status('Conectando');
+  socket = ws; ws.binaryType = 'arraybuffer'; relayStream = 'screen'; status('Conectando');
   media = new RoomMedia({ send, sendBytes, options: () => ({ relay: false, bitrate: bitrate(), fps: qualityPreset(qualityKey()).fps }),
-    player: member => tile(member), remove: removeTile, update: renderTiles,
+    player: member => tile(member), cameraPlayer, removeCamera, remove: removeTile, update: renderTiles,
     compatibility: updateRoomMessage,
     error: text => notice(text, true), fatal: text => { stopSharing(); notice(text, true); } });
-  ws.onopen = () => ws.send(JSON.stringify({ type: 'auth', token: target.token, role: target.role, profile: config.profile }));
+  ws.onopen = () => ws.send(JSON.stringify({ type: 'auth', token: target.token, role: target.role, profile: config.profile, features: ['camera'] }));
   ws.onmessage = event => {
     processing = processing.then(async () => {
       if (socket !== ws) return;
@@ -316,7 +406,8 @@ function openSocket() {
         if (msg.type === 'welcome') {
           self = msg.self; retries = 0; notice(''); status('Sala conectada', true); $('viewer-controls').hidden = false; document.body.dataset.route = ws.route || 'socket';
           if (joining) { clearTimeout(joinTimer); joining = false; $('join-button').disabled = false; $('join-input').disabled = false; $('join-button').textContent = 'Entrar na sala'; $('join-picker').close(); showView('room'); }
-          renderInvite(); lockSettings(Boolean(stream)); publishState(); await media.setStream(stream);
+          roomCamera = Array.isArray(msg.features) && msg.features.includes('camera'); if (cameraStream && !roomCamera) stopCamera();
+          renderInvite(); lockSettings(Boolean(stream)); publishState(); await media.setStream(stream); await media.setCamera(cameraStream?.getVideoTracks()[0] || null);
         }
         members = msg.members; await media.roster(self, members); renderMembers();
       } else if (msg.type === 'tunnel-closed') { if (invite) invite = { ...invite, public: false }; }
@@ -326,10 +417,10 @@ function openSocket() {
   ws.onerror = () => {};
   ws.onclose = event => {
     if (socket !== ws) return;
-    socket = undefined; media?.close(); self = ''; for (const id of [...tiles.keys()]) removeTile(id); members = []; renderMembers(); lockSettings(Boolean(stream));
+    socket = undefined; media?.close(); for (const id of [...cameraViews.keys()]) removeCamera(id); self = ''; for (const id of [...tiles.keys()]) removeTile(id); members = []; renderMembers(); lockSettings(Boolean(stream));
     if (terminal) return;
     if (joining && [4001,4002,4003,4005].includes(event.code)) { joinFailure(event.reason || 'Convite inválido. Confira o código.'); return; }
-    if ([4001,4002,4003].includes(event.code)) { terminal = true; stopSharing(); status('Não conectado'); notice(event.reason || 'Convite inválido.', true); return; }
+    if ([4001,4002,4003].includes(event.code)) { terminal = true; stopSharing(); stopCamera(); status('Não conectado'); notice(event.reason || 'Convite inválido.', true); return; }
     status('Reconectando'); retries++; reconnectTimer = setTimeout(openSocket, Math.min(1000 * 2 ** Math.min(retries-1,4),15000));
   };
 }
@@ -445,7 +536,7 @@ async function startSharing() {
     } else if (audio.length) stream.addTrack(audio[0]);
     track.onended = () => stopSharing();
     video.srcObject = display; video.muted = true; video.play().catch(() => {});
-    showVideo(true); setLive(true); $('stream-quality').textContent = qualityLabel();
+    showVideo(true); if (!liveSince) setLive(true); $('stream-quality').textContent = qualityLabel();
     publishState(); await media.setStream(stream); localTile(); renderTiles();
   } catch (error) {
     if (generation === captureGeneration) { stopSharing(); notice(error.name === 'NotAllowedError' ? 'A captura não foi autorizada. Escolha a tela e tente novamente.' : `Não consegui iniciar a captura: ${error.message}`, true); }
@@ -457,8 +548,43 @@ function stopSharing() {
   for (const item of [stream, display, microphone]) for (const track of item?.getTracks() || []) { track.onended = null; track.stop(); }
   audioContext?.close().catch(() => {}); stream = display = microphone = audioContext = undefined;
   stopAppAudioResources();
-  video.srcObject = null; setLive(false);
-  publishState(); removeTile(self); lockSettings(false); renderTiles();
+  video.srcObject = null; if (!cameraStream) setLive(false);
+  publishState(); if (cameraStream) localTile(); else removeTile(self); lockSettings(false); renderTiles();
+}
+async function fillCameraDevices() {
+  const devices = (await navigator.mediaDevices.enumerateDevices().catch(() => [])).filter(device => device.kind === 'videoinput' && device.deviceId);
+  const current = cameraStream?.getVideoTracks()[0]?.getSettings().deviceId || $('camera-device').value;
+  $('camera-device').replaceChildren(new Option('Câmera padrão', ''), ...devices.map((device, index) => new Option(device.label || 'Câmera ' + (index + 1), device.deviceId)));
+  $('camera-device').value = [...$('camera-device').options].some(option => option.value === current) ? current : '';
+}
+// Camera is a separate, explicit capture: video only, granted once per click by the main process.
+async function startCamera() {
+  if (cameraStream || cameraStarting) return;
+  if (!roomCamera) { notice('Quem criou a sala precisa estar no Concord 0.7.0 ou mais novo para usar a câmera.', true); return; }
+  const generation = ++cameraGeneration; cameraStarting = true; lockSettings(Boolean(stream)); notice('');
+  try {
+    await native.allowCamera();
+    const id = $('camera-device').value;
+    const captured = await navigator.mediaDevices.getUserMedia({ audio: false, video: { ...(id ? { deviceId: { exact: id } } : {}), width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30, max: 30 } } });
+    if (generation !== cameraGeneration || socket?.readyState !== WebSocket.OPEN) { captured.getTracks().forEach(track => track.stop()); return; }
+    cameraStream = captured; const track = captured.getVideoTracks()[0]; track.contentHint = 'motion'; track.onended = () => stopCamera();
+    void fillCameraDevices(); if (!liveSince) setLive(true);
+    publishState(); await media?.setCamera(track); localTile(); renderTiles();
+  } catch (error) {
+    if (generation === cameraGeneration) notice(error.name === 'NotAllowedError' ? 'A câmera não foi autorizada. Confira se o acesso à câmera está liberado nas configurações de privacidade do Windows.'
+      : ['NotFoundError', 'OverconstrainedError'].includes(error.name) ? 'Nenhuma câmera encontrada neste PC.'
+      : error.name === 'NotReadableError' ? 'A câmera está em uso por outro aplicativo.' : 'Não consegui ligar a câmera: ' + error.message, true);
+  } finally { if (generation === cameraGeneration) cameraStarting = false; lockSettings(Boolean(stream)); }
+}
+function stopCamera() {
+  ++cameraGeneration; cameraStarting = false;
+  if (cameraStream) {
+    for (const track of cameraStream.getTracks()) { track.onended = null; track.stop(); }
+    cameraStream = undefined; void media?.setCamera(null); removeCamera(self);
+    if (!stream) { setLive(false); removeTile(self); }
+    publishState(); renderTiles();
+  }
+  lockSettings(Boolean(stream));
 }
 function showInvite(data) {
   invite = data;
@@ -643,6 +769,7 @@ $('test-audio').onclick = testAudio; updateAudioControls();
 $('quality').onchange = $('fps').onchange = $('bitrate-mode').onchange = () => { updateBitrateControls(); savePreferences(); }; updateBitrateControls();
 $('bitrate-slider').oninput = () => { $('bitrate-value').value = $('bitrate-slider').value; savePreferences(); };
 $('bitrate-value').oninput = () => { if ($('bitrate-value').validity.valid) { $('bitrate-slider').value = $('bitrate-value').value; savePreferences(); } };
+$('camera-button').onclick = () => { if (cameraStream) stopCamera(); else void startCamera(); };
 $('close-picker').onclick = () => $('source-picker').close(); $('start-button').onclick = startSharing; $('stop-button').onclick = () => { stopSharing(); notice(''); };
 $('invite-button').onclick = reopenAccess; $('close-invite').onclick = closeInvite; $('cancel-invite').onclick = cancelFallback;
 $('copy-link-button').onclick = async () => {
@@ -657,13 +784,13 @@ $('join-form').onsubmit = event => {
   event.preventDefault(); if (joining) return;
   try {
     const value = $('join-input').value.trim(), parsed = parseInvite(value);
-    stopSharing(); currentInvite = value; joining = true; connect(parsed.address, parsed.token, 'viewer', Boolean(parsed.p2p));
+    stopSharing(); stopCamera(); currentInvite = value; joining = true; connect(parsed.address, parsed.token, 'viewer', Boolean(parsed.p2p));
     $('join-error').textContent = ''; $('join-button').disabled = true; $('join-input').disabled = true; $('join-button').textContent = 'Entrando…';
     // P2P may need the Cloudflare fallback, which can take up to 150 s to publish.
     joinTimer = setTimeout(() => joinFailure('Não consegui entrar. Confira o convite e tente novamente.'), parsed.p2p ? 210000 : 15000);
   } catch (error) { $('join-error').textContent = error.message; }
 };
-$('leave-button').onclick = () => { stopSharing(); disconnect(); target = null; role = null; status('Não conectado'); showView('home'); notice('Você saiu da sala.'); };
+$('leave-button').onclick = () => { stopSharing(); stopCamera(); disconnect(); target = null; role = null; status('Não conectado'); showView('home'); notice('Você saiu da sala.'); };
 $('grid-button').onclick = () => { focus = null; renderTiles(); };
 $('sound-button').onclick = () => { muted = !muted; applyAudio(); for (const item of tiles.values()) media?.play(item.video); };
 $('volume').oninput = () => { muted = Number($('volume').value) === 0; applyAudio(); };
@@ -679,7 +806,7 @@ document.addEventListener('keydown', event => {
 new ResizeObserver(renderTiles).observe($('stage'));
 setInterval(() => { if (liveSince) { const elapsed = Math.floor((Date.now()-liveSince)/1000); $('stream-clock').textContent = String(Math.floor(elapsed/3600)).padStart(2,'0') + ':' + String(Math.floor(elapsed/60)%60).padStart(2,'0') + ':' + String(elapsed%60).padStart(2,'0'); } }, 1000);
 setInterval(() => { if (inviteRetryAt && Date.now() >= inviteRetryAt) { inviteRetryAt = 0; if (!invitePending) inviteStatus(''); } }, 1000);
-window.addEventListener('beforeunload', () => { terminal = true; clearTimeout(reconnectTimer); stopSharing(); media?.close(); socket?.close(); stopHosting(); });
+window.addEventListener('beforeunload', () => { terminal = true; clearTimeout(reconnectTimer); stopSharing(); stopCamera(); media?.close(); socket?.close(); stopHosting(); });
 try {
   if (!native) throw new Error('Abra o executável do Concord.');
   config = await native.bootstrap(); $('app-version').textContent = 'Concord ' + config.version; renderProfile(); applyPreferences(config.preferences);

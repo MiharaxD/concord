@@ -6,7 +6,7 @@ const { mkdirSync } = require('node:fs');
 const { spawn } = require('node:child_process');
 
 let window, concord, selection, quitting = false, appAudio, updates, discord, discordSocial, shutdownPromise, appAudioGeneration = 0;
-let pendingInvite, invitesReady = false;
+let pendingInvite, invitesReady = false, cameraUntil = 0;
 const pendingProfiles = new Set(), stoppingAudio = new Set();
 app.setName('Concord');
 app.setAppUserModelId('local.concord.desktop');
@@ -212,6 +212,7 @@ if (primaryInstance) app.whenReady().then(async () => {
       });
     });
   });
+  handle('concord:allow-camera', () => { cameraUntil = Date.now() + 15000; return true; });
   handle('concord:sources', async () => {
     const sources = await desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 360, height: 210 }, fetchWindowIcons: false });
     return sources.filter(source => !source.name.startsWith('Concord')).map(source => ({ id: source.id, name: source.name, thumbnail: source.thumbnail.toDataURL() }));
@@ -226,7 +227,10 @@ if (primaryInstance) app.whenReady().then(async () => {
   });
   session.defaultSession.setPermissionRequestHandler((contents, permission, callback, details) => {
     const own = contents === window?.webContents && details.requestingUrl?.startsWith(concord.address + '/');
-    callback(Boolean(own && (['display-capture', 'fullscreen'].includes(permission) || (permission === 'media' && !details.mediaTypes?.includes('video')))));
+    // Camera is granted once, only right after the user clicked Ligar câmera (concord:allow-camera).
+    const camera = permission === 'media' && details.mediaTypes?.includes('video') && Date.now() < cameraUntil;
+    if (camera) cameraUntil = 0;
+    callback(Boolean(own && (['display-capture', 'fullscreen'].includes(permission) || camera || (permission === 'media' && !details.mediaTypes?.includes('video')))));
   });
   session.defaultSession.setPermissionCheckHandler((contents, permission, origin, details) => Boolean(
     contents === window?.webContents && origin === concord.address && (['display-capture', 'fullscreen'].includes(permission) || (permission === 'media' && details.mediaType !== 'video'))

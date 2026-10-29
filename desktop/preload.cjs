@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld('concord', {
     ipcRenderer.on('concord:app-audio-error', listener);
     return () => ipcRenderer.removeListener('concord:app-audio-error', listener);
   },
+  allowCamera: () => ipcRenderer.invoke('concord:allow-camera'),
   sources: () => ipcRenderer.invoke('concord:sources'),
   selectSource: id => ipcRenderer.invoke('concord:select-source', id)
 });
