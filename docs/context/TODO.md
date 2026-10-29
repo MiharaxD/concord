@@ -2,7 +2,7 @@
 
 ## Agora
 
-0.7.0 (câmera) pronta localmente, sem commit: aguardando decisão de publicação.
+0.7.0 (câmera) publicada em 29/10/2026 editando a mesma Release.
 - [ ] Testar com webcam física real e com outra pessoa (PiP, separar, tela cheia).
 
 0.6.1 publicada em 29/10/2026 (P2P + Cloudflare como plano B; link entra direto). Usuário relatou o P2P funcionando.
