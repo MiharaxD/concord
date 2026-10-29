@@ -6,6 +6,12 @@ Decisão: Electron/JavaScript em instalador NSIS Windows x64, com a mesma aplica
 Motivo: o usuário rejeitou a versão em navegador e quer passar o programa ao amigo.
 Consequência: não exigir instalação de Node ou ferramentas de desenvolvimento no PC do destinatário.
 
+## Acesso P2P com Cloudflare como plano B (0.6.0)
+
+Decisão: pedido do usuário em 29/10/2026 (opção B híbrida). Convites passam a ser P2P: brokers MQTT públicos (EMQX, HiveMQ) levam ofertas WebRTC cifradas com a chave do convite, e um DataChannel direto leva o protocolo de sala até o host, que faz ponte ao servidor local. Página do link estática no GitHub Pages (`site/`). Quick Tunnel só é criado quando um convidado não consegue conexão direta e pede o plano B.
+Motivo: acabar com quase todos os 429 da Cloudflare, ter link que não "morre" (1033) e mídia direta criptografada de ponta a ponta, sem servidor/domínio/conta próprios.
+Consequência: depende de brokers públicos de terceiros (sem garantia) e do GitHub Pages; prévia do Discord fica genérica, sem nome do dono. Sem TURN: NAT restritivo continua caindo na Cloudflare. Clientes < 0.6.0 não entram em salas novas. Sem push/publicação até o usuário testar.
+
 ## Conectividade sem configuração do roteador
 
 Decisão: tentar WebRTC com STUN; quando falhar, transmitir WebM/Opus por WebSocket através de Quick Tunnel Cloudflare.

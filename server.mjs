@@ -40,6 +40,8 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
     ['/invite.css', ['invite.css', 'text/css; charset=utf-8']],
     ['/invite-icon.png', ['invite-icon.png', 'image/png']],
     ['/room-media.js', ['room-media.js', 'text/javascript; charset=utf-8']],
+    ['/p2p.js', ['p2p.js', 'text/javascript; charset=utf-8']],
+    ['/mqtt.js', ['mqtt.js', 'text/javascript; charset=utf-8']],
     ['/app-audio-worklet.js', ['app-audio-worklet.js', 'text/javascript; charset=utf-8']],
     ['/audio-meter.js', ['audio-meter.js', 'text/javascript; charset=utf-8']],
     ['/style.css', ['style.css', 'text/css; charset=utf-8']],
@@ -56,7 +58,7 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
   const admin = req => isLocal(req) && same(req.headers['x-concord-host'], hostToken);
   function session() {
     const base = tunnelUrl || `http://127.0.0.1:${server.address().port}`;
-    return { guestLink: `${base}/#join=${guestToken}`, guestInvite: shortInvite(base, inviteToken), public: Boolean(tunnelUrl), inviteError, viewer: [...members.values()].some(ws => ws.role === 'viewer'), members: roster(), active: Boolean(host?.streamState.active) };
+    return { guestLink: `${base}/#join=${guestToken}`, guestInvite: shortInvite(base, inviteToken), inviteKey: inviteToken, p2pInvite: 'concord:p2p:' + inviteToken, public: Boolean(tunnelUrl), inviteError, viewer: [...members.values()].some(ws => ws.role === 'viewer'), members: roster(), active: Boolean(host?.streamState.active) };
   }
   const stoppingTunnels = new Set();
   function stopTunnel() {
@@ -171,10 +173,12 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
   });
   const wss = new WebSocketServer({ noServer: true, maxPayload: 4 * 1024 * 1024, perMessageDeflate: false });
   server.on('upgrade', (req, socket, head) => {
-    let origin;
-    try { origin = new URL(req.headers.origin); } catch { socket.destroy(); return; }
+    let origin, url;
+    try { origin = new URL(req.headers.origin); url = new URL(req.url, 'http://localhost'); } catch { socket.destroy(); return; }
     const desktopOrigin = ['127.0.0.1', 'localhost'].includes(origin.hostname) && origin.protocol === 'http:';
-    if (req.url !== '/socket' || (!desktopOrigin && origin.host !== req.headers.host) || !['http:', 'https:'].includes(origin.protocol)) { socket.destroy(); return; }
+    // The host app bridges P2P guests over loopback; ?via=p2p only removes local privileges.
+    req.bridged = url.search === '?via=p2p';
+    if (url.pathname !== '/socket' || (url.search && !req.bridged) || (!desktopOrigin && origin.host !== req.headers.host) || !['http:', 'https:'].includes(origin.protocol)) { socket.destroy(); return; }
     const ip = req.headers['cf-connecting-ip'] || req.socket.remoteAddress;
     const now = Date.now(), entry = attempts.get(ip);
     const rate = !entry || now - entry.start > 60000 ? { start: now, count: 0 } : entry;
@@ -192,7 +196,7 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
         let auth;
         try { auth = JSON.parse(buffer); } catch { ws.close(4001, 'Convite inválido'); return; }
         if (auth.type !== 'auth') { ws.close(4001, 'Convite inválido'); return; }
-        if (auth.role === 'host' && isLocal(req) && same(auth.token, hostToken)) {
+        if (auth.role === 'host' && isLocal(req) && !req.bridged && same(auth.token, hostToken)) {
           if (host) { ws.close(4002, 'A sala já está aberta neste PC'); return; }
           host = ws; ws.role = 'host'; ws.memberId = 'host';
         } else if (auth.role === 'viewer' && (same(auth.token, guestToken) || same(auth.token, inviteToken))) {

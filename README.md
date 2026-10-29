@@ -7,7 +7,7 @@
 <p align="center">Compartilhamento de tela em salas privadas para Windows.</p>
 
 <p align="center">
-  <a href="https://github.com/MiharaxD/concord/releases/download/v0.5.2/Concord-0.5.2-Setup.exe"><strong>Baixar para Windows · v0.5.2</strong></a>
+  <a href="https://github.com/MiharaxD/concord/releases/download/v0.6.0/Concord-0.6.0-Setup.exe"><strong>Baixar para Windows · v0.6.0</strong></a>
   &nbsp;·&nbsp;
   <a href="https://github.com/MiharaxD/concord/releases">Todas as versões</a>
 </p>
@@ -21,7 +21,7 @@ Até **8 pessoas** na mesma sala, com várias transmissões simultâneas. Sem ca
 3. Para participar, abra o link ou cole o convite em **Entrar em uma sala** e confirme.
 4. Escolha a tela ou janela, ajuste qualidade e áudio e clique em **Compartilhar tela**.
 
-O convite começa a ser preparado ao clicar em **Criar sala**, sem bloquear os controles. Abrir o app ou entrar na sala de outra pessoa não gera um convite próprio.
+O link fica pronto assim que você clica em **Criar sala**. Quem entra se conecta direto ao seu PC; se a rede não permitir, o Concord prepara sozinho um acesso de compatibilidade pela Cloudflare só para essa pessoa.
 
 Clique em uma transmissão para focar; clique novamente para voltar à grade. Na grade, você ouve todas as streams recebidas; em foco, apenas a selecionada.
 
@@ -53,7 +53,8 @@ Os atalhos ficam desativados enquanto você digita ou usa um pop-up.
 
 - **Windows 10/11 de 64 bits.** O instalador inclui os componentes; não exige Node.js ou ferramentas de desenvolvimento.
 - Áudio **somente do jogo/app** exige Windows build 20348+; Windows 11 é recomendado. Pode incluir outras janelas do mesmo processo.
-- Convites usam a Cloudflare e dependem da disponibilidade do serviço. Se houver bloqueio temporário, aguarde a contagem antes de tentar novamente.
+- Convites usam servidores MQTT públicos só para os PCs se encontrarem (mensagens cifradas) e uma página no GitHub Pages. A Cloudflare entra apenas quando a conexão direta falha e pode ter bloqueios temporários.
+- Salas criadas na 0.6.0 ou mais nova exigem a 0.6.0 ou mais nova para entrar.
 - O Discord é opcional. A cota atual de desenvolvimento é de **100 mensagens diretas a cada 2 horas para o aplicativo inteiro**.
 - Mais participantes e transmissões exigem mais upload e processamento. O modo de compatibilidade pode ter mais atraso.
 

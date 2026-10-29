@@ -20,7 +20,7 @@ globalThis.fetch = async (url, options = {}) => {
   if (options.method === 'POST' && String(url).endsWith('/releases')) {
     const body = JSON.parse(options.body); assert.equal(body.draft, true); assert.equal(body.tag_name, `v${pkg.version}`);
     assert.ok(body.body.includes(`Novidades do Concord ${pkg.version}`));
-    assert.match(body.body, /Social SDK oficial/);
+    assert.match(body.body, /plano B/); assert.match(body.body, /0.6.0 ou mais nova/);
     assert.match(body.body, /100 mensagens diretas/);
     creates++;
     return Response.json({ id: 1, assets: [], upload_url: 'https://uploads.github.com/repos/MiharaxD/concord/releases/1/assets{?name,label}' });

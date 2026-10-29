@@ -28,9 +28,8 @@ async function launch(name) {
   await page.locator('#display-name').fill(name); await page.locator('#save-name').click();
   await page.locator('#create-room').click();
   await page.waitForFunction(() => document.body.dataset.connected === 'true');
-  // Keep this profile/media regression independent of public tunnel availability.
-  await page.evaluate(() => document.querySelector('#cancel-invite').click());
-  await page.locator('#invite-status').filter({ hasText: 'Acesso fechado' }).waitFor();
+  // 0.6.0+: creating a room never provisions a tunnel; the P2P link is ready at once.
+  await page.waitForFunction(() => document.querySelector('#invite-link').value.startsWith('concord:p2p:'));
   return { app, page, data };
 }
 async function start(page, color) {

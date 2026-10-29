@@ -75,25 +75,24 @@ try {
   await host.page.screenshot({ path: path.join(run, 'painel.png') });
   await create(host.page); assert.equal(await host.page.locator('#connection-mode').count(), 0);
   assert.equal(await host.page.locator('#advanced-options').getAttribute('open'), null);
-  if (await host.page.locator('#cancel-invite').isVisible()) await host.page.locator('#cancel-invite').click();
-  else if (await host.page.locator('#close-invite').isVisible()) { await host.page.locator('.invite-manage summary').click(); await host.page.locator('#close-invite').click(); }
+  // 0.6.0+: the P2P link is ready on create; Fechar acesso hides it until Gerar novo convite.
+  await host.page.waitForFunction(() => document.querySelector('#invite-link').value.startsWith('concord:p2p:'));
+  const firstCode = await host.page.locator('#invite-link').inputValue();
+  await host.page.locator('.invite-manage summary').click(); await host.page.locator('#close-invite').click();
   await host.page.locator('#invite-status').filter({ hasText: 'Acesso fechado' }).waitFor();
-  // Controlled native tunnel responses exercise progress/error/retry without depending on public DNS.
-  await host.app.evaluate(({ ipcMain }) => {
-    ipcMain.removeHandler('concord:tunnel'); let calls = 0;
-    ipcMain.handle('concord:tunnel', () => { if (++calls === 1) throw new Error('QA offline'); return new Promise(resolve => { global.testInviteResolve = resolve; }); });
-  });
-  await host.page.locator('#invite-button').click(); await host.page.locator('#invite-status').filter({ hasText: 'Não consegui conectar' }).waitFor();
-  await host.page.locator('#invite-button').click(); await host.page.locator('#invite-status').filter({ hasText: 'Código sendo carregado…' }).waitFor();
+  assert.equal(await host.page.locator('#invite-result').isHidden(), true);
+  await host.page.locator('#invite-button').click();
+  await host.page.waitForFunction(old => { const value = document.querySelector('#invite-link').value; return value.startsWith('concord:p2p:') && value !== old; }, firstCode);
   assert.equal(await host.page.locator('#choose-source').isEnabled(), true);
   for (const [key, preset] of Object.entries(QUALITY_PRESETS)) {
     const [resolution, fps] = key.split(':');
     await host.page.locator('#quality').selectOption(resolution); await host.page.locator('#fps').selectOption(fps);
     assert.match(await host.page.locator('#bitrate-mode option').first().textContent(), new RegExp(`${preset.bitrate / 1e6} Mbps`));
   }
-  await host.app.evaluate(({ clipboard }, code) => { clipboard.writeText = text => { global.testCopied = text; }; global.testInviteResolve({ guestInvite: code }); }, sampleInvite);
-  await host.page.locator('#copy-link-button').click(); assert.equal(await host.app.evaluate(() => global.testCopied), webInvite(sampleInvite));
-  result.checks.push('Painel sem captura, criar sala, oito combinações resolução/FPS, preparo não bloqueante, erro/tentar novamente/cópia do código');
+  await host.app.evaluate(({ clipboard }) => { clipboard.writeText = text => { global.testCopied = text; }; });
+  const p2pCode = await host.page.locator('#invite-link').inputValue();
+  await host.page.locator('#copy-link-button').click(); assert.equal(await host.app.evaluate(() => global.testCopied), webInvite(p2pCode));
+  result.checks.push('Painel sem captura, criar sala, oito combinações resolução/FPS, convite P2P imediato, fechar acesso/gerar novo convite e cópia do link');
 
   await host.page.locator('#advanced-options summary').click(); await host.page.locator('#quality').selectOption('1440'); await host.page.locator('#fps').selectOption('60');
   await host.page.locator('#bitrate-mode').selectOption('manual'); await host.page.locator('#bitrate-value').fill('11.5');

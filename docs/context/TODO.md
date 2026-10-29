@@ -2,7 +2,10 @@
 
 ## Agora
 
-0.5.2 pública em 27/10/2026: push concluído e a mesma Release ID 425643743 editada de 0.5.1 para 0.5.2, sem nova entrada. Quatro anexos, download e SHA-256/SHA-512 conferidos; updater latest aponta para 0.5.2. Tag e cópias locais dos anexos 0.5.1 preservadas; workflow de publicação restaurado ativo. Preparo só em Criar sala validado com duas instâncias, sem novos túneis reais. Edição solicitada está concluída.
+0.6.0 (acesso P2P + Cloudflare como plano B) implementada localmente, sem commit/push: aguardando teste do usuário. Antes de publicar:
+- [ ] Usuário testar o instalador local 0.6.0 (idealmente com outra pessoa em outra rede).
+- [ ] Ativar GitHub Pages no repositório (Settings → Pages → Source: GitHub Actions) e publicar `site/` pelo workflow `pages.yml`; conferir `https://miharaxd.github.io/concord/invite/?join=…` e a prévia no Discord.
+- [ ] Só então commit/tag/Release, com pedido explícito.
 
 ## Depois
 
@@ -10,7 +13,8 @@
 - [ ] Validar instalação completa e abertura de concord: pelo shell numa máquina/VM de QA, sem substituir a instalação pessoal. Macros NSIS de registro/aspas/remoção passaram em chave isolada; argumentos de abertura fria/segunda instância e confirmação passaram no app extraído 0.4.0.
 - [ ] Confirmar instalação/reinício do update público numa máquina de teste. Na 0.3.4, CI/publicação e cliente 0.3.3 consultando/baixando GitHub público sem token passaram; aplicação/reinício anteriores via feed local passaram na 0.3.3. Preservar a instalação/sala pessoal aberta.
 - [ ] Investigar instabilidade ao reiniciar múltiplas transmissões em compatibilidade: testes locais voltaram a falhar em movimento/áudio na 0.3.1 e no pacote preservado 0.3.0. Causa ainda não identificada; transporte não mudou na 0.3.1.
-- [ ] Validar desempenho e conexão em duas máquinas físicas e redes distintas quando houver acesso a esse cenário.
+- [ ] Validar desempenho e conexão em duas máquinas físicas e redes distintas quando houver acesso a esse cenário (agora também a taxa de sucesso do P2P direto vs. plano B).
+- [ ] Considerar assinatura do host nas mensagens P2P (hoje qualquer portador da chave pode se passar pelo host perante outro convidado) e um terceiro broker de reserva.
 
 ## Se voltar a ocorrer
 

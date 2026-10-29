@@ -1,6 +1,7 @@
 import { qualityPreset, videoBitrate, formatMbps } from './stream-settings.js';
 import { parseInvite } from './invites.js';
 import { RoomMedia } from './room-media.js';
+import { connectRoom, P2PHost } from './p2p.js';
 import { AudioMeter } from './audio-meter.js';
 import { visualProfile } from './profile.js';
 const $ = id => document.getElementById(id);
@@ -16,6 +17,7 @@ let stream, display, microphone, audioContext, selectedSource, starting = false,
 let selectedAudioSource, appAudioContext, appAudioNode, unsubscribeAppAudio, unsubscribeAppAudioError;
 let invite, inviteGeneration = 0, invitePending = false, inviteRetryAt = 0;
 let ownInviteMessage = '', currentInvite = '', joining = false, joinTimer, uiReady = false, queuedInvite;
+let p2pHost, hosting = false, hostGeneration = 0, accessClosed = false, p2pOffline = false, fallbackPromise;
 let audioPreviewTrack, testingAudio = false, audioGeneration = 0, captureGeneration = 0;
 const meter = new AudioMeter($('audio-level'), $('audio-level-label'));
 function notice(text, error = false) { $('notice').textContent = text; $('notice').classList.toggle('error', error); $('notice').hidden = !text; }
@@ -32,15 +34,13 @@ function updateRoomMessage() {
 }
 function inviteStatus(text) { ownInviteMessage = text; renderInvite(); }
 function renderInvite() {
-  const guest = role === 'viewer', code = guest ? currentInvite : invite?.guestInvite;
+  const guest = role === 'viewer', code = guest ? currentInvite : accessClosed ? '' : invite?.p2pInvite;
+  const message = p2pOffline && !accessClosed ? 'Sem acesso ao serviço de conexão. Convidados podem não conseguir entrar até a internet voltar.' : ownInviteMessage;
   $('own-invite-controls').hidden = guest;
   $('invite-result').hidden = !code; $('invite-link').value = code || '';
-  $('invite-status').textContent = guest ? '' : ownInviteMessage;
-  $('invite-status').hidden = guest || !ownInviteMessage;
-  $('invite-button').hidden = invitePending || Boolean(code);
-  const wait = Math.max(0, Math.ceil((inviteRetryAt - Date.now()) / 1000));
-  $('invite-button').disabled = invitePending || wait > 0;
-  if (inviteRetryAt) $('invite-button').textContent = wait ? 'Tentar novamente em ' + Math.floor(wait / 60) + ':' + String(wait % 60).padStart(2, '0') : 'Tentar novamente';
+  $('invite-status').textContent = guest ? '' : message;
+  $('invite-status').hidden = guest || !message;
+  $('invite-button').hidden = !accessClosed;
   $('cancel-invite').hidden = !invitePending;
   document.querySelector('.invite-manage').hidden = !code;
 }
@@ -54,7 +54,26 @@ function createRoom() {
   const creating = role !== 'host' || !target;
   if (creating) { stopSharing(); connect(config.address, config.hostToken, 'host'); }
   showView('room');
-  if (creating && !invite && !invitePending) void makeInvite();
+  if (!hosting && !accessClosed) void startHosting();
+}
+// The room is reachable directly through P2PHost; Cloudflare starts only when a guest asks for it.
+async function startHosting(data) {
+  const generation = ++hostGeneration; hosting = true; p2pHost?.stop('Convite substituído'); p2pHost = undefined; p2pOffline = false;
+  try { data ||= await native.session(); }
+  catch { if (generation === hostGeneration) { hosting = false; inviteStatus('Não consegui preparar o convite. Crie a sala novamente.'); } return; }
+  if (generation !== hostGeneration) return;
+  showInvite(data);
+  const host = new P2PHost({ key: data.inviteKey, address: config.address, tunnel: fallbackInvite,
+    onState: online => { if (p2pHost === host) { p2pOffline = !online; renderInvite(); } } });
+  p2pHost = host;
+  void host.start().catch(() => { if (p2pHost === host) { p2pOffline = true; renderInvite(); } });
+  setTimeout(() => { if (p2pHost === host && !host.signal?.connected.size) { p2pOffline = true; renderInvite(); } }, 12000);
+}
+function stopHosting(reason) { ++hostGeneration; hosting = false; p2pHost?.stop(reason); p2pHost = undefined; p2pOffline = false; }
+function fallbackInvite() {
+  if (invite?.public) return Promise.resolve(invite.guestInvite);
+  fallbackPromise ||= makeInvite().finally(() => { fallbackPromise = undefined; });
+  return fallbackPromise;
 }
 function openJoin(value) {
   if (!uiReady) { if (value) queuedInvite = value; return; }
@@ -259,12 +278,17 @@ function disconnect() {
   terminal = true; clearTimeout(reconnectTimer); clearTimeout(joinTimer); const previous = socket; socket = undefined; previous?.close();
   media?.close(); media = null; self = ''; for (const id of [...tiles.keys()]) removeTile(id); members = []; renderMembers();
 }
-function connect(address, token, connectionRole) {
-  disconnect(); role = connectionRole; terminal = false; retries = 0; target = { address, token, role: connectionRole }; openSocket();
+function connect(address, token, connectionRole, p2p = false) {
+  disconnect(); role = connectionRole; terminal = false; retries = 0; target = { address, token, role: connectionRole, p2p }; openSocket();
+}
+function joinStage(stage) {
+  document.body.dataset.route = stage;
+  if (joining) $('join-button').textContent = stage === 'tunnel' ? 'Preparando compatibilidade…' : 'Conectando…';
 }
 function openSocket() {
   if (terminal || !target) return;
-  const ws = new WebSocket(target.address.replace(/^http/, 'ws') + '/socket'); socket = ws; ws.binaryType = 'arraybuffer'; status('Conectando');
+  const ws = target.p2p ? connectRoom(target.token, { parseInvite, onStage: joinStage }) : new WebSocket(target.address.replace(/^http/, 'ws') + '/socket');
+  socket = ws; ws.binaryType = 'arraybuffer'; status('Conectando');
   media = new RoomMedia({ send, sendBytes, options: () => ({ relay: false, bitrate: bitrate(), fps: qualityPreset(qualityKey()).fps }),
     player: member => tile(member), remove: removeTile, update: renderTiles,
     compatibility: updateRoomMessage,
@@ -277,12 +301,12 @@ function openSocket() {
       const msg = JSON.parse(event.data);
       if (msg.type === 'welcome' || msg.type === 'room') {
         if (msg.type === 'welcome') {
-          self = msg.self; retries = 0; notice(''); status('Sala conectada', true); $('viewer-controls').hidden = false;
+          self = msg.self; retries = 0; notice(''); status('Sala conectada', true); $('viewer-controls').hidden = false; document.body.dataset.route = ws.route || 'socket';
           if (joining) { clearTimeout(joinTimer); joining = false; $('join-button').disabled = false; $('join-input').disabled = false; $('join-button').textContent = 'Entrar na sala'; $('join-picker').close(); showView('room'); }
           renderInvite(); lockSettings(Boolean(stream)); publishState(); await media.setStream(stream);
         }
         members = msg.members; await media.roster(self, members); renderMembers();
-      } else if (msg.type === 'tunnel-closed') { invite = null; inviteStatus('O acesso encerrou. Tente novamente para gerar outro código.'); }
+      } else if (msg.type === 'tunnel-closed') { if (invite) invite = { ...invite, public: false }; }
       else await media.message(msg);
     }).catch(error => notice('A conexão encontrou um problema: ' + error.message, true));
   };
@@ -291,7 +315,7 @@ function openSocket() {
     if (socket !== ws) return;
     socket = undefined; media?.close(); self = ''; for (const id of [...tiles.keys()]) removeTile(id); members = []; renderMembers(); lockSettings(Boolean(stream));
     if (terminal) return;
-    if (joining && [4001,4002,4003].includes(event.code)) { joinFailure(event.reason || 'Convite inválido. Confira o código.'); return; }
+    if (joining && [4001,4002,4003,4005].includes(event.code)) { joinFailure(event.reason || 'Convite inválido. Confira o código.'); return; }
     if ([4001,4002,4003].includes(event.code)) { terminal = true; stopSharing(); status('Não conectado'); notice(event.reason || 'Convite inválido.', true); return; }
     status('Reconectando'); retries++; reconnectTimer = setTimeout(openSocket, Math.min(1000 * 2 ** Math.min(retries-1,4),15000));
   };
@@ -427,37 +451,34 @@ function showInvite(data) {
   invite = data;
   inviteStatus('');
 }
+// Cloudflare fallback for a guest whose direct connection failed. Returns the tunnel invite or throws a safe message.
 async function makeInvite() {
-  if (invitePending || Date.now() < inviteRetryAt) return;
+  if (Date.now() < inviteRetryAt) throw new Error(ownInviteMessage || 'O modo de compatibilidade está temporariamente indisponível. Tente novamente em alguns minutos.');
   const generation = ++inviteGeneration; invitePending = true;
-  $('invite-button').disabled = true;
-  inviteStatus('Código sendo carregado…');
+  inviteStatus('Preparando o modo de compatibilidade para quem não conseguiu conexão direta…');
   try {
-    const data = await native.tunnel(); if (generation !== inviteGeneration) return;
-    inviteRetryAt = 0; showInvite(data);
+    const data = await native.tunnel();
+    if (generation !== inviteGeneration) throw new Error('A preparação do modo de compatibilidade foi cancelada.');
+    inviteRetryAt = 0; showInvite(data); return data.guestInvite;
   } catch (error) {
-    const state = await native.session().catch(() => null);
-    if (generation === inviteGeneration) {
-      inviteRetryAt = state?.inviteError?.retryAt || 0;
-      inviteStatus(state?.inviteError?.message || 'Não consegui conectar ao serviço de convites. Tente novamente em instantes.');
-    }
-  } finally {
-    if (generation === inviteGeneration) {
-      invitePending = false;
-      $('invite-button').disabled = false; $('invite-button').textContent = 'Tentar novamente'; renderInvite();
-    }
-  }
+    if (generation !== inviteGeneration) throw new Error('A preparação do modo de compatibilidade foi cancelada.');
+    const state = await native.session().catch(() => null), message = state?.inviteError?.message || 'Não consegui preparar o modo de compatibilidade. Tente novamente em instantes.';
+    if (generation === inviteGeneration) { inviteRetryAt = state?.inviteError?.retryAt || 0; inviteStatus(message); }
+    throw new Error(message);
+  } finally { if (generation === inviteGeneration) { invitePending = false; renderInvite(); } }
+}
+function cancelFallback() {
+  ++inviteGeneration; invitePending = false; inviteStatus('Preparação do modo de compatibilidade cancelada.');
+  void native.closeTunnel().catch(() => {});
 }
 async function closeInvite() {
-  ++inviteGeneration; invitePending = false;
-  $('cancel-invite').hidden = true; $('invite-button').disabled = false;
-  $('invite-button').textContent = 'Tentar novamente';
+  ++inviteGeneration; invitePending = false; accessClosed = true; stopHosting('Convite substituído'); renderInvite();
   try {
-    await native.closeTunnel(); await native.renewInvite();
-    invite = undefined;
-    inviteStatus('Acesso fechado. Prepare outro convite quando quiser.');
+    await native.closeTunnel(); invite = await native.renewInvite();
+    inviteStatus('Acesso fechado. Gere um novo convite quando quiser.');
   } catch (error) { notice(error.message, true); }
 }
+function reopenAccess() { accessClosed = false; inviteStatus(''); void startHosting(); }
 function renderProfile() {
   $('profile-name').textContent = config.profile.name || 'Escolha seu nome';
   $('profile-avatar').replaceChildren(avatar(config.profile)); $('name-avatar').replaceChildren(avatar(config.profile, 'tile-avatar'));
@@ -610,19 +631,23 @@ $('quality').onchange = $('fps').onchange = $('bitrate-mode').onchange = () => {
 $('bitrate-slider').oninput = () => { $('bitrate-value').value = $('bitrate-slider').value; savePreferences(); };
 $('bitrate-value').oninput = () => { if ($('bitrate-value').validity.valid) { $('bitrate-slider').value = $('bitrate-value').value; savePreferences(); } };
 $('close-picker').onclick = () => $('source-picker').close(); $('start-button').onclick = startSharing; $('stop-button').onclick = () => { stopSharing(); notice(''); };
-$('invite-button').onclick = makeInvite; $('close-invite').onclick = closeInvite; $('cancel-invite').onclick = closeInvite;
+$('invite-button').onclick = reopenAccess; $('close-invite').onclick = closeInvite; $('cancel-invite').onclick = cancelFallback;
 $('copy-link-button').onclick = async () => {
   try { await native.copyLink($('invite-link').value); notice('Link copiado.'); }
   catch { notice('Não consegui copiar o link. Tente novamente.', true); }
 };
-$('renew-button').onclick = async () => { try { showInvite(await native.renewInvite()); notice('Convite trocado. O anterior não funciona mais.'); } catch (error) { notice(error.message, true); } };
+$('renew-button').onclick = async () => {
+  try { const data = await native.renewInvite(); accessClosed = false; await startHosting(data); notice('Convite trocado. O anterior não funciona mais.'); }
+  catch (error) { notice(error.message, true); }
+};
 $('join-form').onsubmit = event => {
   event.preventDefault(); if (joining) return;
   try {
     const value = $('join-input').value.trim(), parsed = parseInvite(value);
-    stopSharing(); currentInvite = value; joining = true; connect(parsed.address, parsed.token, 'viewer');
+    stopSharing(); currentInvite = value; joining = true; connect(parsed.address, parsed.token, 'viewer', Boolean(parsed.p2p));
     $('join-error').textContent = ''; $('join-button').disabled = true; $('join-input').disabled = true; $('join-button').textContent = 'Entrando…';
-    joinTimer = setTimeout(() => joinFailure('Não consegui entrar. Confira o convite e tente novamente.'), 15000);
+    // P2P may need the Cloudflare fallback, which can take up to 150 s to publish.
+    joinTimer = setTimeout(() => joinFailure('Não consegui entrar. Confira o convite e tente novamente.'), parsed.p2p ? 210000 : 15000);
   } catch (error) { $('join-error').textContent = error.message; }
 };
 $('leave-button').onclick = () => { stopSharing(); disconnect(); target = null; role = null; status('Não conectado'); showView('home'); notice('Você saiu da sala.'); };
@@ -640,8 +665,8 @@ document.addEventListener('keydown', event => {
 });
 new ResizeObserver(renderTiles).observe($('stage'));
 setInterval(() => { if (liveSince) { const elapsed = Math.floor((Date.now()-liveSince)/1000); $('stream-clock').textContent = String(Math.floor(elapsed/3600)).padStart(2,'0') + ':' + String(Math.floor(elapsed/60)%60).padStart(2,'0') + ':' + String(elapsed%60).padStart(2,'0'); } }, 1000);
-setInterval(() => { if (inviteRetryAt) { renderInvite(); if (Date.now() >= inviteRetryAt) inviteRetryAt = 0; } }, 1000);
-window.addEventListener('beforeunload', () => { terminal = true; clearTimeout(reconnectTimer); stopSharing(); media?.close(); socket?.close(); });
+setInterval(() => { if (inviteRetryAt && Date.now() >= inviteRetryAt) { inviteRetryAt = 0; if (!invitePending) inviteStatus(''); } }, 1000);
+window.addEventListener('beforeunload', () => { terminal = true; clearTimeout(reconnectTimer); stopSharing(); media?.close(); socket?.close(); stopHosting(); });
 try {
   if (!native) throw new Error('Abra o executável do Concord.');
   config = await native.bootstrap(); $('app-version').textContent = 'Concord ' + config.version; renderProfile(); applyPreferences(config.preferences);
