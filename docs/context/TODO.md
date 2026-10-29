@@ -2,10 +2,9 @@
 
 ## Agora
 
-0.6.0 (acesso P2P + Cloudflare como plano B) implementada localmente, sem commit/push: aguardando teste do usuário. Antes de publicar:
-- [ ] Usuário testar o instalador local 0.6.0 (idealmente com outra pessoa em outra rede).
-- [ ] Ativar GitHub Pages no repositório (Settings → Pages → Source: GitHub Actions) e publicar `site/` pelo workflow `pages.yml`; conferir `https://miharaxd.github.io/concord/invite/?join=…` e a prévia no Discord.
-- [ ] Só então commit/tag/Release, com pedido explícito.
+0.6.0 publicada em 29/10/2026 (P2P + Cloudflare como plano B).
+- [ ] Reexecutar `pages.yml` (Actions → Run workflow) e conferir `https://miharaxd.github.io/concord/invite/?join=…` e a prévia no Discord.
+- [ ] Teste definitivo do usuário com outra pessoa em outra rede: conexão direta, plano B real da Cloudflare e transmissão. Se falhar, corrigir numa 0.6.1 (não editar a Release publicada).
 
 ## Depois
 
