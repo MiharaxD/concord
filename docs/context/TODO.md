@@ -2,9 +2,9 @@
 
 ## Agora
 
-0.6.0 publicada em 29/10/2026 (P2P + Cloudflare como plano B).
+0.6.1 publicada em 29/10/2026 (P2P + Cloudflare como plano B; link entra direto). Usuário relatou o P2P funcionando.
 - [ ] Conferir a prévia do link do GitHub Pages no Discord (página já no ar e validada em 29/10).
-- [ ] Teste definitivo do usuário com outra pessoa em outra rede: conexão direta, plano B real da Cloudflare e transmissão. Se falhar, corrigir numa 0.6.1 (não editar a Release publicada).
+- [ ] Ainda não confirmado: plano B com túnel Cloudflare real entre redes diferentes.
 
 ## Depois
 
