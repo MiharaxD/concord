@@ -1,10 +1,12 @@
 // Validate the publisher against an in-memory GitHub API, with no external writes.
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile, rm } from 'node:fs/promises';
 const pkg = JSON.parse(await readFile('package.json', 'utf8'));
 const names = [`Concord-${pkg.version}-Setup.exe`, `Concord-${pkg.version}-Setup.exe.blockmap`, `Concord-${pkg.version}-Setup.exe.sha256`, 'latest.yml'];
 const uploads = [], originalFetch = globalThis.fetch, token = process.env.GH_TOKEN;
-let scenario = 'success', publications = 0, creates = 0, deletes = [];
+let scenario = 'success', publications = 0, creates = 0, deletes = [], edited = null;
+const replaceFile = 'build/replace-release.json', savedReplace = await readFile(replaceFile, 'utf8').catch(() => null);
+await rm(replaceFile, { force: true });
 const originalLog = console.log;
 console.log = (...args) => originalLog('[API simulada]', ...args);
 const originalSha = process.env.GITHUB_SHA;
@@ -13,6 +15,8 @@ process.env.GH_TOKEN = 'concord-publisher-local-test';
 globalThis.fetch = async (url, options = {}) => {
   assert.ok(String(url).startsWith('https://api.github.com/repos/MiharaxD/concord/') || String(url).startsWith('https://uploads.github.com/repos/MiharaxD/concord/'));
   assert.equal(options.headers.Authorization, 'Bearer concord-publisher-local-test');
+  if (scenario === 'replace' && String(url).endsWith('/releases/tags/v0.0.1')) return Response.json({ id: 9, draft: false,
+    upload_url: 'https://uploads.github.com/repos/MiharaxD/concord/releases/9/assets{?name,label}', assets: [{ id: 90, name: 'latest.yml' }, { id: 91, name: 'Concord-0.0.1-Setup.exe' }] });
   if (String(url).includes('/releases/tags/')) return scenario === 'published' ? Response.json({ draft: false }) : new Response('', { status: 404 });
   if (String(url).includes('/releases?')) return Response.json(scenario === 'resume' ? [{ id: 2, draft: true, tag_name: `v${pkg.version}`,
     upload_url: 'https://uploads.github.com/repos/MiharaxD/concord/releases/2/assets{?name,label}', assets: [{ id: 77, name: names[0] }] }] : []);
@@ -32,6 +36,7 @@ globalThis.fetch = async (url, options = {}) => {
     assert.equal(length, Number(options.headers['Content-Length'])); assert.ok(length > 0);
     uploads.push(name); return Response.json({ id: uploads.length });
   }
+  if (options.method === 'PATCH' && scenario === 'replace') { assert.deepEqual(uploads, names); edited = { url: String(url), ...JSON.parse(options.body) }; return Response.json({}); }
   if (options.method === 'PATCH') {
     assert.deepEqual(uploads, names); assert.equal(JSON.parse(options.body).draft, false); return Response.json({});
   }
@@ -42,10 +47,15 @@ try {
   uploads.length = 0; scenario = 'resume'; await import('../scripts/publish-release.mjs?resume'); assert.equal(creates, 1); assert.equal(deletes.length, 1);
   uploads.length = 0; scenario = 'failure'; await assert.rejects(import('../scripts/publish-release.mjs?failure'), /HTTP 403/); assert.deepEqual(uploads, [names[0]]);
   scenario = 'published'; await assert.rejects(import('../scripts/publish-release.mjs?published'), /ja esta publicada/);
-  console.log('PUBLISH_LOCAL_TEST: checksum, quatro uploads, retomada de rascunho, falha e release publicada protegida confirmados');
+  await writeFile(replaceFile, JSON.stringify({ from: 'v0.0.1', version: pkg.version }));
+  uploads.length = 0; deletes.length = 0; scenario = 'replace'; const createsBefore = creates; await import('../scripts/publish-release.mjs?replace');
+  assert.equal(creates, createsBefore, 'edição não cria release'); assert.ok(edited.url.endsWith('/releases/9')); assert.equal(edited.tag_name, `v${pkg.version}`); assert.equal(edited.draft, undefined);
+  assert.match(edited.body, /Novidades do Concord/); assert.deepEqual(deletes.map(url => url.split('/').pop()), ['90', '91']);
+  console.log('PUBLISH_LOCAL_TEST: checksum, quatro uploads, retomada de rascunho, falha e release publicada protegida e edição única da mesma entrada confirmados');
 }
 finally {
   globalThis.fetch = originalFetch; if (token === undefined) delete process.env.GH_TOKEN; else process.env.GH_TOKEN = token;
   if (originalSha === undefined) delete process.env.GITHUB_SHA; else process.env.GITHUB_SHA = originalSha;
   console.log = originalLog;
+  if (savedReplace === null) await rm(replaceFile, { force: true }); else await writeFile(replaceFile, savedReplace);
 }

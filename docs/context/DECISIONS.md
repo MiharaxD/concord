@@ -29,7 +29,7 @@ Consequência: preparar não captura tela/áudio. Cancelar/fechar acesso interro
 
 Decisão: convites públicos usam `concord:<nome do túnel>:<chave de 22 caracteres>`. O receptor reconstrói localmente o endereço HTTPS Cloudflare. Chave curta independente, aleatória de 128 bits; administração e links legados continuam usando suas chaves de 256 bits.
 Motivo: manter um código compacto sem conta, serviço de encurtamento ou banco externo.
-Consequência: código pode ser colado no dialog ou aberto pelo protocolo `concord:` registrado pelo instalador Windows. Abertura fria/segunda instância preenchem e pedem confirmação; nunca entram nem interrompem captura sozinhas. URL antiga continua aceita. Renovar revoga as duas chaves e remove todos os convidados. Loopback preserva origem/porta no formato URL.
+Consequência: código pode ser colado no dialog ou aberto pelo protocolo `concord:` registrado pelo instalador Windows. Desde 0.6.1, a pedido do usuário, abertura fria/segunda instância entram direto quando o app está parado; dentro de uma sala ou transmitindo preenchem e pedem confirmação, para nunca interromper sessão/captura sozinhas. URL antiga continua aceita. Renovar revoga as duas chaves e remove todos os convidados. Loopback preserva origem/porta no formato URL.
 
 Decisão atual (0.5.0): ação principal **Copiar link**, com aviso exato **Link copiado.**, copia URL HTTPS normal `/invite?join=<chave>`. Não há botão Copiar código; caixa continua selecionável. Página pública oferece Abrir no Concord e Baixar Concord (última Release pública). Discord recebe um cartão clicável com logo/nome da sala, sem bot ou botão nativo de jogo. Chave na consulta é necessária porque a prévia do Discord remove fragmentos do destino; passa pelo provedor do túnel e serviço de prévia. Não inserir chave no HTML/OG/logs nem expor participantes. Link funciona enquanto o app hospedeiro/túnel estiver aberto; sem infraestrutura própria para manter uma página após fechar.
 
@@ -60,6 +60,8 @@ Motivo: permitir retorno à versão funcional e evitar grandes binários no hist
 Consequência: distribuir via anexos de Releases, sem publicar automaticamente nem alegar que mudança de hospedagem resolve alertas de antivírus.
 
 Exceção autorizada em 27/10/2026: para esta correção 0.5.2, o usuário pediu editar a mesma entrada da Release 0.5.1, sem criar outra. Manter ID da Release, atualizar sua versão/tag para v0.5.2 (para o updater reconhecer a correção) e substituir anexos após conferir backup local dos anteriores. Preservar a tag v0.5.1 no commit original; não mover tags antigas. Esta autorização não torna edição de futuras releases automática.
+
+Exceção autorizada em 29/10/2026: a correção 0.6.1 (entrada direta pelo link e aviso que some) edita a mesma entrada da Release 0.6.0 (ID 428460958) em vez de criar outra. O Actions faz a edição a partir de `build/replace-release.json` (uso único, removido depois): novos anexos, tag/nome/notas para v0.6.1, tag v0.6.0 preservada, anexos 0.6.0 com cópia em `dist/installer/0.6.0/github/`. Não torna edição de releases futuras automática.
 
 ## Instalação e atualizações
 

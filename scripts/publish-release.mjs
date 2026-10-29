@@ -34,18 +34,13 @@ async function api(url, options = {}, allow404 = false) {
   if (!response.ok) throw new Error(`GitHub respondeu HTTP ${response.status}; a release incompleta fica em rascunho.`);
   return response.status === 204 ? null : response.json();
 }
-let release = await api(`${base}/releases/tags/${tag}`, {}, true);
-if (!release) {
-  // The tag endpoint serves published releases; authenticated listing also finds drafts.
-  const recent = await api(`${base}/releases?per_page=100`);
-  release = recent.find(item => item.tag_name === tag);
-}
-if (release && !release.draft) throw new Error('Essa versao ja esta publicada. Aumente version; nao substitua uma release entregue.');
-if (!release) {
-  release = await api(`${base}/releases`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-    tag_name: tag, target_commitish: commit, name: `Concord ${pkg.version}`, draft: true, prerelease: false,
-    body: [
+const notes = [
       `## Novidades do Concord ${pkg.version}`,
+      '',
+      '- **Abrir no Concord** pelo link agora entra na sala direto quando o app está parado. Se você já estiver em uma sala ou transmitindo, ele ainda pede confirmação.',
+      '- Avisos como **Link copiado.** somem sozinhos depois de alguns segundos; mensagens de erro continuam na tela.',
+      '',
+      '### Da 0.6.0',
       '',
       '- **Conexão direta entre os PCs:** o link da sala fica pronto assim que você clica em **Criar sala**, sem esperar a Cloudflare.',
       '- Os PCs se encontram por servidores MQTT públicos com mensagens cifradas pela chave do convite; depois a sala passa por uma conexão direta.',
@@ -57,17 +52,45 @@ if (!release) {
       '**Importante:** salas criadas na 0.6.0 exigem a 0.6.0 ou mais nova para entrar; atualize todos os participantes. A prévia no Discord passa a mostrar um convite genérico, sem o nome da sala. A cota de desenvolvimento do Discord continua em 100 mensagens diretas a cada 2 horas para toda a aplicação.',
       '',
       'Instale pelo arquivo Setup.exe. Versões com atualizador recebem esta versão pelo próprio aplicativo. Perfil e preferências são preservados; o Discord continua opcional.'
-    ].join('\n')
-  }) });
-}
-// Keep the release invisible to clients until every installer/metadata upload succeeds.
-for (const filename of filenames) {
-  const previous = release.assets.find(asset => asset.name === filename);
-  if (previous) await api(`${base}/releases/assets/${previous.id}`, { method: 'DELETE' });
+].join('\n');
+async function upload(release, filename) {
   const file = path.join(directory, filename), size = (await stat(file)).size;
   await api(`${release.upload_url.split('{')[0]}?name=${encodeURIComponent(filename)}`, { method: 'POST',
     headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': String(size) }, body: createReadStream(file), duplex: 'half' });
   console.log('Enviado:', filename);
 }
-await api(`${base}/releases/${release.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ draft: false }) });
-console.log(`Release publicada: https://github.com/${owner}/${repo}/releases/tag/${tag}`);
+// One-off, explicitly authorized by the owner: build/replace-release.json turns an already
+// published entry (same release ID) into this version instead of creating a new one.
+const replace = await readFile(path.join(root, 'build', 'replace-release.json'), 'utf8').then(JSON.parse, () => null);
+if (replace) {
+  if (replace.version !== pkg.version || !/^v\d+\.\d+\.\d+$/.test(replace.from || '') || replace.from === tag) throw new Error('build/replace-release.json nao corresponde a esta versao.');
+  if (await api(`${base}/releases/tags/${tag}`, {}, true)) throw new Error('Essa versao ja esta publicada. Aumente version; nao substitua uma release entregue.');
+  const release = await api(`${base}/releases/tags/${replace.from}`);
+  // New installer files first; swapping latest.yml is the only moment updaters see a change.
+  for (const filename of filenames.slice(0, 3)) await upload(release, filename);
+  const manifest = release.assets.find(asset => asset.name === 'latest.yml');
+  if (manifest) await api(`${base}/releases/assets/${manifest.id}`, { method: 'DELETE' });
+  await upload(release, 'latest.yml');
+  for (const asset of release.assets) if (asset.name !== 'latest.yml' && !filenames.includes(asset.name)) await api(`${base}/releases/assets/${asset.id}`, { method: 'DELETE' });
+  await api(`${base}/releases/${release.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tag_name: tag, target_commitish: commit, name: `Concord ${pkg.version}`, body: notes }) });
+  console.log(`Release ${release.id} editada de ${replace.from} para ${tag}: https://github.com/${owner}/${repo}/releases/tag/${tag}`);
+} else {
+  let release = await api(`${base}/releases/tags/${tag}`, {}, true);
+  if (!release) {
+    // The tag endpoint serves published releases; authenticated listing also finds drafts.
+    const recent = await api(`${base}/releases?per_page=100`);
+    release = recent.find(item => item.tag_name === tag);
+  }
+  if (release && !release.draft) throw new Error('Essa versao ja esta publicada. Aumente version; nao substitua uma release entregue.');
+  if (!release) release = await api(`${base}/releases`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+    tag_name: tag, target_commitish: commit, name: `Concord ${pkg.version}`, draft: true, prerelease: false, body: notes }) });
+  // Keep the release invisible to clients until every installer/metadata upload succeeds.
+  for (const filename of filenames) {
+    const previous = release.assets.find(asset => asset.name === filename);
+    if (previous) await api(`${base}/releases/assets/${previous.id}`, { method: 'DELETE' });
+    await upload(release, filename);
+  }
+  await api(`${base}/releases/${release.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ draft: false }) });
+  console.log(`Release publicada: https://github.com/${owner}/${repo}/releases/tag/${tag}`);
+}

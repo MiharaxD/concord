@@ -20,7 +20,12 @@ let ownInviteMessage = '', currentInvite = '', joining = false, joinTimer, uiRea
 let p2pHost, hosting = false, hostGeneration = 0, accessClosed = false, p2pOffline = false, fallbackPromise;
 let audioPreviewTrack, testingAudio = false, audioGeneration = 0, captureGeneration = 0;
 const meter = new AudioMeter($('audio-level'), $('audio-level-label'));
-function notice(text, error = false) { $('notice').textContent = text; $('notice').classList.toggle('error', error); $('notice').hidden = !text; }
+let noticeTimer;
+// Confirmations fade after a few seconds; errors stay until replaced.
+function notice(text, error = false) {
+  clearTimeout(noticeTimer); $('notice').textContent = text; $('notice').classList.toggle('error', error); $('notice').hidden = !text;
+  if (text && !error) noticeTimer = setTimeout(() => notice(''), 4000);
+}
 function status(text, online = false) {
   document.body.dataset.connected = String(online); document.body.dataset.connectionState = text;
   updateRoomMessage();
@@ -83,6 +88,14 @@ function openJoin(value) {
   if (!$('join-picker').open) $('join-picker').showModal();
   if (value !== undefined) { try { parseInvite(value); } catch (error) { $('join-error').textContent = error.message; } }
   $('join-input').focus();
+}
+// Links opened from the invite page join at once when nothing would be interrupted;
+// inside a room or while sharing they still ask, so a link never ends the current session.
+function receiveInvite(value) {
+  if (uiReady && !target && !stream && !joining) {
+    try { parseInvite(value); openJoin(value); $('join-form').requestSubmit(); return; } catch {}
+  }
+  openJoin(value);
 }
 function joinFailure(text) {
   clearTimeout(joinTimer); joining = false; disconnect(); target = null; role = null; status('Não conectado'); showView('home');
@@ -670,13 +683,13 @@ window.addEventListener('beforeunload', () => { terminal = true; clearTimeout(re
 try {
   if (!native) throw new Error('Abra o executável do Concord.');
   config = await native.bootstrap(); $('app-version').textContent = 'Concord ' + config.version; renderProfile(); applyPreferences(config.preferences);
-  native.onInvite(value => openJoin(value));
+  native.onInvite(value => receiveInvite(value));
   native.onUpdate(renderUpdate); renderUpdate(await native.updatesReady());
   const session = await native.session(); if (session.public) showInvite(session);
   if (!config.profile.name) await chooseName();
   uiReady = true; status('Esperando sala'); showView('home');
   for (const id of ['create-room', 'join-room', 'join-room-nav']) $(id).disabled = false;
   const launchInvite = await native.invitesReady();
-  if (queuedInvite || launchInvite) openJoin(queuedInvite || launchInvite);
+  if (queuedInvite || launchInvite) receiveInvite(queuedInvite || launchInvite);
   if (config.preferencesWarning) notice('Não consegui ler suas preferências. Usei as opções padrão.', true);
 } catch (error) { notice(error.message, true); status('Não consegui abrir'); }

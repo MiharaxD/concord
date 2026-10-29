@@ -10,7 +10,7 @@ function renderInvite() {
   $('open-concord').href = code; $('open-concord').hidden = false;
   $('open-hint').hidden = false; $('manual-invite').hidden = false;
   $('manual-code').value = code;
-  $('invite-message').textContent = 'Abra o convite no Concord instalado neste PC e confirme a entrada.';
+  $('invite-message').textContent = 'Abra o convite no Concord instalado neste PC para entrar na sala.';
   } catch {
   $('invite-message').textContent = 'Este convite está incompleto ou inválido. Peça um novo link para quem criou a sala.';
   }

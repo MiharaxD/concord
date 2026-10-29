@@ -94,9 +94,9 @@ try {
   result.checks.push('Botão Copiar link, URL com código, prévia, página Abrir no Concord e código inválido: PASS; clipboard isolado, sem acionar app pessoal.');
 
   const guest = await launch('Amiga QA', [desktop]);
-  await guest.page.locator('#join-picker[open]').waitFor(); assert.equal(await guest.page.locator('#join-input').inputValue(), desktop);
-  assert.notEqual(await guest.page.evaluate(() => document.body.dataset.connected), 'true', 'abrir URL não entra sem confirmação');
-  await guest.page.locator('#join-button').click(); await guest.page.waitForFunction(() => document.body.dataset.connected === 'true');
+  // 0.6.1+: with nothing to interrupt, a link opened from the page joins directly.
+  await guest.page.waitForFunction(() => document.body.dataset.connected === 'true');
+  assert.equal(await guest.page.locator('#join-picker[open]').count(), 0, 'abrir link com o app parado entra direto');
   await guest.page.getByRole('button', { name: 'Abrir perfil de Yuri Mihara', exact: true }).click();
   await guest.page.waitForFunction(() => document.querySelector('#member-profile-banner img')?.naturalWidth === 512);
   assert.equal(await guest.page.locator('#member-profile-banner').evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(36, 161, 139)');

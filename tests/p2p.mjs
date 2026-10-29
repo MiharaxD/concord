@@ -74,10 +74,21 @@ try {
   await host.page.locator('#copy-link-button').click();
   assert.equal(await host.app.evaluate(() => globalThis.copied), P2P_PAGE + '?join=' + code.slice(12));
   check('Copiar link gera a página estática do GitHub Pages.');
+  await host.page.locator('#notice').filter({ hasText: 'Link copiado.' }).waitFor();
+  await host.page.locator('#notice').waitFor({ state: 'hidden', timeout: 6000 });
+  check('Aviso Link copiado some sozinho.');
 
-  assert.equal(await join(ana.page, code), 'direct');
+  // Same IPC event the main process sends for a concord: link opened from the invite page.
+  const openLink = app => app.evaluate(({ BrowserWindow }, code) => BrowserWindow.getAllWindows()[0].webContents.send('concord:open-invite', code), code);
+  await openLink(ana.app);
+  await ana.page.waitForFunction(() => document.body.dataset.connected === 'true', null, { timeout: 60000 });
+  assert.equal(await ana.page.evaluate(() => document.body.dataset.route), 'direct');
   await host.page.locator('#audience-list').filter({ hasText: 'Ana' }).waitFor();
-  check('Convidada entrou por DataChannel direto, via brokers públicos, sem túnel.');
+  check('Link aberto com o app parado entra direto, por DataChannel via brokers públicos, sem túnel.');
+  await openLink(ana.app); await ana.page.locator('#join-picker[open]').waitFor();
+  assert.equal(await ana.page.evaluate(() => document.body.dataset.connected), 'true');
+  await ana.page.locator('#cancel-join').click();
+  check('Link aberto já dentro de uma sala pede confirmação e não derruba a conexão.');
   await capture(host.page, '#cc3344'); await capture(ana.page, '#338844');
   await start(host.page); await moving(ana.page);
   check('Transmissão do host chega à convidada P2P (sinalização WebRTC pela ponte).');
