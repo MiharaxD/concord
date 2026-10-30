@@ -58,6 +58,11 @@ async function shutdown() {
   catch (error) { quitting = false; shutdownPromise = undefined; throw error; }
 }
 
+// Defense in depth: every web contents (including ones created later) is denied new windows and navigation away.
+app.on('web-contents-created', (event, contents) => {
+  contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  contents.on('will-attach-webview', attach => attach.preventDefault());
+});
 if (primaryInstance) app.whenReady().then(async () => {
   const { createConcord } = await import(pathToFileURL(path.join(__dirname, '..', 'server.mjs')).href);
   const tunnelCwd = path.join(app.getPath('userData'), 'tunnel');
@@ -133,7 +138,8 @@ if (primaryInstance) app.whenReady().then(async () => {
       return profileImage(original, kind);
   };
   discord = await require('./discord.cjs').createDiscordLink({ file: path.join(app.getPath('userData'), 'discord-link.bin'), storage: safeStorage,
-    openExternal: url => shell.openExternal(url), normalizeImage: normalizeDiscordImage
+    // The browser is only ever opened for Discord's official consent page.
+    openExternal: url => String(url).startsWith('https://discord.com/oauth2/authorize?') ? shell.openExternal(url) : Promise.reject(new Error('Endereço externo bloqueado.')), normalizeImage: normalizeDiscordImage
   });
   discordSocial = require('./discord-social.cjs').createDiscordSocial({
     binary: app.isPackaged ? path.join(process.resourcesPath, 'ConcordDiscord.exe') : path.join(__dirname, '..', '.runtime', 'ConcordDiscord.exe'),
@@ -246,6 +252,9 @@ if (primaryInstance) app.whenReady().then(async () => {
   });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', (event, url) => { if (url !== concord.address + '/') event.preventDefault(); });
+  // Media/file URLs (dropped files, blob/file links) never navigate or open outside the app.
+  window.webContents.on('will-frame-navigate', event => { if (event.url !== concord.address + '/') event.preventDefault(); });
+  window.webContents.on('will-redirect', event => event.preventDefault());
   window.on('close', event => {
     if (!quitting && window.webContents.getTitle().includes('AO VIVO')) {
       if (dialog.showMessageBoxSync(window, { type: 'question', buttons: ['Continuar transmitindo', 'Fechar Concord'], defaultId: 0, cancelId: 0,

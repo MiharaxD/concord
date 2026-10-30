@@ -856,6 +856,8 @@ document.addEventListener('keydown', event => {
   else if (key === 'f') { event.preventDefault(); $('fullscreen-button').click(); }
   else if (key === 'escape' && focus) { event.preventDefault(); $('grid-button').click(); }
 });
+// Files dropped outside the chat are ignored instead of making Chromium open them.
+for (const type of ['dragover', 'drop']) document.addEventListener(type, event => { if ([...(event.dataTransfer?.types || [])].includes('Files')) event.preventDefault(); });
 new ResizeObserver(renderTiles).observe($('stage'));
 setInterval(() => { if (liveSince) { const elapsed = Math.floor((Date.now()-liveSince)/1000); $('stream-clock').textContent = String(Math.floor(elapsed/3600)).padStart(2,'0') + ':' + String(Math.floor(elapsed/60)%60).padStart(2,'0') + ':' + String(elapsed%60).padStart(2,'0'); } }, 1000);
 setInterval(() => { if (inviteRetryAt && Date.now() >= inviteRetryAt) { inviteRetryAt = 0; if (!invitePending) inviteStatus(''); } }, 1000);

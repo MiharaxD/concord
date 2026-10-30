@@ -79,6 +79,8 @@ Exceção autorizada em 29/10/2026 (terceira): a 0.7.1 (áudio automático) tamb
 
 Exceção autorizada em 29/10/2026 (quarta): a 0.8.1 (prévia de mídia no chat) edita a entrada da Release 0.8.0 (ID 428529679), de v0.8.0 para v0.8.1, com tag v0.8.0 preservada.
 
+Exceção autorizada em 29/10/2026 (quinta): a 0.8.2 (blindagem) edita a entrada da Release 0.8.1 (ID 428529679), de v0.8.1 para v0.8.2, com tag v0.8.1 preservada.
+
 ## Instalação e atualizações
 
 Interface: linguagem neutra e direta, sem “galera”, “bora” ou frases promocionais. Painel minimalista, “Compartilhamento de tela” no vazio, relógio somente enquanto transmite e “Desenvolvido por Yuri Mihara” no rodapé inferior direito. Sem texto orientativo no rodapé ou aviso de sucesso ao encerrar transmissão; erros permanecem. Minha sala usa SVG de cômodo; Entrar em uma sala usa o mesmo SVG de tomada no menu e no Painel. Código em painel pequeno: “Código sendo carregado…”, Copiar link, erro/tentar novamente e gerenciamento recolhido. Preparo começa em Criar sala, sem bloquear controles. Reconexão/compatibilidade têm aviso curto quando necessário.

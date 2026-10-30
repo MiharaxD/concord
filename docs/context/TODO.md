@@ -2,6 +2,9 @@
 
 ## Agora
 
+0.8.2 (blindagem contra aberturas externas) pronta localmente, sem commit: aguardando decisão de publicação.
+- [ ] Confirmar com o usuário como o vídeo foi enviado (clipe/arrastar/Ctrl+V), em qual PC as abas do Teams abriram e se continuaram com o Concord fechado.
+
 0.8.1 (prévia de mídia no chat) publicada em 29/10/2026 editando a Release da 0.8.0.
 
 0.8.0 (barra de controles, pop-up de transmissão e chat) publicada em 29/10/2026 como Release nova.

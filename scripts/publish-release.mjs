@@ -37,6 +37,10 @@ async function api(url, options = {}, allow404 = false) {
 const notes = [
       `## Novidades do Concord ${pkg.version}`,
       '',
+      '- **Mais proteção:** arquivos arrastados para fora do chat são ignorados, e o app bloqueia qualquer janela, aba ou link externo. O navegador só abre para o login oficial do Discord.',
+      '',
+      '### Da 0.8.1',
+      '',
       '- **Prévia de mídia no chat:** imagens e vídeos aparecem direto na conversa, e áudios ganham um player. Como no Discord, o ícone de download aparece no canto quando você passa o mouse.',
       '',
       '### Da 0.8.0',
