@@ -37,6 +37,11 @@ async function api(url, options = {}, allow404 = false) {
 const notes = [
       `## Novidades do Concord ${pkg.version}`,
       '',
+      '- **Telas grandes:** em monitores 2K e 4K o app ocupa a tela toda e aumenta textos e botões na proporção da janela, em vez de ficar no canto.',
+      '- Ícone do Painel na barra lateral corrigido, no mesmo tamanho dos outros.',
+      '',
+      '### Da 0.8.5',
+      '',
       '- **Escolha de dispositivo na barra:** setinhas no microfone, no fone e na câmera abrem a lista de microfones, saídas de áudio e câmeras do Windows, como no Discord. A engrenagem de configurações saiu da barra.',
       '',
       '### Da 0.8.4',

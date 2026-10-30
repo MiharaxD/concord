@@ -2,7 +2,7 @@
 
 ## Agora
 
-0.8.5 (setinhas de dispositivo na barra) publicada editando a Release da 0.8.4 (antes 0.8.3).
+0.8.6 (telas grandes, ícone do Painel) publicada editando a Release da 0.8.5 (antes 0.8.4/0.8.3).
 - [ ] Testar voz entre duas máquinas reais (eco, atraso, relay de voz) e com microfone/câmera físicos trocados no modal.
 
 0.8.3 (sala estilo Discord, voz, perfil e modais) publicada em 30/10/2026 como Release nova.

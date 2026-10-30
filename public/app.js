@@ -374,7 +374,7 @@ function renderTiles() {
   const count = focus ? 1 : tiles.size, people = $('people-grid').children.length;
   $('stage').classList.toggle('with-strip', tiles.size > 0 && people > 0); $('streams-grid').hidden = !tiles.size;
   arrange($('streams-grid'), count);
-  if (tiles.size) $('people-grid').style.gridTemplateColumns = $('people-grid').style.gridTemplateRows = ''; else arrange($('people-grid'), people, 480);
+  if (tiles.size) $('people-grid').style.gridTemplateColumns = $('people-grid').style.gridTemplateRows = ''; else arrange($('people-grid'), people, 640);
   $('stage').classList.toggle('has-video', count > 0); $('empty-stage').hidden = count > 0 || people > 0; $('grid-button').hidden = !focus;
   applyAudio(); updateRoomMessage();
 }

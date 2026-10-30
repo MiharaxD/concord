@@ -257,6 +257,10 @@ if (primaryInstance) app.whenReady().then(async () => {
   // Media/file URLs (dropped files, blob/file links) never navigate or open outside the app.
   window.webContents.on('will-frame-navigate', event => { if (event.url !== concord.address + '/') event.preventDefault(); });
   window.webContents.on('will-redirect', event => event.preventDefault());
+  // Big monitors (2K/4K at 100%): scale the whole UI up instead of leaving it tiny; small windows stay at 1x.
+  const fitZoom = () => { if (window.isDestroyed()) return; const [width, height] = window.getContentSize();
+    window.webContents.setZoomFactor(Math.floor(Math.max(1, Math.min(1.3, width / 1800, height / 850)) * 20) / 20); };
+  window.on('resize', fitZoom); window.webContents.on('did-finish-load', fitZoom);
   window.on('close', event => {
     if (!quitting && window.webContents.getTitle().includes('AO VIVO')) {
       if (dialog.showMessageBoxSync(window, { type: 'question', buttons: ['Continuar transmitindo', 'Fechar Concord'], defaultId: 0, cancelId: 0,
