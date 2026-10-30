@@ -36,7 +36,7 @@ async function closeOwnedWindows() {
   await wait(async () => !(await state()).Processes.length, 'processos do teste nao fecharam');
 }
 async function launch() {
-  app = await _electron.launch({ executablePath: path.join(location, 'Concord.exe'), args: [], cwd, env, timeout: 45000 });
+  app = await _electron.launch({ executablePath: path.join(location, 'Concord.exe'), args: ['--use-fake-device-for-media-stream'], cwd, env, timeout: 45000 });
   const page = await app.firstWindow(); page.setDefaultTimeout(25000);
   await page.waitForURL('http://127.0.0.1:*/');
   assert.equal((await page.evaluate(() => window.concord.bootstrap())).version, oldVersion);
@@ -160,7 +160,7 @@ try {
   assert.equal(await hash(profile), savedHash); assert.equal(await hash(defaultProfile), expectedDefaultHash);
   assert.ok(after.Desktop && after.StartMenu);
   await closeOwnedWindows();
-  app = await _electron.launch({ executablePath: path.join(location, 'Concord.exe'), args: [], cwd, env, timeout: 45000 }); page = await app.firstWindow();
+  app = await _electron.launch({ executablePath: path.join(location, 'Concord.exe'), args: ['--use-fake-device-for-media-stream'], cwd, env, timeout: 45000 }); page = await app.firstWindow();
   await page.locator('#profile-button').waitFor();
   if (await page.locator('#create-room').count()) await page.locator('#create-room').click();
   await page.waitForFunction(() => document.body.dataset.connected === 'true' || document.querySelector('#connection-status')?.textContent.includes('Sala conectada'));

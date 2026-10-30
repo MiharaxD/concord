@@ -175,15 +175,28 @@ export class RoomMedia {
     if (!MediaRecorder.isTypeSupported(mime)) { this.error('Este PC não suporta o modo de compatibilidade.'); return; }
     const camera = kind === 'camera';
     const recorder = new MediaRecorder(stream, voice ? { mimeType: mime, audioBitsPerSecond: VOICE_BITRATE } : { mimeType: mime, videoBitsPerSecond: camera ? CAMERA_BITRATE : this.options().bitrate, audioBitsPerSecond: 128000 });
-    this.recorders.push(recorder);
+    recorder.kind = kind; this.recorders.push(recorder);
     this.send({ type: 'relay-start', to: targets, mime, ...(kind === 'screen' ? {} : { stream: kind }) });
     recorder.ondataavailable = event => {
       if (!this.recorders.includes(recorder) || !event.data.size) return;
-      if (!this.sendBytes(event.data, kind)) { this.stopRecorder(); this.fatal('Seu upload não acompanhou a transmissão. Reduza a qualidade ou a taxa de bits.'); }
+      if (this.sendBytes(event.data, kind)) return;
+      if (voice) this.restartVoice(recorder); else { this.stopRecorder(); this.fatal('Seu upload não acompanhou a transmissão. Reduza a qualidade ou a taxa de bits.'); }
     };
-    recorder.onerror = () => { this.stopRecorder(); this.fatal('O codificador falhou. Tente compartilhar novamente.'); }; recorder.start(voice ? 100 : 250);
+    recorder.onerror = () => { if (voice) this.restartVoice(recorder); else { this.stopRecorder(); this.fatal('O codificador falhou. Tente compartilhar novamente.'); } };
+    recorder.start(voice ? 100 : 250);
+  }
+  // Voice does not depend on the screen: a stalled Opus encoder restarts alone instead of ending the share.
+  restartVoice(recorder) {
+    this.recorders = this.recorders.filter(item => item !== recorder);
+    recorder.ondataavailable = null; recorder.onerror = null; if (recorder.state !== 'inactive') recorder.stop();
+    clearTimeout(this.voiceTimer);
+    this.voiceTimer = setTimeout(() => {
+      const targets = [...this.targets].filter(id => this.voiceLink(id));
+      if (this.voice?.readyState === 'live' && targets.length && !this.recorders.some(item => item.kind === 'voice')) this.record(new MediaStream([this.voice]), 'voice', targets);
+    }, 2000);
   }
   stopRecorder() {
+    clearTimeout(this.voiceTimer);
     for (const recorder of this.recorders.splice(0)) { recorder.ondataavailable = null; recorder.onerror = null; if (recorder.state !== 'inactive') recorder.stop(); }
   }
   get recorder() { return this.recorders[0] || null; }

@@ -494,20 +494,23 @@ async function deviceId(kind, name) {
   const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
   return devices.find(device => device.kind === kind && device.label === name)?.deviceId || '';
 }
-async function startVoice() {
+// `replace` swaps the device: the new mic is captured first, so a failure keeps the current one.
+async function startVoice(replace = false) {
   if (!roomVoice || socket?.readyState !== WebSocket.OPEN) return;
-  if (voiceTrack?.readyState === 'live') { applyVoice(); publishState(); await media?.setVoice(voiceTrack); return; }
+  if (!replace && voiceTrack?.readyState === 'live') { applyVoice(); publishState(); await media?.setVoice(voiceTrack); return; }
   const generation = ++voiceGeneration; voiceStarting = true; renderCallBar();
   try {
     const id = await deviceId('audioinput', devicePrefs.mic);
     const captured = await navigator.mediaDevices.getUserMedia({ audio: { ...(id ? { deviceId: { exact: id } } : {}), echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
     const track = captured.getAudioTracks()[0];
     if (generation !== voiceGeneration || socket?.readyState !== WebSocket.OPEN || !track) { captured.getTracks().forEach(item => item.stop()); return; }
-    voiceTrack = track; track.contentHint = 'speech';
+    const previous = voiceTrack; voiceTrack = track; track.contentHint = 'speech';
+    if (previous) { previous.onended = null; previous.stop(); }
     track.onended = () => { if (voiceTrack === track) { stopVoice(); notice('O microfone foi desconectado. Clique no microfone para tentar de novo.', true); } };
     applyVoice(); publishState(); await media?.setVoice(track); watchMic();
   } catch (error) {
-    if (generation === voiceGeneration) notice(error.name === 'NotAllowedError' ? 'O microfone não foi liberado. Confira as configurações de privacidade do Windows.' : 'Não encontrei um microfone disponível. Você continua ouvindo a sala.', true);
+    if (generation === voiceGeneration) notice(error.name === 'NotAllowedError' ? 'O microfone não foi liberado. Confira as configurações de privacidade do Windows.'
+      : replace && voiceTrack ? 'Não consegui usar esse microfone. Continuo com o anterior.' : 'Não encontrei um microfone disponível. Você continua ouvindo a sala.', true);
   } finally { if (generation === voiceGeneration) { voiceStarting = false; renderCallBar(); } }
 }
 function stopVoice() {
@@ -567,7 +570,7 @@ function publishState() {
     voice: Boolean(voiceTrack), muted: voiceMuted || muted });
 }
 function disconnect() {
-  closeDiscordFriends(); chat.clear(); stopVoice(); roomVoice = false;
+  closeDiscordFriends(); chat.clear(); stopVoice(); roomVoice = false; volumes.clear();
   terminal = true; clearTimeout(reconnectTimer); clearTimeout(joinTimer); const previous = socket; socket = undefined; previous?.close();
   media?.close(); media = null; for (const id of [...cameraViews.keys()]) removeCamera(id); self = ''; for (const id of [...tiles.keys()]) removeTile(id); members = []; renderMembers(); renderCallBar();
 }
@@ -613,7 +616,8 @@ function openSocket() {
     if (terminal) return;
     if (joining && [4001,4002,4003,4005].includes(event.code)) { joinFailure(event.reason || 'Convite inválido. Confira o código.'); return; }
     if ([4001,4002,4003].includes(event.code)) { terminal = true; stopSharing(); stopCamera(); stopVoice(); status('Não conectado'); notice(event.reason || 'Convite inválido.', true); return; }
-    status('Reconectando'); retries++; reconnectTimer = setTimeout(openSocket, Math.min(1000 * 2 ** Math.min(retries-1,4),15000));
+    // Out of the room the mic is closed, even while retrying; the next welcome opens it again.
+    stopVoice(); status('Reconectando'); retries++; reconnectTimer = setTimeout(openSocket, Math.min(1000 * 2 ** Math.min(retries-1,4),15000));
   };
 }
 // Automatic audio follows the shared source: a window sends only that app; a whole screen sends the whole PC
@@ -1010,8 +1014,7 @@ $('close-settings').onclick = () => $('settings-dialog').close();
 $('settings-dialog').addEventListener('close', () => micMeter.stop());
 $('mic-device').onchange = async () => {
   devicePrefs.mic = $('mic-device').value; savePreferences();
-  if (!voiceTrack) return;
-  const previous = voiceTrack; previous.onended = null; voiceTrack = undefined; previous.stop(); await startVoice();
+  if (voiceTrack) await startVoice(true);
 };
 $('camera-device').onchange = () => { devicePrefs.camera = $('camera-device').value; savePreferences(); if (cameraStream) { stopCamera(); void startCamera(); } };
 $('chat-toggle').onclick = $('chat-button').onclick = () => setSide(!sideHidden);

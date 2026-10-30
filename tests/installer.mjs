@@ -31,7 +31,7 @@ async function waitFor(check, label, timeout = 30000) { const end = Date.now() +
 async function install(file, flags = []) { await exec(file, ['/S', '/currentuser', ...flags], { cwd: workingDirectory, env: runtimeEnv, windowsHide: true, timeout: 120000 }); }
 async function launch(version, first = false, defaultData = false) {
   const env = { ...runtimeEnv }; if (defaultData) delete env.CONCORD_DATA_DIR;
-  app = await _electron.launch({ executablePath: path.join(ownedLocation, 'Concord.exe'), args: [], cwd: workingDirectory, env, timeout: 45000 });
+  app = await _electron.launch({ executablePath: path.join(ownedLocation, 'Concord.exe'), args: ['--use-fake-device-for-media-stream'], cwd: workingDirectory, env, timeout: 45000 });
   const page = await app.firstWindow(); page.setDefaultTimeout(20000);
   if (first) { await page.locator('#name-picker[open]').waitFor(); await page.locator('#display-name').fill('Teste de instalacao'); await page.locator('#save-name').click(); }
   await page.locator('#profile-button').waitFor();

@@ -17,6 +17,7 @@ async function launch(name) {
   await page.locator('#name-picker[open]').waitFor(); await page.locator('#display-name').fill(name); await page.locator('#save-name').click();
   // Lets the test break the direct route on purpose.
   await page.evaluate(() => { const PC = RTCPeerConnection; window.testPeers = []; window.RTCPeerConnection = class extends PC { constructor(...args) { super(...args); window.testPeers.push(this); } }; });
+  await page.evaluate(() => { const MR = MediaRecorder; window.testRecorders = []; window.MediaRecorder = class extends MR { constructor(...args) { super(...args); window.testRecorders.push(this); } }; });
   return { app, page };
 }
 // RMS of the voice received from `id`, read from its <audio> element's stream (direct) or captured output (relay).
@@ -79,16 +80,38 @@ try {
   assert.equal(saved.micDevice, options[1]); assert.ok(before);
   check('Configurações listam microfones; trocar o microfone mantém a voz e salva a escolha pelo nome.');
 
+  await guest.page.locator('#settings-button').click(); await guest.page.locator('#settings-dialog[open]').waitFor();
+  await guest.page.evaluate(() => { const devices = navigator.mediaDevices, original = devices.getUserMedia.bind(devices); devices.getUserMedia = async () => { devices.getUserMedia = original; throw new DOMException('ocupado', 'NotReadableError'); }; });
+  await guest.page.locator('#mic-device').selectOption({ index: 0 });
+  await guest.page.locator('#notice').filter({ hasText: 'Continuo com o anterior' }).waitFor({ state: 'attached' });
+  await guest.page.locator('#bar-mic[aria-pressed="true"]').waitFor({ state: 'attached' }); await guest.page.locator('#close-settings').click();
+  assert.equal(await host.page.locator(`#audience-list [data-member="${guestId}"] .muted-icon`).count(), 0);
+  await waitLevel(host.page, guestId, value => value > .005, 'falha ao trocar o microfone cortou a voz');
+  check('Se o microfone novo falha, a voz continua no anterior.');
+
   await guest.page.evaluate(() => { for (const pc of window.testPeers) { Object.defineProperty(pc, 'connectionState', { configurable: true, value: 'failed' }); pc.dispatchEvent(new Event('connectionstatechange')); } });
   await guest.page.waitForFunction(() => document.querySelector('#voice-audio audio[data-voice="host"]')?.dataset.transport === 'relay', null, { timeout: 30000 });
   await guest.page.waitForFunction(() => document.querySelector('#voice-audio audio[data-voice="host"]').currentTime > 1, null, { timeout: 30000 });
   await waitLevel(guest.page, hostId, value => value > .005, 'voz pelo modo de compatibilidade sem som');
   check('Sem rota direta, a voz chega pelo modo de compatibilidade (Opus).');
 
+  // A failed voice encoder restarts alone: no error notice, and the voice comes back.
+  await host.page.evaluate(() => window.testRecorders.filter(recorder => recorder.mimeType.startsWith('audio/') && recorder.state === 'recording').at(-1).onerror(new Event('error')));
+  await sleep(3000);
+  assert.equal(await host.page.locator('#notice').textContent(), '', 'falha da voz não vira erro de transmissão');
+  await host.page.waitForFunction(() => window.testRecorders.filter(recorder => recorder.mimeType.startsWith('audio/') && recorder.state === 'recording').length === 1);
+  await waitLevel(guest.page, hostId, value => value > .005, 'voz não voltou depois da falha do codificador');
+  check('Falha do codificador de voz reinicia só a voz, sem derrubar nada.');
+
   await host.page.locator('#leave-button').click(); await host.page.locator('#home-view').waitFor();
   assert.equal(await host.page.locator('#bar-mic').isDisabled(), true);
   await guest.page.waitForFunction(() => document.body.dataset.connected !== 'true' || !document.querySelector('#voice-audio audio[data-voice="host"]'), null, { timeout: 30000 });
   check('Sair da sala fecha o microfone.');
+
+  await host.app.close();
+  await guest.page.waitForFunction(() => document.body.dataset.connected !== 'true', null, { timeout: 30000 });
+  await guest.page.locator('#bar-mic[aria-pressed="false"]').waitFor({ state: 'attached' });
+  check('Enquanto tenta reconectar, o microfone do convidado fica fechado.');
   console.log('VOICE_TEST_PASS');
 } catch (error) {
   for (const page of pages) console.log('DIAGNOSTIC', JSON.stringify(await page.evaluate(() => ({ notice: document.getElementById('notice').textContent, mic: document.getElementById('bar-mic').title, voices: [...document.querySelectorAll('#voice-audio audio')].map(audio => ({ id: audio.dataset.voice, transport: audio.dataset.transport, time: audio.currentTime, muted: audio.muted })) })).catch(() => ({}))));

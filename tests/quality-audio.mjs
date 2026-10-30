@@ -23,7 +23,7 @@ try {
     const set = RTCRtpSender.prototype.setParameters;
     RTCRtpSender.prototype.setParameters = async function(params) { const result = await set.call(this, params); if (this.track?.kind === 'video') window.testSender = this; return result; };
     const Recorder = MediaRecorder;
-    window.MediaRecorder = class extends Recorder { constructor(stream, options) { super(stream, options); window.testRecorder = this; } };
+    window.MediaRecorder = class extends Recorder { constructor(stream, options) { super(stream, options); if (stream.getVideoTracks().length) window.testRecorder = this; } };
     window.testCaptures = 0;
     navigator.mediaDevices.getDisplayMedia = async options => {
       window.testCaptures++;
@@ -58,14 +58,14 @@ try {
   const invite = await host.evaluate(async () => (await window.concord.session()).guestLink);
   if (await viewer.locator('#join-room-nav').count()) await viewer.locator('#join-room-nav').click();
   await viewer.locator('#join-input').fill(invite); await viewer.locator('#join-button').click();
-  await viewer.locator('#transport-label').filter({ hasText: 'Conexão direta' }).waitFor();
+  await viewer.locator('video[data-publisher="host"][data-transport="direct"]').waitFor({ state: 'attached' });
   await viewer.waitForFunction(() => document.querySelector('video[data-publisher="host"]')?.videoWidth === 2560);
   await new Promise(resolve => setTimeout(resolve, 1000));
   const direct = await host.evaluate(() => window.testSender.getParameters());
   assert.equal(direct.encodings[0].maxBitrate, 11_500_000); assert.equal(direct.encodings[0].maxFramerate, 60);
   const audible = await viewer.evaluate(() => { const video = document.querySelector('video[data-publisher="host"]'); return !video.muted && video.volume > 0 && !video.paused; });
   assert.ok(audible, 'som inicia sem mexer no volume, mesmo após AbortError tardio');
-  assert.match(await viewer.locator('#stream-quality').textContent(), /tela/);
+  assert.equal(await viewer.locator('.stream-tile[data-member="host"]').count(), 1, 'a tela do dono aparece como quadro na grade');
   console.log('WebRTC: 1440p, limite de 11,5 Mbps e 60 FPS aplicados; player inicia com som sem clique de volume');
   await openShare(host); await host.locator('#stop-button').click();
   if (await host.locator('#fps').count()) { await openShare(host); await host.locator('#quality').selectOption('2160'); await openShare(host); await host.locator('#fps').selectOption('30'); }
