@@ -7,7 +7,7 @@
 <p align="center">Compartilhamento de tela em salas privadas para Windows.</p>
 
 <p align="center">
-  <a href="https://github.com/MiharaxD/concord/releases/download/v0.8.4/Concord-0.8.4-Setup.exe"><strong>Baixar para Windows · v0.8.4</strong></a>
+  <a href="https://github.com/MiharaxD/concord/releases/download/v0.8.5/Concord-0.8.5-Setup.exe"><strong>Baixar para Windows · v0.8.5</strong></a>
   &nbsp;·&nbsp;
   <a href="https://github.com/MiharaxD/concord/releases">Todas as versões</a>
 </p>

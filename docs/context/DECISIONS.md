@@ -8,7 +8,7 @@ Consequência: não exigir instalação de Node ou ferramentas de desenvolviment
 
 ## Voz e cor tema (0.8.3)
 
-Decisão: pedido do usuário em 30/10/2026. Chamada igual ao Discord: ao entrar na sala o microfone já funciona; o botão só muta, e o mute fica salvo. Microfone e câmera saem do menu de transmissão e vão para o modal de configurações (engrenagem); câmera desligada aparece vermelha e riscada. Substitui "microfone desligado ao abrir". Cor tema escolhida no perfil (roxo, verde, azul, rosa, vermelho ou seletor livre), só neste PC, aplicada a tudo que era roxo, inclusive o logo da barra lateral.
+Decisão: pedido do usuário em 30/10/2026. Chamada igual ao Discord: ao entrar na sala o microfone já funciona; o botão só muta, e o mute fica salvo. Microfone e câmera saem do menu de transmissão e ficam nas setinhas dos botões de microfone e câmera (0.8.5, pedido do usuário, como no Discord; o fone ganhou setinha para a saída de áudio e a engrenagem saiu da barra); câmera desligada aparece vermelha e riscada. Substitui "microfone desligado ao abrir". Cor tema escolhida no perfil (roxo, verde, azul, rosa, vermelho ou seletor livre), só neste PC, aplicada a tudo que era roxo, inclusive o logo da barra lateral.
 Consequência: microfone aberto enquanto estiver numa sala (indicador do Windows aceso), mesmo mutado. Salas cujo dono está em versão anterior à 0.8.3 não têm voz. Relay de voz tem mais atraso que a rota direta. Cores muito escuras no seletor livre reduzem o contraste de textos em destaque.
 
 ## Sala estilo Discord (0.8.3)

@@ -23,8 +23,8 @@ let p2pHost, hosting = false, hostGeneration = 0, accessClosed = false, p2pOffli
 let audioPreviewTrack, testingAudio = false, audioGeneration = 0, captureGeneration = 0;
 let cameraStream, cameraStarting = false, cameraGeneration = 0, roomCamera = false, relayStream = 'screen';
 const cameraViews = new Map(), cameraModes = new Map(), voices = new Map();
-let themeColor = '#aa96ff', voiceTrack, voiceStarting = false, voiceGeneration = 0, voiceMuted = false, roomVoice = false, devicePrefs = { mic: '', camera: '' };
-const meter = new AudioMeter($('audio-level'), $('audio-level-label')), micMeter = new AudioMeter($('mic-level'), $('mic-level-label'));
+let themeColor = '#aa96ff', voiceTrack, voiceStarting = false, voiceGeneration = 0, voiceMuted = false, roomVoice = false, devicePrefs = { mic: '', camera: '', speaker: '' };
+const meter = new AudioMeter($('audio-level'), $('audio-level-label'));
 const chat = new RoomChat({ root: $('chat-root'), send: value => send(value), notice: (text, error) => notice(text, error),
   onUnread: count => { $('chat-badge').hidden = !count; $('chat-badge').textContent = count > 9 ? '9+' : String(count); } });
 let noticeTimer;
@@ -124,7 +124,7 @@ function cancelJoin() {
 function preferenceValues() {
   return { resolution: $('quality').value, fps: $('fps').value, bitrateMode: $('bitrate-mode').value,
     bitrateMbps: Number($('bitrate-value').value), audioMode: $('audio-mode').value, audioEnabled: $('system-audio').checked, audioVersion: 2,
-    micMuted: voiceMuted, micDevice: devicePrefs.mic, cameraDevice: devicePrefs.camera, themeColor };
+    micMuted: voiceMuted, micDevice: devicePrefs.mic, cameraDevice: devicePrefs.camera, speakerDevice: devicePrefs.speaker, themeColor };
 }
 // Theme: every purple in the CSS derives from --accent; text on it turns dark or white by brightness.
 function applyTheme(color) {
@@ -146,7 +146,7 @@ function applyPreferences(saved) {
   $('bitrate-value').value = $('bitrate-slider').value = saved.bitrateMbps;
   $('audio-mode').value = saved.audioMode; $('system-audio').checked = saved.audioEnabled;
   applyTheme(saved.themeColor || '#aa96ff');
-  voiceMuted = Boolean(saved.micMuted); devicePrefs = { mic: saved.micDevice || '', camera: saved.cameraDevice || '' };
+  voiceMuted = Boolean(saved.micMuted); devicePrefs = { mic: saved.micDevice || '', camera: saved.cameraDevice || '', speaker: saved.speakerDevice || '' };
   updateBitrateControls(); updateAudioControls();
 }
 function qualityKey() { return $('quality').value + ':' + $('fps').value; }
@@ -322,6 +322,7 @@ function applyAudio() {
     item.video.volume = Number($('volume').value) * (volumes.get(item.member.id.replace(/:camera$/, '')) ?? 1);
   }
   for (const [id, audio] of voices) { audio.muted = muted; audio.volume = Number($('volume').value) * (volumes.get(id) ?? 1); }
+  void applySpeaker();
   $('sound-label').textContent = muted ? 'Ativar som' : 'Silenciar'; $('sound-button').setAttribute('aria-pressed', String(muted));
   $('sound-button').title = (muted ? 'Ativar som da sala' : 'Silenciar som da sala') + ' (M)';
 }
@@ -507,7 +508,7 @@ async function startVoice(replace = false) {
     const previous = voiceTrack; voiceTrack = track; track.contentHint = 'speech';
     if (previous) { previous.onended = null; previous.stop(); }
     track.onended = () => { if (voiceTrack === track) { stopVoice(); notice('O microfone foi desconectado. Clique no microfone para tentar de novo.', true); } };
-    applyVoice(); publishState(); await media?.setVoice(track); watchMic();
+    applyVoice(); publishState(); await media?.setVoice(track);
   } catch (error) {
     if (generation === voiceGeneration) notice(error.name === 'NotAllowedError' ? 'O microfone não foi liberado. Confira as configurações de privacidade do Windows.'
       : replace && voiceTrack ? 'Não consegui usar esse microfone. Continuo com o anterior.' : 'Não encontrei um microfone disponível. Você continua ouvindo a sala.', true);
@@ -516,7 +517,7 @@ async function startVoice(replace = false) {
 function stopVoice() {
   ++voiceGeneration; voiceStarting = false;
   if (voiceTrack) { voiceTrack.onended = null; voiceTrack.stop(); voiceTrack = undefined; void media?.setVoice(null); }
-  publishState(); watchMic(); renderCallBar();
+  publishState(); renderCallBar();
 }
 // Deafening also silences your mic, like Discord.
 function applyVoice() { if (voiceTrack) voiceTrack.enabled = !voiceMuted && !muted; renderCallBar(); }
@@ -538,24 +539,46 @@ function removeVoice(id) {
   const audio = voices.get(id); if (!audio) return;
   voices.delete(id); audio.pause(); audio.srcObject = null; audio.removeAttribute('src'); audio.load(); audio.remove();
 }
-// Settings modal: device names are saved, so the choice survives the app port changing.
-async function fillDevices() {
+// Device menus (caret beside mic, camera and sound): names are saved, so the choice survives the app port changing.
+const deviceKinds = { mic: ['audioinput', 'Microfone', 'Padrão do Windows'], camera: ['videoinput', 'Câmera', 'Padrão do Windows'], speaker: ['audiooutput', 'Saída de áudio', 'Padrão do Windows'] };
+let deviceMenuFor = null;
+async function applySpeaker() {
+  const id = await deviceId('audiooutput', devicePrefs.speaker);
+  for (const element of document.querySelectorAll('video, audio')) if (element.setSinkId && element.sinkId !== id) await element.setSinkId(id).catch(() => {});
+}
+async function chooseDevice(kind, name) {
+  closeDeviceMenu(); if (devicePrefs[kind] === name) return;
+  devicePrefs[kind] = name; savePreferences();
+  if (kind === 'mic' && voiceTrack) await startVoice(true);
+  if (kind === 'camera' && cameraStream) { stopCamera(); void startCamera(); }
+  if (kind === 'speaker') await applySpeaker();
+}
+function closeDeviceMenu() {
+  const button = deviceMenuFor && $(deviceMenuFor + '-menu-button'); deviceMenuFor = null; $('device-menu').hidden = true;
+  for (const caret of document.querySelectorAll('.device-caret')) caret.setAttribute('aria-expanded', 'false');
+  return button;
+}
+async function openDeviceMenu(kind) {
+  if (deviceMenuFor === kind) { closeDeviceMenu(); return; }
+  closeDeviceMenu(); deviceMenuFor = kind;
+  const [type, title, fallback] = deviceKinds[kind], chosen = devicePrefs[kind], menu = $('device-menu'), anchor = $(kind + '-menu-button');
   const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
-  const fill = (select, kind, fallback, chosen) => {
-    const names = [...new Set(devices.filter(device => device.kind === kind && device.label && !['default', 'communications'].includes(device.deviceId)).map(device => device.label))];
-    select.replaceChildren(new Option(fallback, ''), ...names.map(name => new Option(name, name)));
-    if (chosen && !names.includes(chosen)) select.append(new Option(chosen + ' (desconectado)', chosen));
-    select.value = chosen;
-  };
-  fill($('mic-device'), 'audioinput', 'Microfone padrão do Windows', devicePrefs.mic);
-  fill($('camera-device'), 'videoinput', 'Câmera padrão do Windows', devicePrefs.camera);
+  if (deviceMenuFor !== kind) return;
+  const names = [...new Set(devices.filter(device => device.kind === type && device.label && !['default', 'communications'].includes(device.deviceId)).map(device => device.label))];
+  if (chosen && !names.includes(chosen)) names.push(chosen);
+  const heading = document.createElement('p'); heading.className = 'device-menu-title'; heading.textContent = title;
+  const items = ['', ...names].map(name => {
+    const item = document.createElement('button'); item.type = 'button'; item.className = 'device-option'; item.setAttribute('role', 'menuitemradio');
+    item.setAttribute('aria-checked', String(name === chosen)); item.dataset.device = name;
+    item.textContent = name ? name + (devices.some(device => device.kind === type && device.label === name) ? '' : ' (desconectado)') : fallback;
+    item.onclick = () => { void chooseDevice(kind, name); anchor.focus(); };
+    return item;
+  });
+  menu.replaceChildren(heading, ...items); menu.setAttribute('aria-label', title); menu.hidden = false; anchor.setAttribute('aria-expanded', 'true');
+  const box = anchor.closest('.device-split').getBoundingClientRect();
+  menu.style.left = Math.max(8, Math.min(box.left, innerWidth - menu.offsetWidth - 8)) + 'px'; menu.style.bottom = (innerHeight - box.top + 8) + 'px';
+  (items.find(item => item.getAttribute('aria-checked') === 'true') || items[0]).focus();
 }
-function watchMic() {
-  if (!$('settings-dialog').open) { micMeter.stop(); return; }
-  if (voiceTrack) void micMeter.watch(voiceTrack);
-  else { micMeter.stop(); $('mic-level-label').textContent = 'O nível aparece quando você está numa sala.'; }
-}
-function openSettings() { void fillDevices(); if (!$('settings-dialog').open) $('settings-dialog').showModal(); watchMic(); }
 function bitrate() { return videoBitrate(qualityKey(), $('bitrate-mode').value === 'manual' ? $('bitrate-value').value : null); }
 function qualityLabel() { return $('quality').selectedOptions[0].textContent + ' · ' + $('fps').value + ' FPS · ' + formatMbps(bitrate()) + ' Mbps'; }
 function updateBitrateControls() {
@@ -762,7 +785,7 @@ async function startCamera() {
     const captured = await navigator.mediaDevices.getUserMedia({ audio: false, video: { ...(id ? { deviceId: { exact: id } } : {}), width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30, max: 30 } } });
     if (generation !== cameraGeneration || socket?.readyState !== WebSocket.OPEN) { captured.getTracks().forEach(track => track.stop()); return; }
     cameraStream = captured; const track = captured.getVideoTracks()[0]; track.contentHint = 'motion'; track.onended = () => stopCamera();
-    void fillDevices(); if (!liveSince) setLive(true);
+    if (!liveSince) setLive(true);
     publishState(); await media?.setCamera(track); localTile(); renderTiles();
   } catch (error) {
     if (generation === cameraGeneration) notice(error.name === 'NotAllowedError' ? 'A câmera não foi autorizada. Confira se o acesso à câmera está liberado nas configurações de privacidade do Windows.'
@@ -1009,14 +1032,15 @@ $('bar-camera').onclick = () => { if (cameraStream) stopCamera(); else void star
 $('bar-screen').onclick = () => { if (!$('share-dialog').open) $('share-dialog').showModal(); };
 $('close-share').onclick = () => $('share-dialog').close();
 $('bar-mic').onclick = () => { if (voiceTrack) setVoiceMuted(!voiceMuted && !muted); else { voiceMuted = false; savePreferences(); void startVoice(); } };
-$('settings-button').onclick = openSettings;
-$('close-settings').onclick = () => $('settings-dialog').close();
-$('settings-dialog').addEventListener('close', () => micMeter.stop());
-$('mic-device').onchange = async () => {
-  devicePrefs.mic = $('mic-device').value; savePreferences();
-  if (voiceTrack) await startVoice(true);
-};
-$('camera-device').onchange = () => { devicePrefs.camera = $('camera-device').value; savePreferences(); if (cameraStream) { stopCamera(); void startCamera(); } };
+for (const kind of Object.keys(deviceKinds)) $(kind + '-menu-button').onclick = () => void openDeviceMenu(kind);
+$('device-menu').addEventListener('keydown', event => {
+  const items = [...$('device-menu').querySelectorAll('.device-option')], index = items.indexOf(document.activeElement);
+  if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeDeviceMenu()?.focus(); }
+  else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); items[(index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus(); }
+  else if (event.key === 'Tab') closeDeviceMenu();
+});
+document.addEventListener('pointerdown', event => { if (deviceMenuFor && !event.target.closest('#device-menu, .device-caret')) closeDeviceMenu(); });
+addEventListener('resize', () => { if (deviceMenuFor) closeDeviceMenu(); });
 $('chat-toggle').onclick = $('chat-button').onclick = () => setSide(!sideHidden);
 // Collapsed sidebar keeps only the logo, icons and avatars.
 $('sidebar-toggle').onclick = () => {

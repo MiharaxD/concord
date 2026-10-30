@@ -1,6 +1,6 @@
 const { readFile, writeFile, rename } = require('node:fs/promises');
 
-const defaults = Object.freeze({ resolution: '1080', fps: '30', bitrateMode: 'auto', bitrateMbps: 12, audioMode: 'auto', audioEnabled: true, audioVersion: 2, micMuted: false, micDevice: '', cameraDevice: '', themeColor: '#aa96ff' });
+const defaults = Object.freeze({ resolution: '1080', fps: '30', bitrateMode: 'auto', bitrateMbps: 12, audioMode: 'auto', audioEnabled: true, audioVersion: 2, micMuted: false, micDevice: '', cameraDevice: '', speakerDevice: '', themeColor: '#aa96ff' });
 const deviceName = value => typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f-\u009f]/g, '').slice(0, 200) : '';
 function normalizePreferences(value = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) value = {};
@@ -16,7 +16,7 @@ function normalizePreferences(value = {}) {
     audioVersion: 2,
     // Voice: mute is remembered like Discord; devices are kept by name because Chromium IDs change with the app port.
     micMuted: typeof value.micMuted === 'boolean' ? value.micMuted : defaults.micMuted,
-    micDevice: deviceName(value.micDevice), cameraDevice: deviceName(value.cameraDevice),
+    micDevice: deviceName(value.micDevice), cameraDevice: deviceName(value.cameraDevice), speakerDevice: deviceName(value.speakerDevice),
     themeColor: typeof value.themeColor === 'string' && /^#[0-9a-f]{6}$/i.test(value.themeColor) ? value.themeColor.toLowerCase() : defaults.themeColor
   };
 }

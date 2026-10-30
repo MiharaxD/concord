@@ -8,7 +8,7 @@ const { defaults, normalizePreferences, createPreferences } = require('../deskto
 test('Preferências aceitam as oito combinações e preservam limites/privacidade', () => {
   for (const resolution of ['720', '1080', '1440', '2160']) for (const fps of ['30', '60']) {
     assert.deepEqual(normalizePreferences({ ...defaults, resolution, fps, bitrateMode: 'manual', bitrateMbps: 60, audioMode: 'system', audioEnabled: false }),
-      { resolution, fps, bitrateMode: 'manual', bitrateMbps: 60, audioMode: 'system', audioEnabled: false, audioVersion: 2, micMuted: false, micDevice: '', cameraDevice: '', themeColor: '#aa96ff' });
+      { resolution, fps, bitrateMode: 'manual', bitrateMbps: 60, audioMode: 'system', audioEnabled: false, audioVersion: 2, micMuted: false, micDevice: '', cameraDevice: '', speakerDevice: '', themeColor: '#aa96ff' });
     assert.equal(normalizePreferences({ ...defaults, audioMode: 'application' }).audioMode, 'application', 'escolha explícita permanece');
   }
   assert.deepEqual(normalizePreferences(null), defaults); assert.equal(defaults.audioMode, 'auto');

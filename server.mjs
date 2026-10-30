@@ -325,11 +325,12 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
     for (const ws of sockets) { if (!ws.alive) ws.terminate(); else { ws.alive = false; ws.ping(); } }
     for (const [ip, rate] of attempts) if (Date.now() - rate.start > 60000) attempts.delete(ip);
   }, 15000);
-  heartbeat.unref();
+  heartbeat.unref(); let lastAddress = '';
   return {
     server, hostToken,
     get guestToken() { return guestToken; },
-    get address() { return `http://127.0.0.1:${server.address().port}`; },
+    // Kept after close: permission checks can still ask while the window shuts down.
+    get address() { const info = server.address(); if (info) lastAddress = `http://127.0.0.1:${info.port}`; return lastAddress; },
     async listen() { await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); }); return this; },
     async close() {
       const pendingTunnel = tunnelPromise;

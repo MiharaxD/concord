@@ -256,15 +256,29 @@ body.side-hidden .chat-toggle{border-bottom-color:transparent}
 .member-volume{display:flex;align-items:center;gap:10px;margin-top:14px;color:var(--muted)}
 .member-volume svg{width:18px;height:18px;flex-shrink:0}
 .member-volume input{flex:1;accent-color:var(--accent)}
-.settings-dialog{width:min(440px,92vw);padding:24px}
-.settings-body{display:flex;flex-direction:column;gap:22px;margin-top:18px}
-.settings-section{display:flex;flex-direction:column;gap:8px}
-.settings-section label{font-size:13px;font-weight:600;color:var(--text)}
-.settings-section select{margin-top:0;font-size:14px;padding:10px 8px}
-.settings-section meter{width:100%;height:10px}
-.settings-section meter::-webkit-meter-bar{background:#272a32;border:0;border-radius:6px}
-.settings-section meter::-webkit-meter-optimum-value{background:var(--speaking);border-radius:6px}
-.settings-section small{font-size:12px;color:var(--muted);line-height:1.5}
+/* Split buttons: caret opens the device menu for mic, camera and sound output */
+.device-split{display:flex;align-items:stretch;border-radius:23px;background:var(--surface-2);color:#e3e4ea;transition:background .15s}
+.device-split:hover{background:var(--hover)}
+.device-split .call-button,.call-group .device-split .call-button,.device-split .call-button:hover:not(:disabled){background:transparent!important;color:inherit}
+.call-group .device-split .call-button{width:40px}
+.device-caret{display:grid;place-items:center;width:24px;padding:0 0 0 8px;border:0;border-radius:23px 0 0 23px;background:transparent;color:inherit;cursor:pointer}
+.device-caret svg{width:14px;height:14px;transition:transform .15s}
+.device-caret[aria-expanded="true"] svg{transform:rotate(180deg)}
+.device-caret:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.device-split:has(#bar-mic[aria-pressed="false"]),.device-split:has(#sound-button[aria-pressed="true"]){background:#da373c;color:#fff}
+.device-split:has(#bar-mic[aria-pressed="false"]):hover,.device-split:has(#sound-button[aria-pressed="true"]):hover{background:#c22f34}
+.device-split:has(#bar-camera[aria-pressed="true"]){background:var(--accent);color:var(--on-accent)}
+.device-split:has(#bar-camera[aria-pressed="true"]):hover{background:var(--accent-hover)}
+.device-split #bar-mic,.device-split #bar-camera,.device-split #sound-button{color:inherit!important}
+.device-menu{position:fixed;z-index:50;min-width:240px;max-width:min(360px,calc(100vw - 16px));max-height:min(320px,60vh);overflow:auto;padding:6px;border-radius:10px;background:#111214;box-shadow:0 8px 24px #000a,inset 0 0 0 1px #ffffff12;animation:device-menu-in .14s ease-out}
+.device-menu[hidden]{display:none}
+.device-menu-title{margin:4px 8px 6px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.device-option{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border:0;border-radius:6px;background:transparent;color:var(--text);font:inherit;font-size:13px;text-align:left;cursor:pointer}
+.device-option::before{content:'';flex:0 0 14px;height:14px;border-radius:50%;box-shadow:inset 0 0 0 2px var(--muted)}
+.device-option[aria-checked="true"]::before{box-shadow:inset 0 0 0 4px var(--accent)}
+.device-option:hover,.device-option:focus-visible{background:var(--hover);outline:none}
+@keyframes device-menu-in{from{opacity:0;transform:translateY(4px)}}
+@media(prefers-reduced-motion:reduce){.device-menu{animation:none}.device-caret svg{transition:none}}
 /* 0.8.3 cor tema: tudo que era roxo deriva de --accent (definida pelo app a partir da preferência). */
 :root{--accent-hover:color-mix(in srgb,var(--accent) 78%,#fff);--accent-text:color-mix(in srgb,var(--accent) 62%,#fff);--on-accent:#16131f}
 .primary,.chat-send{color:var(--on-accent)}

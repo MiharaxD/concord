@@ -68,23 +68,39 @@ try {
   assert.equal(await guest.page.evaluate(() => document.querySelector('#voice-audio audio[data-voice="host"]').muted), false, 'desmutar também tira o ensurdecer');
   check('Ensurdecer silencia a sala e o próprio microfone; desmutar desfaz os dois.');
 
-  await guest.page.locator('#settings-button').click(); await guest.page.locator('#settings-dialog[open]').waitFor();
-  await guest.page.waitForFunction(() => document.querySelectorAll('#mic-device option').length >= 2).catch(() => {});
-  const options = await guest.page.locator('#mic-device option').allTextContents(); assert.ok(options.length >= 2, 'lista microfones: ' + options.join(', '));
-  const before = await guest.page.evaluate(() => document.querySelector('#voice-audio') && window.concord && document.body.dataset.connected);
-  await guest.page.locator('#mic-device').selectOption({ index: 1 });
+  const menu = async kind => {
+    await guest.page.locator('#' + kind + '-menu-button').click(); await guest.page.locator('#device-menu:not([hidden]) .device-option').first().waitFor();
+    return guest.page.locator('#device-menu .device-option').allTextContents();
+  };
+  const options = await menu('mic'); assert.ok(options.length >= 2, 'lista microfones: ' + options.join(', '));
+  assert.equal(await guest.page.locator('#mic-menu-button').getAttribute('aria-expanded'), 'true');
+  await guest.page.locator('#device-menu .device-option').nth(1).click(); await guest.page.locator('#device-menu').waitFor({ state: 'hidden' });
   await guest.page.locator('#bar-mic[aria-pressed="true"]').waitFor(); await sleep(500);
   await waitLevel(host.page, guestId, value => value > .005, 'troca de microfone cortou a voz');
-  await guest.page.locator('#close-settings').click();
-  const saved = JSON.parse(await (await import('node:fs/promises')).readFile(path.join(run, 'Ana', 'preferences.json'), 'utf8'));
-  assert.equal(saved.micDevice, options[1]); assert.ok(before);
-  check('Configurações listam microfones; trocar o microfone mantém a voz e salva a escolha pelo nome.');
+  const preferences = async () => JSON.parse(await (await import('node:fs/promises')).readFile(path.join(run, 'Ana', 'preferences.json'), 'utf8'));
+  assert.equal((await preferences()).micDevice, options[1]);
+  await menu('mic'); assert.equal(await guest.page.locator('#device-menu .device-option[aria-checked="true"]').textContent(), options[1]);
+  await guest.page.keyboard.press('Escape'); await guest.page.locator('#device-menu').waitFor({ state: 'hidden' });
+  assert.equal(await guest.page.evaluate(() => document.activeElement?.id), 'mic-menu-button', 'Esc devolve o foco à setinha');
+  check('Setinha do microfone lista os microfones; trocar mantém a voz, salva pelo nome e Esc fecha o menu.');
 
-  await guest.page.locator('#settings-button').click(); await guest.page.locator('#settings-dialog[open]').waitFor();
+  const outputs = await menu('speaker'); assert.equal(outputs[0], 'Padrão do Windows');
+  if (outputs.length >= 2) {
+    await guest.page.locator('#device-menu .device-option').nth(1).click();
+    await guest.page.waitForFunction(() => [...document.querySelectorAll('#voice-audio audio')].every(audio => audio.sinkId), null, { timeout: 5000 });
+    assert.equal((await preferences()).speakerDevice, outputs[1]);
+    await waitLevel(host.page, guestId, value => value > .005, 'trocar a saída cortou a voz');
+  } else await guest.page.keyboard.press('Escape');
+  const cameras = await menu('camera'); assert.ok(cameras.length >= 2, 'lista câmeras: ' + cameras.join(', '));
+  await guest.page.mouse.click(5, 5); await guest.page.locator('#device-menu').waitFor({ state: 'hidden' });
+  assert.equal(await guest.page.locator('#settings-button').count(), 0, 'engrenagem removida');
+  check(`Setinhas do fone e da câmera listam saídas (${outputs.length - 1}) e câmeras; clique fora fecha; sem engrenagem.`);
+
+  await menu('mic');
   await guest.page.evaluate(() => { const devices = navigator.mediaDevices, original = devices.getUserMedia.bind(devices); devices.getUserMedia = async () => { devices.getUserMedia = original; throw new DOMException('ocupado', 'NotReadableError'); }; });
-  await guest.page.locator('#mic-device').selectOption({ index: 0 });
+  await guest.page.locator('#device-menu .device-option').nth(0).click();
   await guest.page.locator('#notice').filter({ hasText: 'Continuo com o anterior' }).waitFor({ state: 'attached' });
-  await guest.page.locator('#bar-mic[aria-pressed="true"]').waitFor({ state: 'attached' }); await guest.page.locator('#close-settings').click();
+  await guest.page.locator('#bar-mic[aria-pressed="true"]').waitFor({ state: 'attached' });
   assert.equal(await host.page.locator(`#audience-list [data-member="${guestId}"] .muted-icon`).count(), 0);
   await waitLevel(host.page, guestId, value => value > .005, 'falha ao trocar o microfone cortou a voz');
   check('Se o microfone novo falha, a voz continua no anterior.');

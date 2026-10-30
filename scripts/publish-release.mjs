@@ -37,6 +37,10 @@ async function api(url, options = {}, allow404 = false) {
 const notes = [
       `## Novidades do Concord ${pkg.version}`,
       '',
+      '- **Escolha de dispositivo na barra:** setinhas no microfone, no fone e na câmera abrem a lista de microfones, saídas de áudio e câmeras do Windows, como no Discord. A engrenagem de configurações saiu da barra.',
+      '',
+      '### Da 0.8.4',
+      '',
       '- **Voz mais estável:** se a voz travar no modo de compatibilidade, só ela reinicia, sem derrubar a transmissão de tela. Trocar para um microfone que não funciona mantém o anterior, e o microfone fecha enquanto o app tenta voltar para a sala.',
       '',
       '### Da 0.8.3',
