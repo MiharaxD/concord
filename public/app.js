@@ -2,6 +2,7 @@ import { qualityPreset, videoBitrate, formatMbps } from './stream-settings.js';
 import { parseInvite } from './invites.js';
 import { RoomMedia } from './room-media.js';
 import { connectRoom, P2PHost } from './p2p.js';
+import { RoomChat } from './chat.js';
 import { AudioMeter } from './audio-meter.js';
 import { visualProfile } from './profile.js';
 const $ = id => document.getElementById(id);
@@ -13,7 +14,7 @@ let discordPending = false;
 let discordFriends = [], friendsGeneration = 0, friendsInvite = '', friendPhotoObserver;
 const friendInvites = new Map();
 const tiles = new Map();
-let stream, display, microphone, audioContext, selectedSource, starting = false, liveSince = 0;
+let stream, display, microphone, audioContext, mixDestination, selectedSource, starting = false, liveSince = 0, sideHidden = false;
 let selectedAudioSource, appAudioContext, appAudioNode, unsubscribeAppAudio, unsubscribeAppAudioError;
 let invite, inviteGeneration = 0, invitePending = false, inviteRetryAt = 0;
 let ownInviteMessage = '', currentInvite = '', joining = false, joinTimer, uiReady = false, queuedInvite;
@@ -22,6 +23,8 @@ let audioPreviewTrack, testingAudio = false, audioGeneration = 0, captureGenerat
 let cameraStream, cameraStarting = false, cameraGeneration = 0, roomCamera = false, relayStream = 'screen';
 const cameraViews = new Map(), cameraModes = new Map();
 const meter = new AudioMeter($('audio-level'), $('audio-level-label'));
+const chat = new RoomChat({ root: $('chat-root'), send: value => send(value), notice: (text, error) => notice(text, error),
+  onUnread: count => { $('chat-badge').hidden = !count; $('chat-badge').textContent = count > 9 ? '9+' : String(count); } });
 let noticeTimer;
 // Confirmations fade after a few seconds; errors stay until replaced.
 function notice(text, error = false) {
@@ -357,13 +360,45 @@ function setLive(active) {
 }
 function showVideo() { renderTiles(); }
 function lockSettings(locked) {
-  for (const id of ['choose-source', 'choose-audio-source', 'audio-mode', 'quality', 'fps', 'bitrate-mode', 'bitrate-value', 'bitrate-slider', 'system-audio', 'microphone']) $(id).disabled = locked;
+  for (const id of ['choose-source', 'choose-audio-source', 'audio-mode', 'quality', 'fps', 'bitrate-mode', 'bitrate-value', 'bitrate-slider', 'system-audio']) $(id).disabled = locked;
   $('test-audio').hidden = Boolean(stream) || starting || audioMode() !== 'application';
   $('start-button').hidden = Boolean(stream); $('stop-button').hidden = !stream;
   $('start-button').disabled = locked || !selectedSource || socket?.readyState !== WebSocket.OPEN;
   $('camera-button').disabled = cameraStarting || socket?.readyState !== WebSocket.OPEN;
   $('camera-button').textContent = cameraStream ? 'Desligar câmera' : cameraStarting ? 'Ligando câmera…' : 'Ligar câmera';
   $('camera-device').disabled = Boolean(cameraStream) || cameraStarting;
+  renderCallBar();
+}
+// Discord-style call bar: quick toggles; the full sharing menu opens in #share-dialog.
+function renderCallBar() {
+  const connected = socket?.readyState === WebSocket.OPEN, mic = $('microphone').checked;
+  const state = (id, on, title) => { $(id).setAttribute('aria-pressed', String(on)); $(id).title = title; };
+  state('bar-screen', Boolean(stream), stream ? 'Transmitindo a tela: abrir opções ou encerrar' : 'Transmitir tela');
+  state('bar-camera', Boolean(cameraStream), cameraStream ? 'Desligar câmera' : 'Ligar câmera');
+  state('bar-mic', mic, mic ? 'Desligar microfone' : 'Ligar microfone');
+  state('bar-chat', !sideHidden, sideHidden ? 'Mostrar chat e convite' : 'Esconder chat e convite (mais espaço para o vídeo)');
+  $('bar-screen').disabled = !connected; $('bar-camera').disabled = !connected || cameraStarting;
+}
+function setSide(hidden) { sideHidden = hidden; document.body.classList.toggle('side-hidden', hidden); chat.setVisible(!hidden); renderCallBar(); renderTiles(); }
+// The microphone can be turned on/off mid-stream: muting keeps the track, and a mic added later is mixed in.
+async function setMicrophone(on) {
+  $('microphone').checked = on; renderCallBar();
+  if (!stream) return;
+  if (microphone) { for (const track of microphone.getAudioTracks()) track.enabled = on; return; }
+  if (!on) return;
+  const generation = captureGeneration;
+  try {
+    const captured = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false });
+    if (generation !== captureGeneration || !stream || !$('microphone').checked) { captured.getTracks().forEach(track => track.stop()); return; }
+    microphone = captured;
+    if (!audioContext) {
+      audioContext = new AudioContext(); await audioContext.resume(); mixDestination = audioContext.createMediaStreamDestination();
+      for (const track of stream.getAudioTracks()) { audioContext.createMediaStreamSource(new MediaStream([track])).connect(mixDestination); stream.removeTrack(track); }
+      stream.addTrack(mixDestination.stream.getAudioTracks()[0]);
+    }
+    audioContext.createMediaStreamSource(microphone).connect(mixDestination);
+    await media?.setStream(stream);
+  } catch { $('microphone').checked = false; renderCallBar(); notice('O microfone não ficou disponível. Confira as configurações de privacidade do Windows.', true); }
 }
 function bitrate() { return videoBitrate(qualityKey(), $('bitrate-mode').value === 'manual' ? $('bitrate-value').value : null); }
 function qualityLabel() { return $('quality').selectedOptions[0].textContent + ' · ' + $('fps').value + ' FPS · ' + formatMbps(bitrate()) + ' Mbps'; }
@@ -377,7 +412,7 @@ function publishState() {
   send({ type: 'stream-state', active: Boolean(stream || cameraStream), screen: Boolean(stream), camera: Boolean(cameraStream), label: stream ? selectedSource?.name || '' : cameraStream ? 'Câmera' : '', quality: stream ? qualityLabel() : '', relay: false });
 }
 function disconnect() {
-  closeDiscordFriends();
+  closeDiscordFriends(); chat.clear();
   terminal = true; clearTimeout(reconnectTimer); clearTimeout(joinTimer); const previous = socket; socket = undefined; previous?.close();
   media?.close(); media = null; for (const id of [...cameraViews.keys()]) removeCamera(id); self = ''; for (const id of [...tiles.keys()]) removeTile(id); members = []; renderMembers();
 }
@@ -402,14 +437,16 @@ function openSocket() {
       if (socket !== ws) return;
       if (typeof event.data !== 'string') { media.binary(event.data); return; }
       const msg = JSON.parse(event.data);
+      if (chat.message(msg)) return;
       if (msg.type === 'welcome' || msg.type === 'room') {
         if (msg.type === 'welcome') {
           self = msg.self; retries = 0; notice(''); status('Sala conectada', true); $('viewer-controls').hidden = false; document.body.dataset.route = ws.route || 'socket';
           if (joining) { clearTimeout(joinTimer); joining = false; $('join-button').disabled = false; $('join-input').disabled = false; $('join-button').textContent = 'Entrar na sala'; $('join-picker').close(); showView('room'); }
-          roomCamera = Array.isArray(msg.features) && msg.features.includes('camera'); if (cameraStream && !roomCamera) stopCamera();
+          roomCamera = Array.isArray(msg.features) && msg.features.includes('camera');
+          chat.setEnabled(Array.isArray(msg.features) && msg.features.includes('chat')); chat.setSelf(msg.self, config.profile); chat.setVisible(!sideHidden); if (cameraStream && !roomCamera) stopCamera();
           renderInvite(); lockSettings(Boolean(stream)); publishState(); await media.setStream(stream); await media.setCamera(cameraStream?.getVideoTracks()[0] || null);
         }
-        members = msg.members; await media.roster(self, members); renderMembers();
+        members = msg.members; chat.setMembers(members); await media.roster(self, members); renderMembers();
       } else if (msg.type === 'tunnel-closed') { if (invite) invite = { ...invite, public: false }; }
       else await media.message(msg);
     }).catch(error => notice('A conexão encontrou um problema: ' + error.message, true));
@@ -539,7 +576,7 @@ async function startSharing() {
     stream = new MediaStream([track]);
     if (audio.length > 1) {
       audioContext = new AudioContext(); await audioContext.resume();
-      const destination = audioContext.createMediaStreamDestination();
+      const destination = mixDestination = audioContext.createMediaStreamDestination();
       for (const audioTrack of audio) audioContext.createMediaStreamSource(new MediaStream([audioTrack])).connect(destination);
       stream.addTrack(destination.stream.getAudioTracks()[0]);
     } else if (audio.length) stream.addTrack(audio[0]);
@@ -547,6 +584,7 @@ async function startSharing() {
     video.srcObject = display; video.muted = true; video.play().catch(() => {});
     showVideo(true); if (!liveSince) setLive(true); $('stream-quality').textContent = qualityLabel();
     publishState(); await media.setStream(stream); localTile(); renderTiles();
+    if ($('share-dialog').open) $('share-dialog').close();
   } catch (error) {
     if (generation === captureGeneration) { stopSharing(); notice(error.name === 'NotAllowedError' ? 'A captura não foi autorizada. Escolha a tela e tente novamente.' : `Não consegui iniciar a captura: ${error.message}`, true); }
   } finally { starting = false; lockSettings(Boolean(stream)); }
@@ -555,7 +593,7 @@ function stopSharing() {
   ++captureGeneration; stopAudioPreview(); meter.stop();
   void media?.setStream(null);
   for (const item of [stream, display, microphone]) for (const track of item?.getTracks() || []) { track.onended = null; track.stop(); }
-  audioContext?.close().catch(() => {}); stream = display = microphone = audioContext = undefined;
+  audioContext?.close().catch(() => {}); stream = display = microphone = audioContext = mixDestination = undefined;
   stopAppAudioResources();
   video.srcObject = null; if (!cameraStream) setLive(false);
   publishState(); if (cameraStream) localTile(); else removeTile(self); lockSettings(false); renderTiles();
@@ -628,6 +666,7 @@ async function closeInvite() {
 }
 function reopenAccess() { accessClosed = false; inviteStatus(''); void startHosting(); }
 function renderProfile() {
+  if (self) chat.setSelf(self, config.profile);
   $('profile-name').textContent = config.profile.name || 'Escolha seu nome';
   $('profile-avatar').replaceChildren(avatar(config.profile)); $('name-avatar').replaceChildren(avatar(config.profile, 'tile-avatar'));
   renderBanner($('name-banner'), config.profile); renderDiscord();
@@ -778,8 +817,13 @@ $('test-audio').onclick = testAudio; updateAudioControls();
 $('quality').onchange = $('fps').onchange = $('bitrate-mode').onchange = () => { updateBitrateControls(); savePreferences(); }; updateBitrateControls();
 $('bitrate-slider').oninput = () => { $('bitrate-value').value = $('bitrate-slider').value; savePreferences(); };
 $('bitrate-value').oninput = () => { if ($('bitrate-value').validity.valid) { $('bitrate-slider').value = $('bitrate-value').value; savePreferences(); } };
-$('camera-button').onclick = () => { if (cameraStream) stopCamera(); else void startCamera(); };
-$('close-picker').onclick = () => $('source-picker').close(); $('start-button').onclick = startSharing; $('stop-button').onclick = () => { stopSharing(); notice(''); };
+$('camera-button').onclick = $('bar-camera').onclick = () => { if (cameraStream) stopCamera(); else void startCamera(); };
+$('bar-screen').onclick = () => { if (!$('share-dialog').open) $('share-dialog').showModal(); };
+$('close-share').onclick = () => $('share-dialog').close();
+$('bar-mic').onclick = () => void setMicrophone(!$('microphone').checked);
+$('microphone').onchange = () => void setMicrophone($('microphone').checked);
+$('bar-chat').onclick = () => setSide(!sideHidden);
+$('close-picker').onclick = () => $('source-picker').close(); $('start-button').onclick = startSharing; $('stop-button').onclick = () => { stopSharing(); notice(''); if ($('share-dialog').open) $('share-dialog').close(); };
 $('invite-button').onclick = reopenAccess; $('close-invite').onclick = closeInvite; $('cancel-invite').onclick = cancelFallback;
 $('copy-link-button').onclick = async () => {
   try { await native.copyLink($('invite-link').value); notice('Link copiado.'); }

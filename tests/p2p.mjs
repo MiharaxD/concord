@@ -5,6 +5,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { P2P_PAGE } from '../public/invites.js';
 const { _electron } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : 'playwright');
+const openShare = page => page.evaluate(() => { const dialog = document.getElementById('share-dialog'); if (dialog && !dialog.open) dialog.showModal(); });
 const root = process.cwd(), apps = [], pages = [], errors = [];
 const run = path.join(root, 'test-results', 'p2p-' + Date.now()); await mkdir(run, { recursive: true });
 const result = { passed: false, checks: [], executable: process.env.CONCORD_EXE || 'development' };
@@ -33,7 +34,7 @@ async function launch(name) {
   return { app, page, name };
 }
 async function capture(page, color) {
-  await page.locator('#advanced-options').evaluate(details => { details.open = true; }); await page.locator('#audio-mode').selectOption('system');
+  await openShare(page); await page.locator('#advanced-options').evaluate(details => { details.open = true; }); await openShare(page); await page.locator('#audio-mode').selectOption('system');
   await page.evaluate(color => {
     navigator.mediaDevices.getDisplayMedia = async options => {
       const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 360; const ctx = canvas.getContext('2d'); let frame = 0;
@@ -47,8 +48,8 @@ async function capture(page, color) {
 async function start(page, relay = false) {
   // Only media connections are forced to fail; the P2P DataChannel to the host has no transceivers.
   if (relay) await page.evaluate(() => { for (const pc of window.testPeers.filter(pc => pc.getTransceivers().length)) { Object.defineProperty(pc, 'connectionState', { configurable: true, value: 'failed' }); pc.dispatchEvent(new Event('connectionstatechange')); } });
-  await page.locator('#choose-source').click(); await page.locator('.source-choice').first().click(); await page.locator('#start-button').click();
-  await page.locator('#stop-button').waitFor();
+  await openShare(page); await page.locator('#choose-source').click(); await page.locator('.source-choice').first().click(); await openShare(page); await page.locator('#start-button').click();
+  await page.locator('#bar-screen[aria-pressed="true"]').waitFor();
 }
 async function moving(page, expected = 1) {
   await page.waitForFunction(expected => [...document.querySelectorAll('.stream-tile video')].filter(video => video.videoWidth > 0 && video.currentTime > 0).length >= expected, expected, { timeout: 40000 });

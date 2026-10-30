@@ -1,6 +1,6 @@
 {
   "name": "concord",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "private": true,
   "author": "Concord",
   "license": "UNLICENSED",
@@ -17,13 +17,14 @@
     "build:installer": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows.ps1 -Target installer",
     "release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows.ps1 -Target installer -Publish",
     "build:audio": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-audio.ps1",
-    "test": "node --test tests/p2p.test.mjs tests/server.test.mjs tests/stream-settings.test.mjs tests/invites.test.mjs tests/updater-controller.test.cjs tests/preferences.test.cjs tests/invite-retry.test.cjs tests/discord.test.cjs tests/profile.test.mjs tests/discord-social.test.cjs",
+    "test": "node --test tests/p2p.test.mjs tests/chat.test.mjs tests/server.test.mjs tests/stream-settings.test.mjs tests/invites.test.mjs tests/updater-controller.test.cjs tests/preferences.test.cjs tests/invite-retry.test.cjs tests/discord.test.cjs tests/profile.test.mjs tests/discord-social.test.cjs",
     "test:desktop": "node tests/call.mjs",
     "test:navigation": "node tests/room-navigation.mjs",
     "test:profiles": "node tests/member-profile.mjs",
     "test:discord": "node tests/discord-links.mjs",
     "test:p2p": "node tests/p2p.mjs",
     "test:camera": "node tests/camera.mjs",
+    "test:chat": "node tests/chat.mjs",
     "test:experience": "node tests/experience.mjs",
     "test:installer": "node tests/installer.mjs",
     "test:updater": "node tests/updater.mjs"

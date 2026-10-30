@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { _electron } from 'playwright';
+const openShare = page => page.evaluate(() => { const dialog = document.getElementById('share-dialog'); if (dialog && !dialog.open) dialog.showModal(); });
 
 const root = process.cwd(), apps = [], errors = [];
 const run = path.join(root, 'test-results', 'member-profile-' + Date.now());
@@ -33,8 +34,8 @@ async function launch(name) {
   return { app, page, data };
 }
 async function start(page, color) {
-  await page.locator('#advanced-options').evaluate(details => { details.open = true; }); await page.locator('#audio-mode').selectOption('system');
-  await page.locator('#quality').selectOption('720'); await page.locator('#fps').selectOption('30');
+  await openShare(page); await page.locator('#advanced-options').evaluate(details => { details.open = true; }); await openShare(page); await page.locator('#audio-mode').selectOption('system');
+  await openShare(page); await page.locator('#quality').selectOption('720'); await openShare(page); await page.locator('#fps').selectOption('30');
   // Both clients transmit generated moving video/tone, never the user's screen/audio.
   await page.evaluate(color => {
     navigator.mediaDevices.getDisplayMedia = async options => {
@@ -53,8 +54,8 @@ async function start(page, color) {
       window.profileCapture = stream; return stream;
     };
   }, color);
-  await page.locator('#choose-source').click(); await page.locator('.source-choice').first().click();
-  await page.locator('#start-button').click(); await page.locator('#stop-button').waitFor();
+  await openShare(page); await page.locator('#choose-source').click(); await page.locator('.source-choice').first().click();
+  await openShare(page); await page.locator('#start-button').click(); await page.locator('#bar-screen[aria-pressed="true"]').waitFor();
 }
 async function frames(page, count) {
   await page.waitForFunction(count => [...document.querySelectorAll('.stream-tile video')].filter(v => v.videoWidth > 0 && v.currentTime > 0).length === count, count, { timeout: 30000 });

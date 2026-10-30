@@ -3,6 +3,7 @@ import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 const { _electron } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : 'playwright');
+const openShare = page => page.evaluate(() => { const dialog = document.getElementById('share-dialog'); if (dialog && !dialog.open) dialog.showModal(); });
 const root = process.cwd(), apps = [], pages = [];
 const run = path.join(root, 'test-results', 'call-' + Date.now()); await mkdir(run, { recursive: true });
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -22,7 +23,7 @@ async function launch(name, data = path.join(run, name), fresh = true) {
   return { app, page, data };
 }
 async function capture(page, color, frequency) {
-  await page.locator('#advanced-options').evaluate(details => { details.open = true; }); await page.locator('#audio-mode').selectOption('system');
+  await openShare(page); await page.locator('#advanced-options').evaluate(details => { details.open = true; }); await openShare(page); await page.locator('#audio-mode').selectOption('system');
   await page.evaluate(({ color, frequency }) => {
     navigator.mediaDevices.getDisplayMedia = async options => {
       const canvas = document.createElement('canvas'); canvas.width = options.video.width.ideal; canvas.height = options.video.height.ideal;
@@ -40,8 +41,8 @@ async function capture(page, color, frequency) {
 async function start(page, mode = 'auto') {
   if (await page.locator('#connection-mode').count()) await page.locator('#connection-mode').selectOption(mode);
   else if (mode === 'relay') await page.evaluate(() => { for (const pc of window.testPeers) { Object.defineProperty(pc, 'connectionState', { configurable: true, value: 'failed' }); pc.dispatchEvent(new Event('connectionstatechange')); } });
-  await page.locator('#choose-source').click(); await page.locator('.source-choice').first().click(); await page.locator('#start-button').click();
-  await page.locator('#stop-button').waitFor();
+  await openShare(page); await page.locator('#choose-source').click(); await page.locator('.source-choice').first().click(); await openShare(page); await page.locator('#start-button').click();
+  await page.locator('#bar-screen[aria-pressed="true"]').waitFor();
 }
 async function join(page, invite) {
   if (await page.locator('#join-room-nav').count()) await page.locator('#join-room-nav').click();
@@ -86,7 +87,7 @@ try {
   console.log('Duas streams simultâneas: foco por clique, segundo clique restaura grade/áudio; Ver todas preservado');
   await b.page.screenshot({ path: path.join(run, 'grid.png') });
   // Restart in compatibility to verify independent MediaSource streams.
-  await host.page.locator('#stop-button').click(); await a.page.locator('#stop-button').click();
+  await openShare(host.page); await host.page.locator('#stop-button').click(); await openShare(a.page); await a.page.locator('#stop-button').click();
   await start(host.page, 'relay'); await start(a.page, 'relay'); await moving(b.page, 2);
   assert.equal(await b.page.locator('video[data-transport="relay"]').count(), 2);
   const levels = await b.page.evaluate(async () => {
@@ -102,7 +103,7 @@ try {
   await sleep(14000); await moving(b.page, 3);
   console.log('Três streams WebM multiplexadas: grade adaptável e limpeza de buffer verificadas');
   await b.page.screenshot({ path: path.join(run, 'grid-3.png') });
-  await a.page.locator('#stop-button').click(); await b.page.waitForFunction(() => document.querySelectorAll('.stream-tile').length === 2); await moving(b.page, 2);
+  await openShare(a.page); await a.page.locator('#stop-button').click(); await b.page.waitForFunction(() => document.querySelectorAll('.stream-tile').length === 2); await moving(b.page, 2);
   await host.page.evaluate(() => { window.testBufferDescriptor = Object.getOwnPropertyDescriptor(WebSocket.prototype, 'bufferedAmount'); Object.defineProperty(WebSocket.prototype, 'bufferedAmount', { configurable: true, get: () => 40 * 1024 * 1024 }); });
   await host.page.locator('#notice').filter({ hasText: 'Seu upload não acompanhou' }).waitFor();
   assert.equal((await host.page.evaluate(() => window.concord.session())).active, false);

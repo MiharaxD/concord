@@ -104,7 +104,7 @@ test('câmera: recurso anunciado, estado separado e relay com id próprio', asyn
     return { ws, next, send: msg => ws.send(JSON.stringify(msg)) };
   }
   const host = await join('host', app.hostToken, ['camera']);
-  const welcome = await host.next(msg => msg.type === 'welcome'); assert.deepEqual(welcome.features, ['camera']);
+  const welcome = await host.next(msg => msg.type === 'welcome'); assert.deepEqual(welcome.features, ['camera', 'chat']);
   const guest = await join('viewer', session.inviteKey, ['camera']), old = await join('viewer', session.inviteKey);
   const guestId = (await guest.next(msg => msg.type === 'welcome')).self, oldId = (await old.next(msg => msg.type === 'welcome')).self;
   const room = await host.next(msg => msg.type === 'room' && msg.members.length === 3);

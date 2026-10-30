@@ -7,7 +7,7 @@
 <p align="center">Compartilhamento de tela em salas privadas para Windows.</p>
 
 <p align="center">
-  <a href="https://github.com/MiharaxD/concord/releases/download/v0.7.1/Concord-0.7.1-Setup.exe"><strong>Baixar para Windows · v0.7.1</strong></a>
+  <a href="https://github.com/MiharaxD/concord/releases/download/v0.8.0/Concord-0.8.0-Setup.exe"><strong>Baixar para Windows · v0.8.0</strong></a>
   &nbsp;·&nbsp;
   <a href="https://github.com/MiharaxD/concord/releases">Todas as versões</a>
 </p>
@@ -32,6 +32,8 @@ Clique em uma transmissão para focar; clique novamente para voltar à grade. Na
 | Recurso | O que oferece |
 | --- | --- |
 | Transmissões | Várias telas simultâneas, grade adaptável, foco e tela cheia |
+| Chat | Texto, imagens e arquivos na sala, sem limite de tamanho; some quando a sala fecha |
+| Controles | Barra estilo Discord: tela, câmera, microfone (liga/desliga ao vivo), chat e sair |
 | Câmera | Webcam sozinha ou junto com a tela; quem assiste vê no canto, em tela cheia ou em quadro separado |
 | Qualidade | 720p, 1080p, 1440p ou 4K; 30 ou 60 FPS |
 | Bitrate | Automático ou personalizado de 1 a 60 Mbps, em **Opções avançadas** |

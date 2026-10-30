@@ -4,6 +4,7 @@ import { mkdir } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 const root = process.cwd();
 const { _electron } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : 'playwright');
+const openShare = page => page.evaluate(() => { const dialog = document.getElementById('share-dialog'); if (dialog && !dialog.open) dialog.showModal(); });
 const apps = []; const run = path.resolve('test-results/quality-' + Date.now());
 await mkdir('test-results', { recursive: true });
 try {
@@ -45,15 +46,15 @@ try {
       return play.call(this);
     };
   });
-  await host.locator('#advanced-options').evaluate(details => { details.open = true; }); await host.locator('#audio-mode').selectOption('system');
-  if (await host.locator('#fps').count()) { await host.locator('#quality').selectOption('1440'); await host.locator('#fps').selectOption('60'); await host.locator('#advanced-options').evaluate(details => { details.open = true; }); }
-  else await host.locator('#quality').selectOption('1440:60');
+  await openShare(host); await host.locator('#advanced-options').evaluate(details => { details.open = true; }); await openShare(host); await host.locator('#audio-mode').selectOption('system');
+  if (await host.locator('#fps').count()) { await openShare(host); await host.locator('#quality').selectOption('1440'); await openShare(host); await host.locator('#fps').selectOption('60'); await openShare(host); await host.locator('#advanced-options').evaluate(details => { details.open = true; }); }
+  else { await openShare(host); await host.locator('#quality').selectOption('1440:60'); }
   assert.match(await host.locator('#bitrate-mode option').first().textContent(), /24 Mbps/);
-  await host.locator('#bitrate-mode').selectOption('manual'); await host.locator('#bitrate-value').fill('11.5');
-  await host.locator('#choose-source').click(); await host.locator('.source-choice').first().click();
-  await host.locator('#bitrate-value').fill('0'); await host.locator('#start-button').click();
+  await openShare(host); await host.locator('#bitrate-mode').selectOption('manual'); await openShare(host); await host.locator('#bitrate-value').fill('11.5');
+  await openShare(host); await host.locator('#choose-source').click(); await host.locator('.source-choice').first().click();
+  await openShare(host); await host.locator('#bitrate-value').fill('0'); await openShare(host); await host.locator('#start-button').click();
   assert.equal(await host.evaluate(() => window.testCaptures), 0, 'entrada inválida não abre captura');
-  await host.locator('#bitrate-value').fill('11.5'); await host.locator('#start-button').click();
+  await openShare(host); await host.locator('#bitrate-value').fill('11.5'); await openShare(host); await host.locator('#start-button').click();
   const invite = await host.evaluate(async () => (await window.concord.session()).guestLink);
   if (await viewer.locator('#join-room-nav').count()) await viewer.locator('#join-room-nav').click();
   await viewer.locator('#join-input').fill(invite); await viewer.locator('#join-button').click();
@@ -66,13 +67,13 @@ try {
   assert.ok(audible, 'som inicia sem mexer no volume, mesmo após AbortError tardio');
   assert.match(await viewer.locator('#stream-quality').textContent(), /tela/);
   console.log('WebRTC: 1440p, limite de 11,5 Mbps e 60 FPS aplicados; player inicia com som sem clique de volume');
-  await host.locator('#stop-button').click();
-  if (await host.locator('#fps').count()) { await host.locator('#quality').selectOption('2160'); await host.locator('#fps').selectOption('30'); }
-  else await host.locator('#quality').selectOption('2160:30');
-  await host.locator('#bitrate-value').fill('17.5');
+  await openShare(host); await host.locator('#stop-button').click();
+  if (await host.locator('#fps').count()) { await openShare(host); await host.locator('#quality').selectOption('2160'); await openShare(host); await host.locator('#fps').selectOption('30'); }
+  else { await openShare(host); await host.locator('#quality').selectOption('2160:30'); }
+  await openShare(host); await host.locator('#bitrate-value').fill('17.5');
   if (await host.locator('#connection-mode').count()) await host.locator('#connection-mode').selectOption('relay');
   else await host.evaluate(() => { for (const pc of window.testPeers) { Object.defineProperty(pc, 'connectionState', { configurable: true, value: 'failed' }); pc.dispatchEvent(new Event('connectionstatechange')); } });
-  await host.locator('#start-button').click();
+  await openShare(host); await host.locator('#start-button').click();
   await viewer.waitForFunction(() => document.querySelector('video[data-publisher="host"]')?.videoWidth === 3840);
   const initialFrames = await viewer.evaluate(() => document.querySelector('video[data-publisher="host"]').getVideoPlaybackQuality().totalVideoFrames);
   await new Promise(resolve => setTimeout(resolve, 700));
@@ -91,7 +92,7 @@ try {
   assert.ok(rms > .005, `compatibilidade: áudio no player RMS=${rms}`);
   await host.screenshot({ path: path.resolve('test-results/qualidade-bitrate.png') });
   console.log('Compatibilidade: 4K recebido, 17,5 Mbps no encoder e som decodificado automaticamente');
-  await host.locator('#stop-button').click();
+  await openShare(host); await host.locator('#stop-button').click();
   // Two independent process trees render tones into the real Windows output.
   for (const [page, frequency, title] of [[host, 440, 'Jogo de teste Concord'], [viewer, 1000, 'Outro app de teste Concord']]) {
     await page.evaluate(({ frequency, title }) => {
@@ -121,13 +122,13 @@ try {
   // Verify the Worklet path, not just helper PCM: choose the same native audio window in the UI.
   await host.evaluate(async () => { await window.testPhysicalTone.close(); });
   await viewer.evaluate(async () => { await window.testPhysicalTone.close(); });
-  await host.locator('#quality').selectOption(await host.locator('#fps').count() ? '720' : '720:30'); await host.locator('#bitrate-mode').selectOption('auto'); await host.locator('#advanced-options').evaluate(details => { details.open = true; }); await host.locator('#audio-mode').selectOption('application');
-  await host.locator('#choose-audio-source').click(); await host.locator('.source-choice').filter({ hasText: 'Jogo de teste Concord' }).click();
+  await openShare(host); await host.locator('#quality').selectOption(await host.locator('#fps').count() ? '720' : '720:30'); await openShare(host); await host.locator('#bitrate-mode').selectOption('auto'); await openShare(host); await host.locator('#advanced-options').evaluate(details => { details.open = true; }); await openShare(host); await host.locator('#audio-mode').selectOption('application');
+  await openShare(host); await host.locator('#choose-audio-source').click(); await host.locator('.source-choice').filter({ hasText: 'Jogo de teste Concord' }).click();
   await host.evaluate(() => {
     const ac = new AudioContext(), tone = ac.createOscillator(), gain = ac.createGain(); tone.frequency.value = 440; gain.gain.value = .025;
     tone.connect(gain).connect(ac.destination); tone.start(); window.testPhysicalTone = ac;
   });
-  await host.locator('#start-button').click();
+  await openShare(host); await host.locator('#start-button').click();
   await viewer.waitForFunction(() => document.querySelector('video[data-publisher="host"]')?.videoWidth === 1280);
   assert.equal(await host.evaluate(() => window.testRecorder.videoBitsPerSecond), 4_000_000, 'bitrate automático chega ao encoder');
   const appRms = await viewer.evaluate(async () => {
@@ -140,7 +141,7 @@ try {
     return result;
   });
   assert.ok(appRms > .001, `Worklet: som seletivo decodificado no receptor RMS=${appRms}`);
-  await host.locator('#stop-button').click();
+  await openShare(host); await host.locator('#stop-button').click();
   console.log('Captura seletiva integrada ao player; fim da transmissão libera o capturador');
   console.log('QUALITY_AUDIO_TEST_PASS');
 } finally {

@@ -12,6 +12,7 @@ import { visualProfile } from './public/profile.js';
 import inviteRetry from './desktop/invite-retry.cjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
+const CHAT_ID = /^[A-Za-z0-9_-]{8,40}$/, CHUNK_PREFIX = '{"type":"chat-chunk"', CHUNK_MESSAGE_MAX = 1_100_000;
 const secret = () => randomBytes(32).toString('base64url');
 const same = (a, b) => typeof a === 'string' && Buffer.byteLength(a) === Buffer.byteLength(b) && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 const send = (ws, value) => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(value)); };
@@ -40,6 +41,8 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
     ['/invite.css', ['invite.css', 'text/css; charset=utf-8']],
     ['/invite-icon.png', ['invite-icon.png', 'image/png']],
     ['/room-media.js', ['room-media.js', 'text/javascript; charset=utf-8']],
+    ['/chat.js', ['chat.js', 'text/javascript; charset=utf-8']],
+    ['/chat.css', ['chat.css', 'text/css; charset=utf-8']],
     ['/p2p.js', ['p2p.js', 'text/javascript; charset=utf-8']],
     ['/mqtt.js', ['mqtt.js', 'text/javascript; charset=utf-8']],
     ['/app-audio-worklet.js', ['app-audio-worklet.js', 'text/javascript; charset=utf-8']],
@@ -51,7 +54,7 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self' wss: ws://127.0.0.1:* ws://localhost:*; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' wss: ws://127.0.0.1:* ws://localhost:*; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
     res.setHeader('Permissions-Policy', 'camera=(self), display-capture=(self), microphone=(self)');
   }
   function json(res, status, value) { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(value)); }
@@ -138,6 +141,44 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
     tunnelPromise = pending;
     return tunnelPromise;
   }
+  const others = ws => [...members.values()].filter(peer => peer !== ws);
+  function chat(ws, msg) {
+    const now = Date.now();
+    ws.chatTimes = ws.chatTimes.filter(time => now - time < 10000);
+    if (ws.chatTimes.length >= 20) return;
+    if (typeof msg.id !== 'string' || !CHAT_ID.test(msg.id) || typeof msg.text !== 'string' || msg.text.length > 2000) return;
+    const text = msg.text.replace(/[\u0000-\u0009\u000b-\u001f\u007f-\u009f]/g, '');
+    let file;
+    if (msg.file !== undefined && msg.file !== null) {
+      const { id, name, size, mime } = msg.file;
+      if (typeof id !== 'string' || !CHAT_ID.test(id) || typeof name !== 'string' || name.length > 200 || !Number.isSafeInteger(size) || size < 1) return;
+      if (ws.chatFiles.has(id) || ws.chatFiles.size >= 8) return;
+      file = { id, name: name.replace(/[\u0000-\u001f\u007f-\u009f/\\]/g, '').trim() || 'arquivo', size, mime: typeof mime === 'string' && mime.length <= 100 && /^[\w.+-]+\/[\w.+-]+$/.test(mime) ? mime : 'application/octet-stream' };
+    }
+    if (!text.trim() && !file) return;
+    ws.chatTimes.push(now);
+    if (file) ws.chatFiles.set(file.id, { size: file.size, received: 0, next: 0 });
+    for (const peer of others(ws)) send(peer, { type: 'chat', id: msg.id, text, file, from: ws.memberId, name: ws.profile.name, ts: now });
+  }
+  function chatChunk(ws, msg) {
+    const { file, seq, data, last } = msg, entry = typeof file === 'string' ? ws.chatFiles.get(file) : undefined;
+    if (!entry || !Number.isInteger(seq) || seq !== entry.next || typeof data !== 'string' || data.length > 700000 || !/^[A-Za-z0-9+/]*={0,2}$/.test(data) || typeof last !== 'boolean') return;
+    const bytes = Math.floor(data.length * 3 / 4) - (data.endsWith('==') ? 2 : data.endsWith('=') ? 1 : 0);
+    if (bytes > 512 * 1024 || entry.received + bytes > entry.size) return;
+    entry.received += bytes; entry.next++;
+    if (last) ws.chatFiles.delete(file);
+    ws.chatQueue = ws.chatQueue.then(() => forwardChunk(ws, { type: 'chat-chunk', file, seq, data, last, from: ws.memberId })).catch(() => {});
+  }
+  async function forwardChunk(ws, chunk) {
+    const started = Date.now(), behind = () => others(ws).filter(peer => peer.readyState === WebSocket.OPEN && peer.bufferedAmount > 8 * 1024 * 1024);
+    while (ws.readyState === WebSocket.OPEN && behind().length) {
+      if (Date.now() - started > 20000) { for (const peer of behind()) peer.close(4004, 'Sua conexão ficou para trás. Reconecte.'); break; }
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    if (ws.readyState !== WebSocket.OPEN) return;
+    for (const peer of others(ws)) send(peer, chunk);
+    send(ws, { type: 'chat-ack', file: chunk.file, seq: chunk.seq });
+  }
   const server = http.createServer(async (req, res) => {
     headers(res);
     try {
@@ -205,10 +246,11 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
         } else { ws.close(4001, 'Convite inválido ou expirado'); return; }
         ws.profile = visualProfile(auth.profile); ws.profile.name ||= 'Amigo';
         ws.streamState = { active: false }; ws.relayTargets = new Set(); ws.cameraTargets = new Set(); ws.relayStream = 'screen';
+        ws.chatTimes = []; ws.chatFiles = new Map(); ws.chatQueue = Promise.resolve();
         // 0.7.0+: members that can send/receive a second (camera) video.
         ws.features = Array.isArray(auth.features) && auth.features.includes('camera') ? ['camera'] : [];
         members.set(ws.memberId, ws); clearTimeout(timeout);
-        send(ws, { type: 'welcome', role: ws.role, self: ws.memberId, members: roster(), features: ['camera'] });
+        send(ws, { type: 'welcome', role: ws.role, self: ws.memberId, members: roster(), features: ['camera', 'chat'] });
         broadcast({ type: 'room', members: roster() });
         return;
       }
@@ -229,7 +271,7 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
         }
         return;
       }
-      if (buffer.length > 65536) { ws.close(4001, 'Mensagem muito grande'); return; }
+      if (buffer.length > 65536 && !(buffer.length <= CHUNK_MESSAGE_MAX && buffer.subarray(0, CHUNK_PREFIX.length).toString() === CHUNK_PREFIX)) { ws.close(4001, 'Mensagem muito grande'); return; }
       let msg;
       try { msg = JSON.parse(buffer); } catch { ws.close(4001, 'Mensagem inválida'); return; }
       if (msg.type === 'profile') {
@@ -246,6 +288,10 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
         ws.streamState = { active, screen: active && (msg.screen === undefined || Boolean(msg.screen)), camera: active && Boolean(msg.camera), label: String(msg.label || '').slice(0, 120), quality: String(msg.quality || '').slice(0, 60), relay: Boolean(msg.relay) };
         if (!ws.streamState.active) { ws.relayTargets.clear(); ws.cameraTargets.clear(); }
         broadcast({ type: 'room', members: roster() });
+      } else if (msg.type === 'chat') {
+        chat(ws, msg);
+      } else if (msg.type === 'chat-chunk') {
+        chatChunk(ws, msg);
       } else if (['offer', 'answer', 'ice', 'fallback'].includes(msg.type)) {
         const peer = members.get(msg.to);
         if (peer && peer !== ws) send(peer, { ...msg, from: ws.memberId });

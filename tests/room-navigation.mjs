@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { _electron } from 'playwright';
+const openShare = page => page.evaluate(() => { const dialog = document.getElementById('share-dialog'); if (dialog && !dialog.open) dialog.showModal(); });
 
 const root = process.cwd(), apps = [];
 const run = path.join(root, 'test-results', 'room-navigation-' + Date.now());
@@ -39,7 +40,7 @@ async function launch(name) {
 }
 
 async function start(page) {
-  await page.locator('#advanced-options').evaluate(details => { details.open = true; }); await page.locator('#audio-mode').selectOption('system');
+  await openShare(page); await page.locator('#advanced-options').evaluate(details => { details.open = true; }); await openShare(page); await page.locator('#audio-mode').selectOption('system');
   // Generated moving video/tone: this test never transmits the user's screen/audio.
   await page.evaluate(() => {
     navigator.mediaDevices.getDisplayMedia = async options => {
@@ -63,8 +64,8 @@ async function start(page) {
       return stream;
     };
   });
-  await page.locator('#choose-source').click(); await page.locator('.source-choice').first().click();
-  await page.locator('#start-button').click(); await page.locator('#stop-button').waitFor();
+  await openShare(page); await page.locator('#choose-source').click(); await page.locator('.source-choice').first().click();
+  await openShare(page); await page.locator('#start-button').click(); await page.locator('#bar-screen[aria-pressed="true"]').waitFor();
 }
 
 async function moving(page) {

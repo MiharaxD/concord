@@ -37,6 +37,13 @@ async function api(url, options = {}, allow404 = false) {
 const notes = [
       `## Novidades do Concord ${pkg.version}`,
       '',
+      '- **Barra de controles estilo Discord:** Tela, Câmera, Microfone, Chat e Sair logo abaixo do vídeo. O botão Tela abre um pop-up com as opções de transmissão.',
+      '- **Chat da sala:** mande texto, imagens (com prévia) e arquivos de qualquer tamanho pelo clipe. A conversa some quando a sala fecha.',
+      '- **Microfone ao vivo:** liga e desliga durante a transmissão.',
+      '- Botão **Chat** esconde a coluna lateral e deixa o vídeo ocupar a largura toda. Textos maiores e mais fáceis de ler.',
+      '',
+      '### Da 0.7.1',
+      '',
       '- **Áudio automático:** compartilhando uma janela (como um jogo), vai só o som dela; compartilhando a tela inteira, vai o som do computador. A escolha manual da fonte do áudio foi para **Opções avançadas**.',
       '',
       '### Da 0.7.0',

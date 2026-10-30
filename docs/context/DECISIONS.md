@@ -6,6 +6,11 @@ Decisão: Electron/JavaScript em instalador NSIS Windows x64, com a mesma aplica
 Motivo: o usuário rejeitou a versão em navegador e quer passar o programa ao amigo.
 Consequência: não exigir instalação de Node ou ferramentas de desenvolvimento no PC do destinatário.
 
+## Barra de controles e chat da sala (0.8.0)
+
+Decisão: pedido do usuário em 29/10/2026. Controles principais numa barra estilo Discord (Tela abre pop-up com o menu de compartilhamento; Câmera; Microfone ao vivo; Chat; Sair); código da sala continua na área principal. Chat de texto, imagens e arquivos dentro da sala, sem limite de tamanho (o usuário pediu sem limite se o sistema não tiver um; o P2P não tem).
+Consequência: arquivos grandes demoram e usam o upload de quem criou a sala; conversa só existe com a sala aberta e não é salva. Texto da interface aumentado para legibilidade.
+
 ## Câmera junto ou no lugar da tela (0.7.0)
 
 Decisão: pedido do usuário em 29/10/2026. Webcam opcional por botão Ligar câmera, sozinha ou junto com a tela. Para quem assiste, a câmera aparece no canto da tela do publicador (picture-in-picture) com dois botões: tela cheia só da câmera e separar em quadro próprio (com volta ao canto). Sem tela, a câmera ocupa o quadro.

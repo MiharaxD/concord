@@ -6,6 +6,8 @@ import { once } from 'node:events';
 import { _electron } from 'playwright';
 import { QUALITY_PRESETS } from '../public/stream-settings.js';
 import { webInvite } from '../public/invites.js';
+const closeShare = page => page.evaluate(() => { const dialog = document.getElementById('share-dialog'); if (dialog?.open) dialog.close(); });
+const openShare = page => page.evaluate(() => { const dialog = document.getElementById('share-dialog'); if (dialog && !dialog.open) dialog.showModal(); });
 
 const root = process.cwd(), run = path.join(root, 'test-results', 'experience-' + Date.now()), apps = [];
 await mkdir(run, { recursive: true });
@@ -49,8 +51,8 @@ async function synthetic(page, color) {
   }, color);
 }
 async function start(page) {
-  await page.locator('#choose-source').click(); await page.locator('.source-choice').first().click();
-  await page.locator('#start-button').click(); await page.locator('#stop-button').waitFor();
+  await openShare(page); await page.locator('#choose-source').click(); await page.locator('.source-choice').first().click();
+  await openShare(page); await page.locator('#start-button').click(); await page.locator('#bar-screen[aria-pressed="true"]').waitFor();
 }
 async function moving(page, count) {
   await page.waitForFunction(count => [...document.querySelectorAll('.stream-tile video')].filter(video => video.videoWidth > 0 && video.currentTime > 0).length === count, count, { timeout: 30000 });
@@ -86,17 +88,19 @@ try {
   assert.equal(await host.page.locator('#choose-source').isEnabled(), true);
   for (const [key, preset] of Object.entries(QUALITY_PRESETS)) {
     const [resolution, fps] = key.split(':');
-    await host.page.locator('#quality').selectOption(resolution); await host.page.locator('#fps').selectOption(fps);
+    await openShare(host.page); await host.page.locator('#quality').selectOption(resolution); await openShare(host.page); await host.page.locator('#fps').selectOption(fps);
     assert.match(await host.page.locator('#bitrate-mode option').first().textContent(), new RegExp(`${preset.bitrate / 1e6} Mbps`));
   }
   await host.app.evaluate(({ clipboard }) => { clipboard.writeText = text => { global.testCopied = text; }; });
   const p2pCode = await host.page.locator('#invite-link').inputValue();
+  await closeShare(host.page);
   await host.page.locator('#copy-link-button').click(); assert.equal(await host.app.evaluate(() => global.testCopied), webInvite(p2pCode));
   result.checks.push('Painel sem captura, criar sala, oito combinações resolução/FPS, convite P2P imediato, fechar acesso/gerar novo convite e cópia do link');
 
-  await host.page.locator('#advanced-options summary').click(); await host.page.locator('#quality').selectOption('1440'); await host.page.locator('#fps').selectOption('60');
-  await host.page.locator('#bitrate-mode').selectOption('manual'); await host.page.locator('#bitrate-value').fill('11.5');
-  await host.page.locator('#advanced-options').evaluate(details => { details.open = true; }); await host.page.locator('#audio-mode').selectOption('system');
+  await openShare(host.page); await host.page.locator('#advanced-options summary').click(); await openShare(host.page); await host.page.locator('#quality').selectOption('1440'); await openShare(host.page); await host.page.locator('#fps').selectOption('60');
+  await openShare(host.page); await host.page.locator('#bitrate-mode').selectOption('manual'); await openShare(host.page); await host.page.locator('#bitrate-value').fill('11.5');
+  await openShare(host.page); await host.page.locator('#advanced-options').evaluate(details => { details.open = true; }); await openShare(host.page); await host.page.locator('#audio-mode').selectOption('system');
+  await closeShare(host.page);
   const png = await host.page.evaluate(() => { const canvas = document.createElement('canvas'); canvas.width = canvas.height = 64; canvas.getContext('2d').fillRect(0, 0, 64, 64); return canvas.toDataURL('image/png'); });
   const photo = path.join(run, 'photo.png'); await writeFile(photo, Buffer.from(png.split(',')[1], 'base64'));
   await host.app.evaluate(({ dialog }, photo) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [photo] }); }, photo);
@@ -113,7 +117,8 @@ try {
   await guest.page.locator('#join-room').click(); await guest.page.locator('#join-input').fill(invite); await guest.page.locator('#join-button').click();
   await host.page.locator('#audience-list').filter({ hasText: 'Amigo' }).waitFor();
   await guest.page.waitForFunction(() => document.querySelector('#audience-list img')?.naturalWidth === 128);
-  await guest.page.locator('#advanced-options').evaluate(details => { details.open = true; }); await guest.page.locator('#audio-mode').selectOption('system');
+  await openShare(guest.page); await guest.page.locator('#advanced-options').evaluate(details => { details.open = true; }); await openShare(guest.page); await guest.page.locator('#audio-mode').selectOption('system');
+  await closeShare(guest.page);
   await synthetic(host.page, '#493876'); await synthetic(guest.page, '#236b56');
   await start(host.page); await moving(guest.page, 1); await start(guest.page);
   result.directFrames = await moving(host.page, 2); await moving(guest.page, 2);
@@ -168,12 +173,12 @@ try {
   await host.page.locator('#cancel-join').click(); if (child.exitCode === null) await once(child, 'exit');
   result.checks.push('Link em segunda instância preenche convite e pede confirmação sem interromper sala/captura');
 
-  await guest.page.locator('#stop-button').click();
+  await openShare(guest.page); await guest.page.locator('#stop-button').click();
   await guest.page.evaluate(() => { const pc = window.testPeers.at(-1); Object.defineProperty(pc, 'connectionState', { configurable: true, value: 'failed' }); pc.dispatchEvent(new Event('connectionstatechange')); });
   await guest.page.locator('#room-status').filter({ hasText: 'modo de compatibilidade' }).waitFor();
   await guest.page.waitForFunction(() => document.querySelector('video[data-transport="relay"]')?.videoWidth > 0, null, { timeout: 30000 });
   result.relayFrames = await moving(guest.page, 1);
-  await host.page.locator('#stop-button').click(); assert.equal(await host.page.locator('#audio-level').evaluate(el => el.value), 0);
+  await openShare(host.page); await host.page.locator('#stop-button').click(); assert.equal(await host.page.locator('#audio-level').evaluate(el => el.value), 0);
   await host.page.waitForFunction(() => document.querySelector('#room-status').hidden);
   await guest.page.evaluate(() => window.testSockets.at(-1).close());
   await guest.page.locator('#room-status').filter({ hasText: 'Tentando voltar' }).waitFor();
@@ -186,23 +191,24 @@ try {
     gain.gain.value = .04; tone.connect(gain).connect(audio.destination); tone.start(); window.testPhysicalTone = audio;
   });
   // Automatic audio: a window shares only that app; a whole screen (listed first) shares the whole PC.
-  await host.page.locator('#advanced-options').evaluate(details => { details.open = true; }); await host.page.locator('#audio-mode').selectOption('auto');
-  await host.page.locator('#choose-source').click(); await host.page.locator('.source-choice').filter({ hasText: 'Jogo QA Concord' }).click();
+  await openShare(host.page); await host.page.locator('#advanced-options').evaluate(details => { details.open = true; }); await openShare(host.page); await host.page.locator('#audio-mode').selectOption('auto');
+  await openShare(host.page); await host.page.locator('#choose-source').click(); await host.page.locator('.source-choice').filter({ hasText: 'Jogo QA Concord' }).click();
   await host.page.locator('#audio-summary').filter({ hasText: 'Som de Jogo QA Concord' }).waitFor();
   assert.equal(await host.page.locator('#test-audio').isVisible(), true); assert.equal(await host.page.locator('#choose-audio-source').isHidden(), true);
-  await host.page.locator('#choose-source').click(); await host.page.locator('.source-choice').first().click();
+  await openShare(host.page); await host.page.locator('#choose-source').click(); await host.page.locator('.source-choice').first().click();
   await host.page.locator('#audio-summary').filter({ hasText: 'Som de todo o computador' }).waitFor(); assert.equal(await host.page.locator('#test-audio').isHidden(), true);
   result.checks.push('Áudio automático: janela usa só o som do app; tela inteira usa o som do computador');
-  await host.page.locator('#audio-mode').selectOption('application'); await host.page.locator('#choose-audio-source').click();
+  await openShare(host.page); await host.page.locator('#audio-mode').selectOption('application'); await openShare(host.page); await host.page.locator('#choose-audio-source').click();
   await host.page.locator('.source-choice').filter({ hasText: 'Jogo QA Concord' }).click();
   assert.equal(await host.page.locator('#audio-level').evaluate(el => el.value), 0, 'selecionar fonte não inicia teste');
-  await host.page.locator('#test-audio').click(); await host.page.waitForFunction(() => document.querySelector('#audio-level').value > 1);
+  await openShare(host.page); await host.page.locator('#test-audio').click(); await host.page.waitForFunction(() => document.querySelector('#audio-level').value > 1);
   assert.equal((await host.page.evaluate(() => window.concord.session())).active, false);
-  await host.page.locator('#test-audio').click(); assert.equal(await host.page.locator('#audio-level').evaluate(el => el.value), 0);
-  await host.page.locator('#test-audio').click(); await host.page.locator('#test-audio').click();
+  await openShare(host.page); await host.page.locator('#test-audio').click(); assert.equal(await host.page.locator('#audio-level').evaluate(el => el.value), 0);
+  await openShare(host.page); await host.page.locator('#test-audio').click(); await openShare(host.page); await host.page.locator('#test-audio').click();
   await pause(300); assert.equal(await host.page.locator('#audio-level').evaluate(el => el.value), 0);
-  await host.page.locator('#test-audio').click(); await host.page.waitForFunction(() => document.querySelector('#audio-level').value > 1);
-  await host.page.locator('#advanced-options').evaluate(details => { details.open = true; }); await host.page.locator('#audio-mode').selectOption('system'); assert.equal(await host.page.locator('#audio-level').evaluate(el => el.value), 0);
+  await openShare(host.page); await host.page.locator('#test-audio').click(); await host.page.waitForFunction(() => document.querySelector('#audio-level').value > 1);
+  await openShare(host.page); await host.page.locator('#advanced-options').evaluate(details => { details.open = true; }); await openShare(host.page); await host.page.locator('#audio-mode').selectOption('system'); assert.equal(await host.page.locator('#audio-level').evaluate(el => el.value), 0);
+  await closeShare(host.page);
   await host.page.evaluate(() => window.testPhysicalTone.close());
   result.checks.push('Medidor real via WASAPI/Worklet antes da transmissão somente após Testar áudio; parar/trocar modo libera captura');
   await host.page.screenshot({ path: path.join(run, 'sala.png') });
@@ -220,12 +226,12 @@ try {
   const saved = JSON.parse(await readFile(path.join(host.data, 'preferences.json'), 'utf8')); assert.equal(saved.resolution, '1440'); assert.equal(saved.fps, '60'); assert.equal('source' in saved, false);
   // Final native capture of this QA window only, without user's desktop/audio.
   await reopened.page.evaluate(() => { document.title = 'Janela de captura QA'; });
-  await reopened.page.locator('#system-audio').uncheck(); await reopened.page.locator('#quality').selectOption('720'); await reopened.page.locator('#fps').selectOption('30');
-  await reopened.page.locator('#choose-source').click(); await reopened.page.locator('.source-choice').filter({ hasText: 'Janela de captura QA' }).click();
-  await reopened.page.locator('#start-button').click(); await moving(reopened.page, 1);
+  await openShare(reopened.page); await reopened.page.locator('#system-audio').uncheck(); await openShare(reopened.page); await reopened.page.locator('#quality').selectOption('720'); await openShare(reopened.page); await reopened.page.locator('#fps').selectOption('30');
+  await openShare(reopened.page); await reopened.page.locator('#choose-source').click(); await reopened.page.locator('.source-choice').filter({ hasText: 'Janela de captura QA' }).click();
+  await openShare(reopened.page); await reopened.page.locator('#start-button').click(); await moving(reopened.page, 1);
   assert.equal((await reopened.page.evaluate(() => window.concord.session())).active, true);
   await reopened.page.evaluate(() => { window.testNativeTrack = document.querySelector('.stream-tile video').srcObject.getVideoTracks()[0]; });
-  await reopened.page.locator('#stop-button').click(); assert.equal(await reopened.page.evaluate(() => window.testNativeTrack.readyState), 'ended');
+  await openShare(reopened.page); await reopened.page.locator('#stop-button').click(); assert.equal(await reopened.page.evaluate(() => window.testNativeTrack.readyState), 'ended');
   await reopened.page.locator('#leave-button').click(); assert.equal(await reopened.page.locator('#home-view').isVisible(), true);
   result.checks.push('Link em abertura fria pede confirmação; preferências/nome/foto persistem, sem restaurar janela/captura; sair volta ao Painel');
   result.checks.push('Captura nativa da própria janela QA reproduziu novos quadros e liberou a track ao encerrar');

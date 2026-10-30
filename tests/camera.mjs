@@ -5,6 +5,7 @@ import path from 'node:path';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 const { _electron } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : 'playwright');
+const openShare = page => page.evaluate(() => { const dialog = document.getElementById('share-dialog'); if (dialog && !dialog.open) dialog.showModal(); });
 const root = process.cwd(), apps = [], pages = [], errors = [];
 const run = path.join(root, 'test-results', 'camera-' + Date.now()); await mkdir(run, { recursive: true });
 const result = { passed: false, checks: [], executable: process.env.CONCORD_EXE || 'development' };
@@ -22,7 +23,7 @@ async function launch(name) {
   return { app, page, name };
 }
 async function fakeScreen(page) {
-  await page.locator('#advanced-options').evaluate(details => { details.open = true; }); await page.locator('#audio-mode').selectOption('system');
+  await openShare(page); await page.locator('#advanced-options').evaluate(details => { details.open = true; }); await openShare(page); await page.locator('#audio-mode').selectOption('system');
   await page.evaluate(() => {
     navigator.mediaDevices.getDisplayMedia = async () => {
       const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 360; const ctx = canvas.getContext('2d'); let frame = 0;
@@ -32,8 +33,8 @@ async function fakeScreen(page) {
   });
 }
 async function startScreen(page) {
-  await page.locator('#choose-source').click(); await page.locator('.source-choice').first().click(); await page.locator('#start-button').click();
-  await page.locator('#stop-button').waitFor();
+  await openShare(page); await page.locator('#choose-source').click(); await page.locator('.source-choice').first().click(); await openShare(page); await page.locator('#start-button').click();
+  await page.locator('#bar-screen[aria-pressed="true"]').waitFor();
 }
 async function failMedia(page) {
   await page.evaluate(() => { for (const pc of window.testPeers.filter(pc => pc.getTransceivers().length)) { Object.defineProperty(pc, 'connectionState', { configurable: true, value: 'failed' }); pc.dispatchEvent(new Event('connectionstatechange')); } });
@@ -57,7 +58,7 @@ try {
   await host.page.locator('#audience-list').filter({ hasText: 'Ana' }).waitFor();
 
   await fakeScreen(host.page); await startScreen(host.page);
-  await host.page.locator('#camera-button').click(); await host.page.locator('#camera-button').filter({ hasText: 'Desligar câmera' }).waitFor();
+  await host.page.locator('#bar-camera').click(); await host.page.locator('#bar-camera[aria-pressed="true"]').waitFor();
   await advancing(host.page, '[data-member="' + await host.page.evaluate(() => document.querySelector('.stream-tile').dataset.member) + '"] .camera-pip video');
   check('Ligar câmera captura a webcam e mostra a prévia no canto da própria tela.');
   const hostTile = '.stream-tile[data-member="host"]';
@@ -83,27 +84,27 @@ try {
   await guest.page.locator('.stream-tile[data-member="host:camera"]').waitFor({ state: 'detached' }); await advancing(guest.page, hostTile + ' .camera-pip video');
   check('Separar vira um quadro próprio (com foco por clique) e Voltar ao canto devolve ao picture-in-picture.');
 
-  await host.page.locator('#stop-button').click();
+  await openShare(host.page); await host.page.locator('#stop-button').click();
   await guest.page.waitForFunction(selector => document.querySelector(selector)?.classList.contains('camera-only'), hostTile, { polling: 250 });
   await advancing(guest.page, hostTile + ' .camera-pip video');
   check('Parar só a tela mantém a câmera, que passa a ocupar o quadro inteiro.');
 
-  await host.page.locator('#camera-button').click(); await guest.page.locator(hostTile).waitFor({ state: 'detached' });
+  await host.page.locator('#bar-camera').click(); await guest.page.locator(hostTile).waitFor({ state: 'detached' });
   await failMedia(host.page); await failMedia(guest.page);
-  await startScreen(host.page); await host.page.locator('#camera-button').click();
+  await startScreen(host.page); await host.page.locator('#bar-camera').click();
   await guest.page.waitForFunction(selector => document.querySelector(selector + ' .camera-pip video')?.dataset.transport === 'relay', hostTile, { timeout: 40000, polling: 250 });
   await advancing(guest.page, hostTile + ' > video'); await advancing(guest.page, hostTile + ' .camera-pip video');
   assert.equal(await guest.page.locator(hostTile + ' > video').getAttribute('data-transport'), 'relay');
   check('No modo de compatibilidade, tela e câmera chegam como dois fluxos WebM separados.');
 
-  await guest.page.locator('#camera-button').click();
+  await guest.page.locator('#bar-camera').click();
   await host.page.waitForFunction(() => [...document.querySelectorAll('.stream-tile.camera-only')].some(tile => tile.dataset.member !== 'host'), null, { polling: 250 });
   const guestTile = await host.page.evaluate(() => '.stream-tile[data-member="' + [...document.querySelectorAll('.stream-tile.camera-only')].find(tile => tile.dataset.member !== 'host').dataset.member + '"]');
   await advancing(host.page, guestTile + ' .camera-pip video');
   check('Convidada transmitindo só a câmera aparece em quadro inteiro para o host.');
   await host.page.locator('#leave-button').click();
   assert.equal(await host.page.evaluate(() => [...document.querySelectorAll('video')].some(video => video.srcObject?.getVideoTracks().some(track => track.readyState === 'live' && track.label && !track.label.startsWith('canvas')))), false);
-  assert.equal(await host.page.locator('#camera-button').textContent(), 'Ligar câmera');
+  assert.equal(await host.page.locator('#bar-camera').getAttribute('aria-pressed'), 'false');
   check('Sair da sala desliga a câmera.');
   assert.deepEqual(errors, []);
   result.passed = true; console.log('CAMERA_TEST_PASS');
