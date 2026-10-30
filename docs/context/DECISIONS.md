@@ -89,6 +89,8 @@ Exceção autorizada em 29/10/2026 (terceira): a 0.7.1 (áudio automático) tamb
 
 Exceção autorizada em 29/10/2026 (quarta): a 0.8.1 (prévia de mídia no chat) edita a entrada da Release 0.8.0 (ID 428529679), de v0.8.0 para v0.8.1, com tag v0.8.0 preservada.
 
+Exceção autorizada em 30/10/2026: a 0.8.4 (correções da voz após revisão) edita a entrada da Release 0.8.3 (ID 428657362), de v0.8.3 para v0.8.4, com tag v0.8.3 preservada.
+
 Exceção autorizada em 29/10/2026 (quinta): a 0.8.2 (blindagem) edita a entrada da Release 0.8.1 (ID 428529679), de v0.8.1 para v0.8.2, com tag v0.8.1 preservada.
 
 ## Instalação e atualizações

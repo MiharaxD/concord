@@ -37,6 +37,10 @@ async function api(url, options = {}, allow404 = false) {
 const notes = [
       `## Novidades do Concord ${pkg.version}`,
       '',
+      '- **Voz mais estável:** se a voz travar no modo de compatibilidade, só ela reinicia, sem derrubar a transmissão de tela. Trocar para um microfone que não funciona mantém o anterior, e o microfone fecha enquanto o app tenta voltar para a sala.',
+      '',
+      '### Da 0.8.3',
+      '',
       '- **Sala no estilo Discord:** todo participante aparece como cartão, com barra de botões redondos (microfone, câmera, tela, fone e sair) e chat embaixo do vídeo.',
       '- **Voz como no Discord:** o microfone abre ao entrar na sala e o botão só muta. Microfone e câmera ficam em Configurações.',
       '- **Perfil novo:** a prévia mostra o seu cartão como os outros veem, com foto e banner editáveis direto nela. Escolha também a cor do app.',

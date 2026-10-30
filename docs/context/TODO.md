@@ -2,7 +2,7 @@
 
 ## Agora
 
-0.8.3 (sala estilo Discord, dock com Transmitir tela em destaque, chat lateral fechado por padrão, barra lateral recolhível) pronta localmente, sem commit: usuário testando antes de publicar.
+0.8.4 (correções da voz após revisão) publicada editando a Release da 0.8.3.
 - [ ] Testar voz entre duas máquinas reais (eco, atraso, relay de voz) e com microfone/câmera físicos trocados no modal.
 
 0.8.3 (sala estilo Discord, voz, perfil e modais) publicada em 30/10/2026 como Release nova.
