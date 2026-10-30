@@ -2,6 +2,15 @@
 export const CHAT_MAX_FILE = Infinity;
 const SLICE = 512 * 1024, FOLD = 8 * 1024 * 1024, ACK_TIMEOUT = 30000, IDLE_TIMEOUT = 60000, GROUP_MS = 5 * 60 * 1000;
 const IMAGES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
+const VIDEOS = new Set(['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime']);
+const AUDIOS = new Set(['audio/mpeg', 'audio/ogg', 'audio/wav', 'audio/x-wav', 'audio/webm', 'audio/aac', 'audio/mp4', 'audio/x-m4a', 'audio/flac']);
+const EXTENSIONS = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', mp4: 'video/mp4', m4v: 'video/mp4', webm: 'video/webm', ogv: 'video/ogg', mov: 'video/quicktime', mp3: 'audio/mpeg', ogg: 'audio/ogg', oga: 'audio/ogg', wav: 'audio/wav', m4a: 'audio/mp4', aac: 'audio/aac', flac: 'audio/flac' };
+// Media type shown inline (never SVG/HTML); generic or missing types fall back to the extension.
+function previewType(file) {
+  const mime = String(file.mime || '').toLowerCase(), byName = EXTENSIONS[String(file.name).split('.').pop().toLowerCase()];
+  const type = IMAGES.has(mime) || VIDEOS.has(mime) || AUDIOS.has(mime) ? mime : (!mime || mime === 'application/octet-stream') && byName ? byName : '';
+  return type ? { type, kind: IMAGES.has(type) ? 'image' : VIDEOS.has(type) ? 'video' : 'audio' } : null;
+}
 const RISKY = /\.(exe|msi|bat|cmd|com|scr|ps1|vbs|js|jse|wsf|hta|lnk|reg|jar|dll)$/i;
 const PHOTO = /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/;
 const SVG = 'http://www.w3.org/2000/svg';
@@ -152,7 +161,7 @@ export class RoomChat {
     const entry = { box, file, bar: el('div', 'chat-bar'), status: el('div', 'chat-status'), action: el('span', 'chat-action'), slot: el('div', 'chat-preview') };
     const track = el('div', 'chat-progress'); track.append(entry.bar); entry.track = track;
     info.append(el('span', 'chat-fname', file.name), el('span', 'chat-fsize', humanSize(file.size)));
-    card.append(info, entry.action);
+    card.append(info, entry.action); entry.card = card;
     box.append(entry.slot, card, track, entry.status);
     if (RISKY.test(file.name)) box.append(el('div', 'chat-warn', 'Arquivo executável: só abra se confiar em quem enviou.'));
     return entry;
@@ -169,13 +178,38 @@ export class RoomChat {
     const url = URL.createObjectURL(blob); this.urls.add(url);
     const link = el('a', 'chat-download', 'Baixar'); link.href = url; link.download = entry.file.name;
     entry.action.replaceChildren(link);
-    if (!IMAGES.has(entry.file.mime) || blob.type !== entry.file.mime) return;
-    const button = el('button', 'chat-img-btn'), image = el('img', 'chat-img');
-    button.type = 'button'; button.ariaLabel = 'Ampliar imagem'; image.alt = entry.file.name;
-    image.addEventListener('load', () => this.scroll());
-    image.addEventListener('error', () => button.remove());
-    button.addEventListener('click', () => image.classList.toggle('chat-img-big'));
-    image.src = url; button.append(image); entry.slot.append(button);
+    const preview = previewType(entry.file); if (!preview) return;
+    // Re-type the blob only for the inline player; the download keeps the original bytes and name.
+    const source = blob.type === preview.type ? url : URL.createObjectURL(new Blob([blob], { type: preview.type }));
+    if (source !== url) this.urls.add(source);
+    if (preview.kind === 'image' || preview.kind === 'video') {
+      // Like Discord: only the media; a download icon shows in the corner on hover. Without a decoder, back to the card.
+      const frame = el('div', 'chat-media'), save = el('a', 'chat-media-download');
+      save.href = url; save.download = entry.file.name; save.title = 'Baixar'; save.setAttribute('aria-label', 'Baixar ' + entry.file.name);
+      const icon = document.createElementNS(SVG, 'svg'), path = document.createElementNS(SVG, 'path');
+      icon.setAttribute('viewBox', '0 0 24 24'); icon.setAttribute('aria-hidden', 'true'); path.setAttribute('d', 'M12 4v11m0 0-4-4m4 4 4-4M5 19h14'); icon.append(path); save.append(icon);
+      const fallback = () => { frame.remove(); entry.card.hidden = false; };
+      let media;
+      if (preview.kind === 'image') {
+        media = el('button', 'chat-img-btn'); const image = el('img', 'chat-img');
+        media.type = 'button'; media.ariaLabel = 'Ampliar imagem'; image.alt = entry.file.name;
+        image.addEventListener('load', () => this.scroll()); image.addEventListener('error', fallback);
+        media.addEventListener('click', () => image.classList.toggle('chat-img-big'));
+        image.src = source; media.append(image);
+      } else {
+        media = el('video', 'chat-video'); media.controls = true; media.preload = 'metadata'; media.playsInline = true;
+        media.addEventListener('loadedmetadata', () => this.scroll()); media.addEventListener('error', fallback);
+        media.src = source;
+      }
+      frame.append(media, save); entry.slot.append(frame); entry.card.hidden = true;
+      return;
+    }
+    // Players never autoplay; if this PC cannot decode the format, only Baixar remains.
+    const player = el(preview.kind, 'chat-' + preview.kind);
+    player.controls = true; player.preload = 'metadata'; player.playsInline = true;
+    player.addEventListener('loadedmetadata', () => this.scroll());
+    player.addEventListener('error', () => player.remove());
+    player.src = source; entry.slot.append(player);
   }
 
   receive(msg) {
@@ -218,7 +252,7 @@ export class RoomChat {
     if (state.got !== state.size) { this.abort(state, 'Arquivo incompleto.'); return; }
     clearTimeout(state.timer); this.incoming.delete(state.entry.file.id);
     state.parts.push(new Blob(state.pending));
-    this.ready(state.entry, new Blob(state.parts, { type: IMAGES.has(state.entry.file.mime) ? state.entry.file.mime : 'application/octet-stream' }));
+    this.ready(state.entry, new Blob(state.parts, { type: previewType(state.entry.file)?.type || 'application/octet-stream' }));
     state.parts = []; state.pending = [];
   }
 

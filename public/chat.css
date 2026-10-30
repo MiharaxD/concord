@@ -40,3 +40,16 @@
 .chat-attach-btn:disabled, .chat-send:disabled, .chat-input:disabled { opacity: .5; cursor: not-allowed; }
 .chat-input { flex: 1; min-width: 0; height: 34px; padding: 0 10px; border: 1px solid var(--line, #2b2d35); border-radius: 8px; background: var(--bg, #101114); color: var(--text, #f1f0f6); font: inherit; font-size: 13px; }
 .chat-input:focus-visible, .chat-attach-btn:focus-visible, .chat-send:focus-visible, .chat-img-btn:focus-visible { outline: 2px solid var(--accent, #aa96ff); outline-offset: 1px; }
+.chat-file { max-width: 360px; }
+.chat-img { max-height: 280px; }
+.chat-video { display: block; width: 100%; max-height: 280px; border-radius: 8px; border: 1px solid var(--line, #2b2d35); background: #000; }
+.chat-audio { display: block; width: 100%; height: 40px; }
+.chat-media { position: relative; display: inline-block; max-width: 100%; }
+.chat-media-download { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 8px; background: #101114d9; border: 1px solid #ffffff22; color: #f1f0f6; opacity: 0; transition: opacity .15s, background .15s; }
+.chat-media:hover .chat-media-download, .chat-media:focus-within .chat-media-download { opacity: 1; }
+.chat-media-download:hover { background: #2f2a3d; }
+.chat-media-download:focus-visible { opacity: 1; outline: 2px solid var(--accent, #aa96ff); outline-offset: 1px; }
+.chat-media-download svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.chat-card[hidden] { display: none; }
+.chat-media:has(> video) { display: block; width: 100%; }
+.chat-video { position: static; inset: auto; height: auto; aspect-ratio: 16 / 9; object-fit: contain; }

@@ -47,6 +47,28 @@ try {
   await host.page.waitForFunction(() => [...document.querySelectorAll('.chat-img')].some(image => image.naturalWidth === 8), null, { timeout: 30000, polling: 250 });
   check('Imagem enviada aparece com prévia para quem recebe.');
 
+  // A real 1 s WebM clip, sent without a MIME type so the preview must come from the extension.
+  const clip = await guest.page.evaluate(async () => {
+    const canvas = document.createElement('canvas'); canvas.width = 160; canvas.height = 90; const ctx = canvas.getContext('2d'); let frame = 0;
+    const timer = setInterval(() => { ctx.fillStyle = '#3366cc'; ctx.fillRect(0, 0, 160, 90); ctx.fillStyle = '#fff'; ctx.fillRect(frame++ * 6 % 160, 30, 20, 20); }, 33);
+    const recorder = new MediaRecorder(canvas.captureStream(30), { mimeType: 'video/webm;codecs=vp8' }), parts = [];
+    recorder.ondataavailable = event => parts.push(event.data); recorder.start();
+    await new Promise(resolve => setTimeout(resolve, 1000)); recorder.stop(); await new Promise(resolve => { recorder.onstop = resolve; }); clearInterval(timer);
+    return [...new Uint8Array(await new Blob(parts).arrayBuffer())];
+  });
+  await guest.page.locator('.chat-root input[type=file]').setInputFiles({ name: 'clipe.webm', mimeType: 'application/octet-stream', buffer: Buffer.from(clip) });
+  await host.page.waitForFunction(() => [...document.querySelectorAll('.chat-video')].some(video => video.videoWidth === 160 && video.controls && video.paused), null, { timeout: 30000, polling: 250 });
+  assert.equal(await guest.page.locator('.chat-video').count(), 1, 'quem envia também vê a prévia');
+  for (const name of ['foto.png', 'clipe.webm']) {
+    const message = host.page.locator('.chat-file').filter({ has: host.page.locator(`.chat-media-download[download="${name}"]`) });
+    assert.equal(await message.locator('.chat-card').isHidden(), true, 'mídia sem cartão de nome/Baixar: ' + name);
+    const save = message.locator('.chat-media-download');
+    assert.equal(await save.evaluate(node => getComputedStyle(node).opacity), '0');
+    await message.locator('.chat-media').hover(); await host.page.waitForFunction(node => getComputedStyle(node).opacity === '1', await save.elementHandle(), { polling: 100 });
+  }
+  check('Imagem e vídeo aparecem só com a prévia; o ícone de download surge no canto ao passar o mouse.');
+  check('Vídeo aparece com player no chat (sem tocar sozinho), inclusive sem tipo informado.');
+
   const big = randomBytes(3 * 1024 * 1024 + 123), digest = createHash('sha256').update(big).digest('hex');
   // The app CSP blocks fetch() of blob: URLs, so keep a reference to the Blob behind each link.
   await host.page.evaluate(() => { const create = URL.createObjectURL; window.testBlobs = new Map(); URL.createObjectURL = blob => { const url = create.call(URL, blob); window.testBlobs.set(url, blob); return url; }; });

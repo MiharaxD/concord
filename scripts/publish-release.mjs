@@ -37,6 +37,10 @@ async function api(url, options = {}, allow404 = false) {
 const notes = [
       `## Novidades do Concord ${pkg.version}`,
       '',
+      '- **Prévia de mídia no chat:** imagens e vídeos aparecem direto na conversa, e áudios ganham um player. Como no Discord, o ícone de download aparece no canto quando você passa o mouse.',
+      '',
+      '### Da 0.8.0',
+      '',
       '- **Barra de controles estilo Discord:** Tela, Câmera, Microfone, Chat e Sair logo abaixo do vídeo. O botão Tela abre um pop-up com as opções de transmissão.',
       '- **Chat da sala:** mande texto, imagens (com prévia) e arquivos de qualquer tamanho pelo clipe. A conversa some quando a sala fecha.',
       '- **Microfone ao vivo:** liga e desliga durante a transmissão.',
