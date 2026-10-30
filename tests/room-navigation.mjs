@@ -13,7 +13,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function launch(name) {
   const app = await _electron.launch({
     executablePath: process.env.CONCORD_EXE || path.join(root, 'node_modules/electron/dist/electron.exe'),
-    args: process.env.CONCORD_EXE ? [] : [root],
+    args: [...(process.env.CONCORD_EXE ? [] : [root]), '--mute-audio', '--use-fake-device-for-media-stream'],
     env: { ...process.env, CONCORD_DATA_DIR: path.join(run, name) }, timeout: 45000
   });
   apps.push(app);

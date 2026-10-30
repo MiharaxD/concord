@@ -16,7 +16,7 @@ async function launch(name) {
   await writeFile(path.join(data, 'tunnel/invite-retry.json'), JSON.stringify({ code: 'RATE_LIMIT', failures: 1, retryAt: Date.now() + 300000 }));
   const app = await _electron.launch({
     executablePath: process.env.CONCORD_EXE || path.join(root, 'node_modules/electron/dist/electron.exe'),
-    args: process.env.CONCORD_EXE ? [] : [root], env: { ...process.env, CONCORD_DATA_DIR: data }, timeout: 45000
+    args: [...(process.env.CONCORD_EXE ? [] : [root]), '--mute-audio', '--use-fake-device-for-media-stream'], env: { ...process.env, CONCORD_DATA_DIR: data }, timeout: 45000
   });
   apps.push(app);
   const page = await app.firstWindow(); page.setDefaultTimeout(20000);
@@ -125,7 +125,7 @@ try {
   });
   const photo = path.join(run, 'photo.png'); await writeFile(photo, Buffer.from(png.split(',')[1], 'base64'));
   await host.app.evaluate(({ dialog }, photo) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [photo] }); }, photo);
-  await host.page.locator('#profile-button').click(); await host.page.locator('#photo-button').click(); await host.page.locator('#save-name').click();
+  await host.page.locator('#profile-button').click(); await host.page.locator('#photo-menu-button').click(); await host.page.locator('#photo-button').click(); await host.page.locator('#save-name').click();
   const originalProfile = await readFile(path.join(host.data, 'profile.json'), 'utf8');
   const invite = (await host.page.evaluate(() => window.concord.session())).guestInvite;
   await guest.page.locator('#join-room-nav').click(); await guest.page.locator('#join-input').fill(invite); await guest.page.locator('#join-button').click();
@@ -137,13 +137,14 @@ try {
   await host.page.locator('#volume').fill('0.45');
   await remember(host.page); await remember(guest.page);
   const row = host.page.locator('.audience-person');
-  await row.locator('span:not(.avatar)').click();
+  await row.locator('.audience-name').click();
   await host.page.locator('#member-profile[open]').waitFor();
   assert.equal(await host.page.locator('#member-profile-name').textContent(), 'Amigo');
   assert.equal(await host.page.locator('#member-profile-photo .avatar').textContent(), 'AM');
   assert.equal(await host.page.locator('#member-profile-photo img').count(), 0);
   assert.equal(await host.page.locator('#member-profile').innerText(), '×\nAM\nAmigo');
   assert.equal(await host.page.locator('#close-member-profile').evaluate(el => el === document.activeElement), true);
+  await host.page.locator('#member-profile').evaluate(dialog => Promise.all(dialog.getAnimations().map(animation => animation.finished)));
   const layout = await host.page.evaluate(() => {
     const banner = document.querySelector('.member-profile-banner').getBoundingClientRect(), avatar = document.querySelector('.member-card-avatar').getBoundingClientRect();
     return { overlaps: avatar.top < banner.bottom && avatar.bottom > banner.bottom, visible: avatar.width === 88, cardWidth: document.querySelector('#member-profile').getBoundingClientRect().width };
@@ -161,7 +162,8 @@ try {
   await host.page.locator('#member-profile-name').click(); assert.equal(await host.page.locator('#member-profile').evaluate(el => el.open), true);
   await host.page.keyboard.press('Escape'); await closed(host.page); await preserved(host.page);
   await row.focus(); await host.page.keyboard.press('Space'); await host.page.keyboard.press('Tab');
-  assert.equal(await host.page.locator('#close-member-profile').evaluate(el => el === document.activeElement), true, 'Tab permanece no modal');
+  // Tab goes from Fechar to the person's volume and stays inside the card.
+  assert.equal(await host.page.locator('#member-profile').evaluate(el => el.contains(document.activeElement) && document.activeElement.id === 'member-volume'), true, 'Tab permanece no modal');
   await host.page.keyboard.press('Shift+Tab'); await host.page.keyboard.press('Space'); await closed(host.page); await preserved(host.page);
   result.checks.push('Nome/avatar/Enter/Espaço abrem; botão/clique fora/Esc fecham; Tab contido e foco devolvido; Esc/M/F não afetam chamada');
 
@@ -185,7 +187,7 @@ try {
   // Exercise mute preservation and live photo updates while the card is open.
   await guest.page.locator('#sound-button').click(); await remember(guest.page);
   await guest.page.locator('.audience-person').click();
-  await host.page.locator('#profile-button').click(); await host.page.locator('#remove-photo').click(); await host.page.locator('#save-name').click();
+  await host.page.locator('#profile-button').click(); await host.page.locator('#photo-menu-button').click(); await host.page.locator('#remove-photo').click(); await host.page.locator('#save-name').click();
   await guest.page.waitForFunction(() => document.querySelector('#member-profile-photo .avatar')?.textContent === 'DO');
   await preserved(guest.page); await guest.page.keyboard.press('Escape'); await closed(guest.page);
   result.checks.push('Perfil aberto acompanha nome/foto atuais; silenciamento e controles das streams preservados');

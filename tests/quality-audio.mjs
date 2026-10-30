@@ -9,7 +9,7 @@ const apps = []; const run = path.resolve('test-results/quality-' + Date.now());
 await mkdir('test-results', { recursive: true });
 try {
   async function launch() {
-    const app = await _electron.launch({ executablePath: process.env.CONCORD_EXE || path.join(root, 'node_modules/electron/dist/electron.exe'), args: process.env.CONCORD_EXE ? [] : [root], env: { ...process.env, CONCORD_DATA_DIR: path.join(run, String(apps.length)) }, timeout: 45000 }); apps.push(app);
+    const app = await _electron.launch({ executablePath: process.env.CONCORD_EXE || path.join(root, 'node_modules/electron/dist/electron.exe'), args: [...(process.env.CONCORD_EXE ? [] : [root]), '--use-fake-device-for-media-stream'], env: { ...process.env, CONCORD_DATA_DIR: path.join(run, String(apps.length)) }, timeout: 45000 }); apps.push(app);
     const page = await app.firstWindow(); page.setDefaultTimeout(25000);
     await page.locator('#name-picker[open]').waitFor(); await page.locator('#display-name').fill('Teste ' + apps.length); await page.locator('#save-name').click();
     if (await page.locator('#create-room').count()) await page.locator('#create-room').click();

@@ -6,6 +6,16 @@ Decisão: Electron/JavaScript em instalador NSIS Windows x64, com a mesma aplica
 Motivo: o usuário rejeitou a versão em navegador e quer passar o programa ao amigo.
 Consequência: não exigir instalação de Node ou ferramentas de desenvolvimento no PC do destinatário.
 
+## Voz e cor tema (0.8.3)
+
+Decisão: pedido do usuário em 30/10/2026. Chamada igual ao Discord: ao entrar na sala o microfone já funciona; o botão só muta, e o mute fica salvo. Microfone e câmera saem do menu de transmissão e vão para o modal de configurações (engrenagem); câmera desligada aparece vermelha e riscada. Substitui "microfone desligado ao abrir". Cor tema escolhida no perfil (roxo, verde, azul, rosa, vermelho ou seletor livre), só neste PC, aplicada a tudo que era roxo, inclusive o logo da barra lateral.
+Consequência: microfone aberto enquanto estiver numa sala (indicador do Windows aceso), mesmo mutado. Salas cujo dono está em versão anterior à 0.8.3 não têm voz. Relay de voz tem mais atraso que a rota direta. Cores muito escuras no seletor livre reduzem o contraste de textos em destaque.
+
+## Sala estilo Discord (0.8.3)
+
+Decisão: pedido do usuário em 29/10/2026 ("bater o olho e entender"). Todo participante aparece como cartão no palco; com transmissão, quem não transmite vira faixa embaixo. Convite no cabeçalho; dono sozinho vê o cartão Chame alguém no lugar do antigo vazio "Compartilhamento de tela". Barra num dock único (revisão de design aprovada em 30/10/2026): Microfone, Câmera, Transmitir tela (único botão com texto, ação principal), fone + volume geral, Chat (com contador de não lidas) e Sair por último, separado; volume por pessoa no quadro. Chat numa coluna à direita que começa fechada e abre pelo dock ou pela tecla C; substitui o chat embaixo dos vídeos para o palco ganhar a altura toda. Microfone mutado com fundo vermelho; câmera desligada continua riscada, mas sem vermelho (desligada é o estado normal). Lateral com coroa do dono, AO VIVO, painel de conexão e perfil com engrenagem. Roxo só na ação principal e em Tela/Câmera ligadas; vermelho para ao vivo/sair; verde para conectado/som.
+Consequência: o pulso verde segue só a voz (desde a voz independente); microfone mutado aparece riscado na lista e no cartão.
+
 ## Barra de controles e chat da sala (0.8.0)
 
 Decisão: pedido do usuário em 29/10/2026. Controles principais numa barra estilo Discord (Tela abre pop-up com o menu de compartilhamento; Câmera; Microfone ao vivo; Chat; Sair); código da sala continua na área principal. Chat de texto, imagens e arquivos dentro da sala, sem limite de tamanho (o usuário pediu sem limite se o sistema não tiver um; o P2P não tem).
@@ -53,7 +63,7 @@ Consequência: todos precisam de 0.3.0 ou mais nova para o protocolo de sala. 0.
 
 ## Consulta de perfil na sala
 
-Decisão: consultar perfil somente de participantes presentes na sala, pelo nome/avatar na lista lateral. Cartão com banner/cor quando presentes, faixa roxa padrão, foto sobreposta ou mesmas iniciais e nome; sem descrição/status inventados. Modal nativo acessível por teclado, com fechar visível/clique fora/Esc e retorno de foco à linha. Abrir/fechar não altera foco das streams nem áudio/captura/conexão. Perfil acompanha dados atuais e fecha quando o participante sai.
+Decisão: consultar perfil somente de participantes presentes na sala, pelo nome/avatar na lista lateral. Cartão com banner/cor quando presentes, faixa roxa padrão, foto sobreposta ou mesmas iniciais e nome; sem descrição/status inventados. Modal nativo acessível por teclado, com fechar visível/clique fora/Esc e retorno de foco à linha. Abrir/fechar não altera foco das streams nem áudio/captura/conexão. Perfil acompanha dados atuais e fecha quando o participante sai. Modal do próprio perfil (30/10/2026, mock aprovado pelo usuário): prévia igual a esse cartão, edição de foto/banner por menu na própria prévia, cor do app separada como preferência local; todos os modais abrem e fecham com a mesma transição e fecham ao clicar fora.
 
 ## Discord opcional
 
@@ -83,11 +93,11 @@ Exceção autorizada em 29/10/2026 (quinta): a 0.8.2 (blindagem) edita a entrada
 
 ## Instalação e atualizações
 
-Interface: linguagem neutra e direta, sem “galera”, “bora” ou frases promocionais. Painel minimalista, “Compartilhamento de tela” no vazio, relógio somente enquanto transmite e “Desenvolvido por Yuri Mihara” no rodapé inferior direito. Sem texto orientativo no rodapé ou aviso de sucesso ao encerrar transmissão; erros permanecem. Minha sala usa SVG de cômodo; Entrar em uma sala usa o mesmo SVG de tomada no menu e no Painel. Código em painel pequeno: “Código sendo carregado…”, Copiar link, erro/tentar novamente e gerenciamento recolhido. Preparo começa em Criar sala, sem bloquear controles. Reconexão/compatibilidade têm aviso curto quando necessário.
+Interface: linguagem neutra e direta, sem “galera”, “bora” ou frases promocionais. Painel minimalista, relógio somente enquanto transmite e “Desenvolvido por Yuri Mihara” no rodapé inferior direito. Sem texto orientativo no rodapé ou aviso de sucesso ao encerrar transmissão; erros permanecem. Minha sala usa SVG de cômodo; Entrar em uma sala usa o mesmo SVG de tomada no menu e no Painel. Código em painel pequeno: “Código sendo carregado…”, Copiar link, erro/tentar novamente e gerenciamento recolhido. Preparo começa em Criar sala, sem bloquear controles. Reconexão/compatibilidade têm aviso curto quando necessário.
 
 Identidade visual (0.5.1): usar exatamente o SVG de câmera fornecido em `icone_camera_vetor.svg`, mantendo desenho/cores/transparência em `public/icon.svg`. ICO Windows e PNG 512 da prévia derivam do mesmo vetor. Logo substituído na interface, favicon, executável, instalador e página/prévia de convite; URL da imagem Open Graph com revisão para não reutilizar a imagem antiga em cache. Mensagens já enviadas no Discord podem manter a prévia em cache.
 
-Decisão: Qualidade e FPS separados; bitrate automático/manual existente em Opções avançadas. Transporte automático, sem seletor; compatibilidade interna e protocolo preservados. Salvar resolução/FPS/bitrate/modo de áudio localmente, sem restaurar tela/janela ou iniciar captura. Medidor usa somente áudio autorizado da fonte; teste prévio do app exige clique, enquanto áudio do computador só mede durante transmissão. Microfone segue controle separado, desligado ao abrir.
+Decisão: Qualidade e FPS separados; bitrate automático/manual recolhido em "Taxa de bits" (mostra o valor atual); fonte do áudio fica visível na seção Áudio, sem precisar abrir avançado (30/10/2026). Transporte automático, sem seletor; compatibilidade interna e protocolo preservados. Salvar resolução/FPS/bitrate/modo de áudio localmente, sem restaurar tela/janela ou iniciar captura. Medidor usa somente áudio autorizado da fonte; teste prévio do app exige clique, enquanto áudio do computador só mede durante transmissão. Microfone segue controle separado, desligado ao abrir.
 
 Decisão: instalar por usuário em `%LOCALAPPDATA%\Programs\Concord`, sem administrador, com menu Iniciar, opção de atalho e desinstalador. Manter `appId: local.concord.desktop` e perfil em `%APPDATA%\Concord`, inclusive na migração do portátil. Desinstalação preserva os dados.
 Decisão: electron-updater de runtime consulta GitHub público `MiharaxD/concord` uma vez após carregar, baixa em segundo plano e aplica somente no clique “Reiniciar e atualizar”. Fechar normalmente não instala. Desenvolvimento/portátil não consultam. Falhas não bloqueiam o app.

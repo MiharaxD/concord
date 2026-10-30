@@ -239,7 +239,9 @@ if (primaryInstance) app.whenReady().then(async () => {
     callback(Boolean(own && (['display-capture', 'fullscreen'].includes(permission) || camera || (permission === 'media' && !details.mediaTypes?.includes('video')))));
   });
   session.defaultSession.setPermissionCheckHandler((contents, permission, origin, details) => Boolean(
-    contents === window?.webContents && origin === concord.address && (['display-capture', 'fullscreen'].includes(permission) || (permission === 'media' && details.mediaType !== 'video'))
+    // Chromium passes the origin with a trailing slash. Checks only expose device names for the settings
+    // modal; actually opening the camera still needs the click-scoped request above.
+    contents === window?.webContents && origin.replace(/\/$/, '') === concord.address && ['display-capture', 'fullscreen', 'media'].includes(permission)
   ));
   session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
     const chosen = selection; selection = undefined;

@@ -14,7 +14,7 @@ const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAGklEQVR
 async function launch(name) {
   const data = path.join(run, name); await mkdir(data, { recursive: true });
   await writeFile(path.join(data, 'profile.json'), JSON.stringify({ name, photo: '' }));
-  const app = await _electron.launch({ executablePath: process.env.CONCORD_EXE || path.join(root, 'node_modules/electron/dist/electron.exe'), args: process.env.CONCORD_EXE ? [] : [root], env: { ...process.env, CONCORD_DATA_DIR: data }, timeout: 45000 });
+  const app = await _electron.launch({ executablePath: process.env.CONCORD_EXE || path.join(root, 'node_modules/electron/dist/electron.exe'), args: [...(process.env.CONCORD_EXE ? [] : [root]), '--mute-audio', '--use-fake-device-for-media-stream'], env: { ...process.env, CONCORD_DATA_DIR: data }, timeout: 45000 });
   apps.push(app); const page = await app.firstWindow(); pages.push(page); page.setDefaultTimeout(20000);
   page.on('pageerror', error => errors.push(name + ': ' + error.message));
   await page.locator('#create-room:not([disabled])').waitFor();
@@ -31,17 +31,18 @@ try {
   await guest.page.waitForFunction(() => document.body.dataset.connected === 'true', null, { timeout: 60000, polling: 250 });
   assert.equal(await guest.page.evaluate(() => document.body.dataset.route), 'direct');
   await host.page.locator('#audience-list').filter({ hasText: 'Ana' }).waitFor();
+  for (const { page } of [host, guest]) { assert.equal(await page.locator('#chat-root').isVisible(), false, 'chat começa fechado'); await page.locator('#chat-button').click(); await page.locator('.chat-input').waitFor(); }
 
   await say(host.page, 'Oi, tudo bem?');
   await guest.page.locator('.chat-msg').filter({ hasText: 'Oi, tudo bem?' }).filter({ hasText: 'Yuri' }).waitFor();
   assert.equal(await host.page.locator('.chat-msg').filter({ hasText: 'Oi, tudo bem?' }).count(), 1, 'remetente vê a própria mensagem uma vez');
   check('Texto chega pela conexão P2P com nome de quem enviou.');
 
-  await guest.page.locator('#bar-chat').click(); assert.equal(await guest.page.locator('#host-controls').isHidden(), true);
+  await guest.page.locator('#chat-toggle').click(); await guest.page.locator('#chat-root').waitFor({ state: 'hidden' }); assert.equal(await guest.page.locator('#chat-button').getAttribute('aria-expanded'), 'false');
   await say(host.page, 'Você viu?');
   await guest.page.locator('#chat-badge:not([hidden])').filter({ hasText: '1' }).waitFor();
-  await guest.page.locator('#bar-chat').click(); await guest.page.locator('#chat-badge').waitFor({ state: 'hidden' });
-  check('Com o chat escondido aparece o contador de não lidas; abrir zera.');
+  await guest.page.keyboard.press('c'); await guest.page.locator('#chat-badge').waitFor({ state: 'hidden' }); await guest.page.locator('.chat-input').waitFor();
+  check('Chat começa fechado e abre pelo dock; escondido mostra o contador de não lidas; a tecla C abre e zera.');
 
   await guest.page.locator('.chat-root input[type=file]').setInputFiles({ name: 'foto.png', mimeType: 'image/png', buffer: png });
   await host.page.waitForFunction(() => [...document.querySelectorAll('.chat-img')].some(image => image.naturalWidth === 8), null, { timeout: 30000, polling: 250 });

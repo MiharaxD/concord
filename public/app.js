@@ -9,20 +9,22 @@ const $ = id => document.getElementById(id);
 const native = window.concord, video = $('screen-video');
 let config, role = null, socket, target, reconnectTimer, terminal = false, retries = 0, processing = Promise.resolve();
 let media, self = '', members = [], focus = null, muted = false;
-let viewedMember = null, profilePointerOutside = false;
+let viewedMember = null, profilePointerOutside = false, profileOpener;
 let discordPending = false;
 let discordFriends = [], friendsGeneration = 0, friendsInvite = '', friendPhotoObserver;
 const friendInvites = new Map();
-const tiles = new Map();
-let stream, display, microphone, audioContext, mixDestination, selectedSource, starting = false, liveSince = 0, sideHidden = false;
+const tiles = new Map(), volumes = new Map(), levels = new Map();
+let peopleKey = '', levelContext;
+let stream, display, audioContext, mixDestination, selectedSource, starting = false, liveSince = 0, sideHidden = true;
 let selectedAudioSource, appAudioContext, appAudioNode, unsubscribeAppAudio, unsubscribeAppAudioError;
 let invite, inviteGeneration = 0, invitePending = false, inviteRetryAt = 0;
 let ownInviteMessage = '', currentInvite = '', joining = false, joinTimer, uiReady = false, queuedInvite;
 let p2pHost, hosting = false, hostGeneration = 0, accessClosed = false, p2pOffline = false, fallbackPromise;
 let audioPreviewTrack, testingAudio = false, audioGeneration = 0, captureGeneration = 0;
 let cameraStream, cameraStarting = false, cameraGeneration = 0, roomCamera = false, relayStream = 'screen';
-const cameraViews = new Map(), cameraModes = new Map();
-const meter = new AudioMeter($('audio-level'), $('audio-level-label'));
+const cameraViews = new Map(), cameraModes = new Map(), voices = new Map();
+let themeColor = '#aa96ff', voiceTrack, voiceStarting = false, voiceGeneration = 0, voiceMuted = false, roomVoice = false, devicePrefs = { mic: '', camera: '' };
+const meter = new AudioMeter($('audio-level'), $('audio-level-label')), micMeter = new AudioMeter($('mic-level'), $('mic-level-label'));
 const chat = new RoomChat({ root: $('chat-root'), send: value => send(value), notice: (text, error) => notice(text, error),
   onUnread: count => { $('chat-badge').hidden = !count; $('chat-badge').textContent = count > 9 ? '9+' : String(count); } });
 let noticeTimer;
@@ -41,6 +43,13 @@ function updateRoomMessage() {
   $('room-status').textContent = state === 'Reconectando' ? 'A conexão caiu. Tentando voltar à sala…' : state === 'Conectando' ? 'Conectando à sala…'
     : document.body.dataset.connected === 'true' && relay ? 'Usando o modo de compatibilidade para manter a transmissão. Pode haver um pouco mais de atraso.' : '';
   $('room-status').hidden = !$('room-status').textContent;
+  // Sidebar panel above the profile, like Discord's "voice connected" box.
+  const online = document.body.dataset.connected === 'true', route = document.body.dataset.route;
+  $('connection-panel').hidden = !target; $('connection-panel').dataset.state = online ? (relay ? 'relay' : 'ok') : 'wait';
+  $('connection-title').textContent = online ? 'Conectado' : state === 'Reconectando' ? 'Reconectando…' : 'Conectando…';
+  $('transport-label').textContent = !online ? 'Aguarde um instante' : relay ? 'Modo de compatibilidade' : role === 'host' ? 'Sala aberta neste PC'
+    : route === 'tunnel' ? 'Pela Cloudflare' : route === 'direct' ? 'Conexão direta' : 'Sala conectada';
+  $('empty-title').textContent = state === 'Reconectando' ? 'Tentando voltar à sala…' : 'Conectando à sala…';
 }
 function inviteStatus(text) { ownInviteMessage = text; renderInvite(); }
 function renderInvite() {
@@ -53,6 +62,7 @@ function renderInvite() {
   $('invite-button').hidden = !accessClosed;
   $('cancel-invite').hidden = !invitePending;
   document.querySelector('.invite-manage').hidden = !code;
+  renderTiles();
 }
 function showView(view) {
   document.body.dataset.view = view; $('home-view').hidden = view !== 'home'; $('room-view').hidden = view !== 'room';
@@ -113,7 +123,19 @@ function cancelJoin() {
 }
 function preferenceValues() {
   return { resolution: $('quality').value, fps: $('fps').value, bitrateMode: $('bitrate-mode').value,
-    bitrateMbps: Number($('bitrate-value').value), audioMode: $('audio-mode').value, audioEnabled: $('system-audio').checked, audioVersion: 2 };
+    bitrateMbps: Number($('bitrate-value').value), audioMode: $('audio-mode').value, audioEnabled: $('system-audio').checked, audioVersion: 2,
+    micMuted: voiceMuted, micDevice: devicePrefs.mic, cameraDevice: devicePrefs.camera, themeColor };
+}
+// Theme: every purple in the CSS derives from --accent; text on it turns dark or white by brightness.
+function applyTheme(color) {
+  if (!/^#[0-9a-f]{6}$/i.test(color)) return;
+  themeColor = color.toLowerCase();
+  const [r, g, b] = [1, 3, 5].map(index => parseInt(themeColor.slice(index, index + 2), 16) / 255).map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4);
+  document.documentElement.style.setProperty('--accent', themeColor);
+  document.documentElement.style.setProperty('--on-accent', .2126 * r + .7152 * g + .0722 * b > .3 ? '#16131f' : '#ffffff');
+  const preset = [...document.querySelectorAll('.theme-swatch')].some(button => button.dataset.color === themeColor);
+  for (const button of document.querySelectorAll('.theme-swatch')) button.setAttribute('aria-checked', String(button.dataset.color === themeColor));
+  $('theme-custom').value = themeColor; $('theme-custom').closest('.theme-custom').classList.toggle('selected', !preset);
 }
 function savePreferences() {
   if (!$('bitrate-value').validity.valid) return;
@@ -123,6 +145,8 @@ function applyPreferences(saved) {
   $('quality').value = saved.resolution; $('fps').value = saved.fps; $('bitrate-mode').value = saved.bitrateMode;
   $('bitrate-value').value = $('bitrate-slider').value = saved.bitrateMbps;
   $('audio-mode').value = saved.audioMode; $('system-audio').checked = saved.audioEnabled;
+  applyTheme(saved.themeColor || '#aa96ff');
+  voiceMuted = Boolean(saved.micMuted); devicePrefs = { mic: saved.micDevice || '', camera: saved.cameraDevice || '' };
   updateBitrateControls(); updateAudioControls();
 }
 function qualityKey() { return $('quality').value + ':' + $('fps').value; }
@@ -156,6 +180,11 @@ function sendBytes(blob, kind = 'screen') {
   for (let offset = 0; offset < blob.size; offset += 1024 * 1024) socket.send(blob.slice(offset, offset + 1024 * 1024));
   return true;
 }
+function svgIcon(name, className = '') {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'), use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+  svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true'); if (className) svg.setAttribute('class', className);
+  use.setAttribute('href', '#' + name); svg.append(use); return svg;
+}
 function avatar(profile, className = '') {
   profile = visualProfile(profile);
   const element = document.createElement(profile.photo ? 'img' : 'span'); element.className = 'avatar ' + className;
@@ -167,7 +196,6 @@ function renderBanner(element, profile) {
   const safe = visualProfile(profile);
   element.style.backgroundColor = safe.accentColor || '';
   element.style.backgroundImage = safe.accentColor ? 'none' : '';
-  if (element.id === 'name-banner') element.hidden = !safe.banner && !safe.accentColor;
   element.replaceChildren();
   if (safe.banner) { const image = document.createElement('img'); image.src = safe.banner; image.alt = ''; element.append(image); }
 }
@@ -182,15 +210,28 @@ function tile(member, own = false) {
     const pip = document.createElement('div'); pip.className = 'camera-pip'; pip.hidden = true;
     // In picture-in-picture the camera has its own buttons; clicks there do not change focus.
     pip.onclick = event => { if (!element.classList.contains('camera-only')) event.stopPropagation(); };
-    element.append(placeholder, player, pip, label); element.onclick = () => { focus = focus === member.id ? null : member.id; renderTiles(); };
+    const top = document.createElement('div'); top.className = 'tile-top';
+    const live = document.createElement('span'); live.className = 'tile-live'; live.textContent = 'AO VIVO'; top.append(live);
+    // Per-person volume, multiplied by the room volume; shown on hover like Discord's user volume.
+    if (!own) {
+      const volume = document.createElement('label'); volume.className = 'tile-volume'; volume.onclick = event => event.stopPropagation();
+      const slider = document.createElement('input'); slider.type = 'range'; slider.min = '0'; slider.max = '1'; slider.step = '0.05'; slider.value = String(volumes.get(member.id) ?? 1);
+      slider.oninput = () => { volumes.set(member.id, Number(slider.value)); applyAudio(); };
+      volume.append(svgIcon('icon-speaker'), slider); top.append(volume);
+    }
+    element.append(placeholder, player, pip, top, label); element.onclick = () => { focus = focus === member.id ? null : member.id; renderTiles(); };
     player.addEventListener('playing', () => { if (player.videoWidth) element.classList.add('playing'); renderTiles(); });
     player.addEventListener('emptied', () => element.classList.remove('playing'));
     player.addEventListener('canplay', () => media?.play(player));
     player.addEventListener('error', () => { if (media?.receivers.has(member.id)) media.recover(member.id); });
-    item = { element, video: player, placeholder, label, own, member, pip }; tiles.set(member.id, item); $('streams-grid').append(element);
+    item = { element, video: player, placeholder, label, own, member, pip, top }; tiles.set(member.id, item); $('streams-grid').append(element);
   }
   item.member = member; item.placeholder.replaceChildren(avatar(member, 'tile-avatar'));
-  item.label.textContent = member.name + (own ? ' · você' : '');
+  const face = avatar(member, 'label-avatar'); face.title = own ? 'Ver seu perfil' : 'Abrir perfil de ' + member.name;
+  face.onclick = event => { event.stopPropagation(); openMemberProfile(member.id); };
+  item.label.replaceChildren(face, document.createTextNode(member.name), ...(own ? [youTag()] : []));
+  item.top.querySelector('.tile-volume')?.setAttribute('title', 'Volume de ' + member.name);
+  item.top.querySelector('.tile-volume input')?.setAttribute('aria-label', 'Volume de ' + member.name);
   applyAudio(); return item.video;
 }
 function localTile() {
@@ -252,7 +293,7 @@ function cameraTile(id, member) {
     const main = tiles.get(id)?.element; if (main) main.after(element); else $('streams-grid').append(element);
   }
   item.member = { ...member, id: key, name: member.name + ' · câmera' };
-  item.label.textContent = item.member.name + (item.own ? ' · você' : '');
+  item.label.replaceChildren(document.createTextNode(item.member.name), ...(item.own ? [youTag()] : []));
   return item;
 }
 function removeCameraTile(id) {
@@ -278,9 +319,48 @@ function removeTile(id) {
 function applyAudio() {
   for (const item of tiles.values()) {
     item.video.defaultMuted = item.own; item.video.muted = item.own || muted || (focus !== null && focus !== item.member.id);
-    item.video.volume = Number($('volume').value);
+    item.video.volume = Number($('volume').value) * (volumes.get(item.member.id.replace(/:camera$/, '')) ?? 1);
   }
-  $('sound-button').textContent = muted ? 'Ativar som' : 'Silenciar';
+  for (const [id, audio] of voices) { audio.muted = muted; audio.volume = Number($('volume').value) * (volumes.get(id) ?? 1); }
+  $('sound-label').textContent = muted ? 'Ativar som' : 'Silenciar'; $('sound-button').setAttribute('aria-pressed', String(muted));
+  $('sound-button').title = (muted ? 'Ativar som da sala' : 'Silenciar som da sala') + ' (M)';
+}
+// Picks the column count that gives each 16:9 cell the largest size; `max` caps the cell width (people cards).
+function arrange(grid, count, max) {
+  const bounds = grid.getBoundingClientRect(), gap = 8;
+  let columns = 1, best = 0;
+  for (let c = 1; c <= Math.max(count, 1); c++) {
+    const rows = Math.ceil(count / c) || 1;
+    const width = (bounds.width - 16 - (c - 1) * gap) / c, height = (bounds.height - 16 - (rows - 1) * gap) / rows;
+    const fit = Math.min(width, height * 16 / 9); if (fit > best) { best = fit; columns = c; }
+  }
+  const rows = Math.ceil(count / columns) || 1, width = Math.max(0, Math.floor(Math.min(best, max || best)));
+  grid.style.gridTemplateColumns = max ? 'repeat(' + columns + ', ' + width + 'px)' : 'repeat(' + columns + ', minmax(0,1fr))';
+  grid.style.gridTemplateRows = max ? 'repeat(' + rows + ', ' + Math.floor(width * 9 / 16) + 'px)' : 'repeat(' + rows + ', minmax(0,1fr))';
+}
+function youTag() { const tag = document.createElement('span'); tag.className = 'you-tag'; tag.textContent = 'você'; return tag; }
+function personCard(member) {
+  const own = member.id === self, card = document.createElement('button'); card.type = 'button'; card.className = 'person-tile'; card.dataset.member = member.id;
+  card.title = own ? 'Ver seu perfil' : 'Abrir perfil de ' + member.name; card.onclick = () => openMemberProfile(member.id);
+  const name = document.createElement('span'); name.className = 'person-name'; name.textContent = member.name; if (own) name.append(youTag());
+  if (member.id === 'host') name.prepend(svgIcon('icon-crown', 'crown'));
+  if (member.stream?.voice && member.stream.muted) name.append(svgIcon('icon-mic-off', 'muted-icon'));
+  card.append(avatar(member, 'person-avatar'), name); return card;
+}
+function inviteCard() {
+  const card = document.createElement('div'); card.className = 'person-tile invite-tile';
+  const title = document.createElement('strong'); title.textContent = 'Chame alguém';
+  const text = document.createElement('small'); text.textContent = 'Até 7 pessoas entram pelo link.';
+  const button = document.createElement('button'); button.type = 'button'; button.className = 'button primary'; button.textContent = 'Copiar link';
+  button.onclick = () => $('copy-link-button').click();
+  card.append(svgIcon('icon-user-plus', 'invite-icon'), title, text, button); return card;
+}
+// Everyone in the room has a card, Discord style; people without video shrink to a strip under the streams.
+function renderPeople() {
+  const list = self ? members.filter(member => !tiles.has(member.id)) : [], lonely = Boolean(self) && members.length <= 1 && Boolean($('invite-link').value);
+  const key = JSON.stringify([self, lonely, list.map(member => [member.id, member.name, member.photo, member.accentColor, member.stream?.voice && member.stream.muted])]);
+  if (key === peopleKey) return;
+  peopleKey = key; $('people-grid').replaceChildren(...list.map(personCard), ...(lonely ? [inviteCard()] : []));
 }
 function renderTiles() {
   if (focus && !tiles.has(focus)) focus = null;
@@ -289,64 +369,89 @@ function renderTiles() {
     item.element.setAttribute('aria-pressed', String(focus === id));
     item.element.setAttribute('aria-label', focus === id ? 'Voltar para todas as telas' : 'Focar transmissão de ' + item.member.name);
   }
-  const count = focus ? 1 : tiles.size, grid = $('streams-grid'), bounds = grid.getBoundingClientRect();
-  let columns = 1, best = 0;
-  for (let c = 1; c <= Math.max(count, 1); c++) {
-    const rows = Math.ceil(count / c) || 1;
-    const width = (bounds.width - (c - 1) * 6) / c, height = (bounds.height - (rows - 1) * 6) / rows;
-    const fit = Math.min(width, height * 16 / 9); if (fit > best) { best = fit; columns = c; }
-  }
-  grid.style.gridTemplateColumns = 'repeat(' + columns + ', minmax(0,1fr))';
-  grid.style.gridTemplateRows = 'repeat(' + (Math.ceil(count / columns) || 1) + ', minmax(0,1fr))';
-  $('stage').classList.toggle('has-video', count > 0); $('empty-stage').hidden = count > 0; $('grid-button').hidden = !focus;
-  $('stage-label').textContent = focus ? tiles.get(focus).member.name + ' · em foco' : 'Todas as telas';
-  const selected = focus ? [tiles.get(focus)] : [...tiles.values()];
-  const routes = new Set(selected.filter(item => !item.own).map(item => item.video.dataset.transport).filter(Boolean));
-  $('transport-label').textContent = routes.has('relay') ? 'Modo de compatibilidade' : routes.has('direct') ? 'Conexão direta' : 'Aguardando transmissão';
-  $('stream-quality').textContent = count ? count + (count === 1 ? ' tela' : ' telas') : 'Nenhuma transmissão ativa';
+  renderPeople();
+  const count = focus ? 1 : tiles.size, people = $('people-grid').children.length;
+  $('stage').classList.toggle('with-strip', tiles.size > 0 && people > 0); $('streams-grid').hidden = !tiles.size;
+  arrange($('streams-grid'), count);
+  if (tiles.size) $('people-grid').style.gridTemplateColumns = $('people-grid').style.gridTemplateRows = ''; else arrange($('people-grid'), people, 480);
+  $('stage').classList.toggle('has-video', count > 0); $('empty-stage').hidden = count > 0 || people > 0; $('grid-button').hidden = !focus;
   applyAudio(); updateRoomMessage();
 }
 function renderMembers() {
-  const others = members.filter(member => member.id !== self);
-  $('friend-label').textContent = others.length ? others.length + (others.length === 1 ? ' pessoa na sala' : ' pessoas na sala') : 'Nenhum outro participante';
-  $('friend-dot').classList.toggle('green', others.length > 0); $('audience-list').replaceChildren();
-  for (const member of others) {
-    const row = document.createElement('button'); row.type = 'button'; row.className = 'audience-person'; row.dataset.member = member.id;
-    row.setAttribute('aria-label', 'Abrir perfil de ' + member.name); row.setAttribute('aria-haspopup', 'dialog');
+  const host = members.find(member => member.id === 'host');
+  $('people-title').textContent = members.length ? 'Na sala — ' + members.length : 'Na sala';
+  $('room-title').textContent = role === 'viewer' ? (host ? 'Sala de ' + host.name : 'Sala atual') : 'Minha sala';
+  $('room-count').textContent = members.length ? members.length + ' de 8 pessoas' : '';
+  $('audience-list').replaceChildren();
+  for (const member of members) {
+    const own = member.id === self, row = document.createElement('button'); row.type = 'button'; row.className = 'audience-row ' + (own ? 'audience-me' : 'audience-person'); row.dataset.member = member.id;
+    row.title = member.name + (member.stream?.active ? ' · transmitindo' : ' · assistindo');
+    row.setAttribute('aria-label', own ? 'Ver seu perfil' : 'Abrir perfil de ' + member.name); row.setAttribute('aria-haspopup', 'dialog');
     row.setAttribute('aria-controls', 'member-profile'); row.setAttribute('aria-expanded', String(viewedMember === member.id));
     row.onclick = () => openMemberProfile(member.id);
-    const text = document.createElement('span'); text.textContent = member.name;
-    const state = document.createElement('small'); state.textContent = member.stream.active ? 'Compartilhando' : 'Assistindo';
-    row.append(avatar(member), text, state); $('audience-list').append(row);
+    const text = document.createElement('span'); text.className = 'audience-name'; text.textContent = member.name + (own ? ' (você)' : '');
+    const icons = document.createElement('span'); icons.className = 'row-icons';
+    if (member.id === 'host') icons.append(svgIcon('icon-crown', 'crown'));
+    if (member.stream?.voice && member.stream.muted) icons.append(svgIcon('icon-mic-off', 'muted-icon'));
+    if (member.stream?.camera) icons.append(svgIcon('icon-camera'));
+    if (member.stream?.active && member.stream.screen !== false) { const live = document.createElement('span'); live.className = 'live-pill'; live.textContent = 'AO VIVO'; icons.append(live); }
+    row.append(avatar(member), text, icons); $('audience-list').append(row);
+    if (own) continue;
     const item = tiles.get(member.id); if (item) tile(member);
     if (cameraViews.has(member.id)) placeCamera(member.id);
   }
   localTile(); renderTiles(); renderMemberProfile();
 }
+// Green pulse on whoever is talking: your own mic and the voice received from each person.
+function watchLevels() {
+  const sources = new Map();
+  if (self && voiceTrack?.enabled && voiceTrack.readyState === 'live') sources.set(self, voiceTrack);
+  for (const [id, audio] of voices) { const track = audio.srcObject?.getAudioTracks?.()[0]; if (track?.readyState === 'live') sources.set(id, track); }
+  for (const [id, track] of sources) {
+    let entry = levels.get(id);
+    if (entry?.track !== track) {
+      entry?.source.disconnect(); levelContext ||= new AudioContext(); if (levelContext.state === 'suspended') levelContext.resume().catch(() => {});
+      const analyser = levelContext.createAnalyser(), source = levelContext.createMediaStreamSource(new MediaStream([track])); analyser.fftSize = 512; source.connect(analyser);
+      entry = { track, source, analyser, data: new Uint8Array(512) }; levels.set(id, entry);
+    }
+    entry.analyser.getByteTimeDomainData(entry.data);
+    let peak = 0; for (const value of entry.data) peak = Math.max(peak, Math.abs(value - 128));
+    // A short hold keeps the pulse steady between syllables instead of restarting every tick.
+    if (peak > 5) entry.until = Date.now() + 700;
+    entry.speaking = Date.now() < (entry.until || 0);
+  }
+  for (const [id, entry] of levels) if (!sources.has(id)) { entry.source.disconnect(); levels.delete(id); }
+  const speaking = id => Boolean(levels.get(String(id).replace(/:camera$/, ''))?.speaking);
+  for (const [id, item] of tiles) item.element.classList.toggle('speaking', speaking(id));
+  for (const element of document.querySelectorAll('#audience-list [data-member], #people-grid [data-member]')) element.classList.toggle('speaking', speaking(element.dataset.member));
+}
 function renderMemberProfile() {
   if (!viewedMember) return;
-  const member = members.find(person => person.id === viewedMember && person.id !== self);
-  if (!member || !self || document.body.dataset.view !== 'room') { closeMemberProfile(); return; }
+  const found = members.find(person => person.id === viewedMember), own = viewedMember === self;
+  if (!found || !self || document.body.dataset.view !== 'room') { closeMemberProfile(); return; }
+  const member = own ? { ...found, ...visualProfile(config.profile) } : found;
+  $('member-profile-edit').hidden = !own; $('member-volume-row').hidden = own;
+  $('member-volume').value = String(volumes.get(member.id) ?? 1); $('member-volume').setAttribute('aria-label', 'Volume de ' + member.name);
   $('member-profile-photo').replaceChildren(avatar(member, 'member-card-avatar'));
   $('member-profile-name').textContent = member.name;
   renderBanner($('member-profile-banner'), member);
 }
 function openMemberProfile(id) {
-  if (document.body.dataset.view !== 'room' || socket?.readyState !== WebSocket.OPEN || !members.some(person => person.id === id && person.id !== self)) return;
-  viewedMember = id; profilePointerOutside = false; renderMemberProfile();
+  if (document.body.dataset.view !== 'room' || socket?.readyState !== WebSocket.OPEN || !members.some(person => person.id === id)) return;
+  profileOpener = document.activeElement; viewedMember = id; profilePointerOutside = false; renderMemberProfile();
   for (const row of $('audience-list').children) row.setAttribute('aria-expanded', String(row.dataset.member === id));
   if (!$('member-profile').open) $('member-profile').showModal();
 }
 function closeMemberProfile() {
   const dialog = $('member-profile');
   if (!viewedMember && !dialog.open) return;
-  const id = viewedMember; viewedMember = null;
+  const id = viewedMember, opener = profileOpener; viewedMember = null;
   if (dialog.open) dialog.close();
-  $('member-profile-photo').replaceChildren(); $('member-profile-name').textContent = '';
+  $('member-profile-photo').replaceChildren(); $('member-profile-name').textContent = ''; $('member-profile-edit').hidden = true; profileOpener = undefined;
   renderBanner($('member-profile-banner'), {});
   for (const row of $('audience-list').children) row.setAttribute('aria-expanded', 'false');
   if (document.body.dataset.view === 'room') {
-    const origin = [...$('audience-list').children].find(row => row.dataset.member === id);
+    const origin = opener?.isConnected && opener !== document.body ? opener : [...$('audience-list').children].find(row => row.dataset.member === id);
     (origin || $('host-tab')).focus({ preventScroll: true });
   }
 }
@@ -355,7 +460,7 @@ function outsideMemberProfile(event) {
   return event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom;
 }
 function setLive(active) {
-  $('live-dot').classList.toggle('red', active); document.title = active ? 'Concord · AO VIVO' : 'Concord'; liveSince = active ? Date.now() : 0;
+  $('live-dot').classList.toggle('red', active); $('live-badge').hidden = !active; document.title = active ? 'Concord · AO VIVO' : 'Concord'; liveSince = active ? Date.now() : 0;
   $('stream-clock').hidden = !active; $('stream-clock').textContent = active ? '00:00:00' : '';
 }
 function showVideo() { renderTiles(); }
@@ -364,57 +469,107 @@ function lockSettings(locked) {
   $('test-audio').hidden = Boolean(stream) || starting || audioMode() !== 'application';
   $('start-button').hidden = Boolean(stream); $('stop-button').hidden = !stream;
   $('start-button').disabled = locked || !selectedSource || socket?.readyState !== WebSocket.OPEN;
-  $('camera-button').disabled = cameraStarting || socket?.readyState !== WebSocket.OPEN;
-  $('camera-button').textContent = cameraStream ? 'Desligar câmera' : cameraStarting ? 'Ligando câmera…' : 'Ligar câmera';
-  $('camera-device').disabled = Boolean(cameraStream) || cameraStarting;
+  $('start-hint').textContent = stream || starting ? '' : !selectedSource ? 'Escolha uma tela ou janela para começar.' : socket?.readyState !== WebSocket.OPEN ? 'Entre em uma sala para transmitir.' : '';
+  $('start-hint').hidden = !$('start-hint').textContent;
   renderCallBar();
 }
 // Discord-style call bar: quick toggles; the full sharing menu opens in #share-dialog.
 function renderCallBar() {
-  const connected = socket?.readyState === WebSocket.OPEN, mic = $('microphone').checked;
+  const connected = socket?.readyState === WebSocket.OPEN, mic = Boolean(voiceTrack) && !voiceMuted && !muted;
   const state = (id, on, title) => { $(id).setAttribute('aria-pressed', String(on)); $(id).title = title; };
-  state('bar-screen', Boolean(stream), stream ? 'Transmitindo a tela: abrir opções ou encerrar' : 'Transmitir tela');
+  state('bar-screen', Boolean(stream), stream ? 'Transmitindo a tela: abrir opções ou encerrar' : 'Transmitir tela'); $('bar-screen-label').textContent = stream ? 'Transmitindo' : 'Transmitir tela';
   state('bar-camera', Boolean(cameraStream), cameraStream ? 'Desligar câmera' : 'Ligar câmera');
-  state('bar-mic', mic, mic ? 'Desligar microfone' : 'Ligar microfone');
-  state('bar-chat', !sideHidden, sideHidden ? 'Mostrar chat e convite' : 'Esconder chat e convite (mais espaço para o vídeo)');
+  state('bar-mic', mic, connected && !roomVoice ? 'Quem criou a sala precisa do Concord 0.8.3 ou mais novo para usar voz' : voiceStarting ? 'Ligando microfone…'
+    : connected && !voiceTrack ? 'Microfone indisponível: clique para tentar de novo' : mic ? 'Mutar microfone' : 'Desmutar microfone');
+  $('bar-mic').disabled = !connected || !roomVoice || voiceStarting;
+  $('chat-toggle').setAttribute('aria-expanded', String(!sideHidden)); $('chat-toggle').title = 'Esconder chat (C)';
+  $('chat-button').setAttribute('aria-expanded', String(!sideHidden)); $('chat-button').title = sideHidden ? 'Abrir chat (C)' : 'Esconder chat (C)';
   $('bar-screen').disabled = !connected; $('bar-camera').disabled = !connected || cameraStarting;
 }
 function setSide(hidden) { sideHidden = hidden; document.body.classList.toggle('side-hidden', hidden); chat.setVisible(!hidden); renderCallBar(); renderTiles(); }
-// The microphone can be turned on/off mid-stream: muting keeps the track, and a mic added later is mixed in.
-async function setMicrophone(on) {
-  $('microphone').checked = on; renderCallBar();
-  if (!stream) return;
-  if (microphone) { for (const track of microphone.getAudioTracks()) track.enabled = on; return; }
-  if (!on) return;
-  const generation = captureGeneration;
-  try {
-    const captured = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false });
-    if (generation !== captureGeneration || !stream || !$('microphone').checked) { captured.getTracks().forEach(track => track.stop()); return; }
-    microphone = captured;
-    if (!audioContext) {
-      audioContext = new AudioContext(); await audioContext.resume(); mixDestination = audioContext.createMediaStreamDestination();
-      for (const track of stream.getAudioTracks()) { audioContext.createMediaStreamSource(new MediaStream([track])).connect(mixDestination); stream.removeTrack(track); }
-      stream.addTrack(mixDestination.stream.getAudioTracks()[0]);
-    }
-    audioContext.createMediaStreamSource(microphone).connect(mixDestination);
-    await media?.setStream(stream);
-  } catch { $('microphone').checked = false; renderCallBar(); notice('O microfone não ficou disponível. Confira as configurações de privacidade do Windows.', true); }
+// Voice works like Discord: the mic opens when you enter a room and the button only mutes it.
+// Muting and deafening disable the track (silence is sent); leaving the room stops the capture.
+async function deviceId(kind, name) {
+  if (!name) return '';
+  const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+  return devices.find(device => device.kind === kind && device.label === name)?.deviceId || '';
 }
+async function startVoice() {
+  if (!roomVoice || socket?.readyState !== WebSocket.OPEN) return;
+  if (voiceTrack?.readyState === 'live') { applyVoice(); publishState(); await media?.setVoice(voiceTrack); return; }
+  const generation = ++voiceGeneration; voiceStarting = true; renderCallBar();
+  try {
+    const id = await deviceId('audioinput', devicePrefs.mic);
+    const captured = await navigator.mediaDevices.getUserMedia({ audio: { ...(id ? { deviceId: { exact: id } } : {}), echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
+    const track = captured.getAudioTracks()[0];
+    if (generation !== voiceGeneration || socket?.readyState !== WebSocket.OPEN || !track) { captured.getTracks().forEach(item => item.stop()); return; }
+    voiceTrack = track; track.contentHint = 'speech';
+    track.onended = () => { if (voiceTrack === track) { stopVoice(); notice('O microfone foi desconectado. Clique no microfone para tentar de novo.', true); } };
+    applyVoice(); publishState(); await media?.setVoice(track); watchMic();
+  } catch (error) {
+    if (generation === voiceGeneration) notice(error.name === 'NotAllowedError' ? 'O microfone não foi liberado. Confira as configurações de privacidade do Windows.' : 'Não encontrei um microfone disponível. Você continua ouvindo a sala.', true);
+  } finally { if (generation === voiceGeneration) { voiceStarting = false; renderCallBar(); } }
+}
+function stopVoice() {
+  ++voiceGeneration; voiceStarting = false;
+  if (voiceTrack) { voiceTrack.onended = null; voiceTrack.stop(); voiceTrack = undefined; void media?.setVoice(null); }
+  publishState(); watchMic(); renderCallBar();
+}
+// Deafening also silences your mic, like Discord.
+function applyVoice() { if (voiceTrack) voiceTrack.enabled = !voiceMuted && !muted; renderCallBar(); }
+function setVoiceMuted(value) {
+  voiceMuted = value; if (!value && muted) { muted = false; applyAudio(); }
+  applyVoice(); publishState(); savePreferences();
+}
+function voicePlayer(member) {
+  let audio = voices.get(member.id);
+  if (!audio) {
+    audio = document.createElement('audio'); audio.autoplay = true; audio.dataset.voice = member.id;
+    audio.addEventListener('canplay', () => media?.play(audio));
+    audio.addEventListener('error', () => { if (media?.receivers.has(member.id + ':voice')) media.recover(member.id + ':voice'); });
+    $('voice-audio').append(audio); voices.set(member.id, audio); applyAudio();
+  }
+  return audio;
+}
+function removeVoice(id) {
+  const audio = voices.get(id); if (!audio) return;
+  voices.delete(id); audio.pause(); audio.srcObject = null; audio.removeAttribute('src'); audio.load(); audio.remove();
+}
+// Settings modal: device names are saved, so the choice survives the app port changing.
+async function fillDevices() {
+  const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+  const fill = (select, kind, fallback, chosen) => {
+    const names = [...new Set(devices.filter(device => device.kind === kind && device.label && !['default', 'communications'].includes(device.deviceId)).map(device => device.label))];
+    select.replaceChildren(new Option(fallback, ''), ...names.map(name => new Option(name, name)));
+    if (chosen && !names.includes(chosen)) select.append(new Option(chosen + ' (desconectado)', chosen));
+    select.value = chosen;
+  };
+  fill($('mic-device'), 'audioinput', 'Microfone padrão do Windows', devicePrefs.mic);
+  fill($('camera-device'), 'videoinput', 'Câmera padrão do Windows', devicePrefs.camera);
+}
+function watchMic() {
+  if (!$('settings-dialog').open) { micMeter.stop(); return; }
+  if (voiceTrack) void micMeter.watch(voiceTrack);
+  else { micMeter.stop(); $('mic-level-label').textContent = 'O nível aparece quando você está numa sala.'; }
+}
+function openSettings() { void fillDevices(); if (!$('settings-dialog').open) $('settings-dialog').showModal(); watchMic(); }
 function bitrate() { return videoBitrate(qualityKey(), $('bitrate-mode').value === 'manual' ? $('bitrate-value').value : null); }
 function qualityLabel() { return $('quality').selectedOptions[0].textContent + ' · ' + $('fps').value + ' FPS · ' + formatMbps(bitrate()) + ' Mbps'; }
 function updateBitrateControls() {
   const manual = $('bitrate-mode').value === 'manual'; $('manual-bitrate').hidden = !manual;
   const recommended = formatMbps(videoBitrate(qualityKey()));
   $('bitrate-mode').options[0].textContent = 'Automática · ' + recommended + ' Mbps';
+  $('bitrate-summary').textContent = manual ? formatMbps(bitrate()) + ' Mbps' : 'Automática · ' + recommended + ' Mbps';
   $('bitrate-hint').textContent = manual ? 'Referência: ' + recommended + ' Mbps. Ajuste antes de transmitir.' : 'Mais bitrate preserva detalhes e usa mais upload.';
 }
 function publishState() {
-  send({ type: 'stream-state', active: Boolean(stream || cameraStream), screen: Boolean(stream), camera: Boolean(cameraStream), label: stream ? selectedSource?.name || '' : cameraStream ? 'Câmera' : '', quality: stream ? qualityLabel() : '', relay: false });
+  send({ type: 'stream-state', active: Boolean(stream || cameraStream), screen: Boolean(stream), camera: Boolean(cameraStream), label: stream ? selectedSource?.name || '' : cameraStream ? 'Câmera' : '', quality: stream ? qualityLabel() : '', relay: false,
+    voice: Boolean(voiceTrack), muted: voiceMuted || muted });
 }
 function disconnect() {
-  closeDiscordFriends(); chat.clear();
+  closeDiscordFriends(); chat.clear(); stopVoice(); roomVoice = false;
   terminal = true; clearTimeout(reconnectTimer); clearTimeout(joinTimer); const previous = socket; socket = undefined; previous?.close();
-  media?.close(); media = null; for (const id of [...cameraViews.keys()]) removeCamera(id); self = ''; for (const id of [...tiles.keys()]) removeTile(id); members = []; renderMembers();
+  media?.close(); media = null; for (const id of [...cameraViews.keys()]) removeCamera(id); self = ''; for (const id of [...tiles.keys()]) removeTile(id); members = []; renderMembers(); renderCallBar();
 }
 function connect(address, token, connectionRole, p2p = false) {
   disconnect(); role = connectionRole; terminal = false; retries = 0; target = { address, token, role: connectionRole, p2p }; openSocket();
@@ -428,10 +583,10 @@ function openSocket() {
   const ws = target.p2p ? connectRoom(target.token, { parseInvite, onStage: joinStage }) : new WebSocket(target.address.replace(/^http/, 'ws') + '/socket');
   socket = ws; ws.binaryType = 'arraybuffer'; relayStream = 'screen'; status('Conectando');
   media = new RoomMedia({ send, sendBytes, options: () => ({ relay: false, bitrate: bitrate(), fps: qualityPreset(qualityKey()).fps }),
-    player: member => tile(member), cameraPlayer, removeCamera, remove: removeTile, update: renderTiles,
+    player: member => tile(member), cameraPlayer, removeCamera, voicePlayer, removeVoice, remove: removeTile, update: renderTiles,
     compatibility: updateRoomMessage,
     error: text => notice(text, true), fatal: text => { stopSharing(); notice(text, true); } });
-  ws.onopen = () => ws.send(JSON.stringify({ type: 'auth', token: target.token, role: target.role, profile: config.profile, features: ['camera'] }));
+  ws.onopen = () => ws.send(JSON.stringify({ type: 'auth', token: target.token, role: target.role, profile: config.profile, features: ['camera', 'voice'] }));
   ws.onmessage = event => {
     processing = processing.then(async () => {
       if (socket !== ws) return;
@@ -442,9 +597,9 @@ function openSocket() {
         if (msg.type === 'welcome') {
           self = msg.self; retries = 0; notice(''); status('Sala conectada', true); $('viewer-controls').hidden = false; document.body.dataset.route = ws.route || 'socket';
           if (joining) { clearTimeout(joinTimer); joining = false; $('join-button').disabled = false; $('join-input').disabled = false; $('join-button').textContent = 'Entrar na sala'; $('join-picker').close(); showView('room'); }
-          roomCamera = Array.isArray(msg.features) && msg.features.includes('camera');
+          roomCamera = Array.isArray(msg.features) && msg.features.includes('camera'); roomVoice = Array.isArray(msg.features) && msg.features.includes('voice');
           chat.setEnabled(Array.isArray(msg.features) && msg.features.includes('chat')); chat.setSelf(msg.self, config.profile); chat.setVisible(!sideHidden); if (cameraStream && !roomCamera) stopCamera();
-          renderInvite(); lockSettings(Boolean(stream)); publishState(); await media.setStream(stream); await media.setCamera(cameraStream?.getVideoTracks()[0] || null);
+          renderInvite(); lockSettings(Boolean(stream)); publishState(); await media.setStream(stream); await media.setCamera(cameraStream?.getVideoTracks()[0] || null); void startVoice();
         }
         members = msg.members; chat.setMembers(members); await media.roster(self, members); renderMembers();
       } else if (msg.type === 'tunnel-closed') { if (invite) invite = { ...invite, public: false }; }
@@ -457,7 +612,7 @@ function openSocket() {
     socket = undefined; media?.close(); for (const id of [...cameraViews.keys()]) removeCamera(id); self = ''; for (const id of [...tiles.keys()]) removeTile(id); members = []; renderMembers(); lockSettings(Boolean(stream));
     if (terminal) return;
     if (joining && [4001,4002,4003,4005].includes(event.code)) { joinFailure(event.reason || 'Convite inválido. Confira o código.'); return; }
-    if ([4001,4002,4003].includes(event.code)) { terminal = true; stopSharing(); stopCamera(); status('Não conectado'); notice(event.reason || 'Convite inválido.', true); return; }
+    if ([4001,4002,4003].includes(event.code)) { terminal = true; stopSharing(); stopCamera(); stopVoice(); status('Não conectado'); notice(event.reason || 'Convite inválido.', true); return; }
     status('Reconectando'); retries++; reconnectTimer = setTimeout(openSocket, Math.min(1000 * 2 ** Math.min(retries-1,4),15000));
   };
 }
@@ -470,14 +625,15 @@ function audioMode() {
 function updateAudioControls() {
   const appOnly = audioMode() === 'application', manual = $('audio-mode').value === 'application';
   $('audio-settings').hidden = !$('system-audio').checked;
-  $('audio-meter-panel').hidden = !$('system-audio').checked;
+  $('audio-meter-panel').hidden = !$('system-audio').checked || (!stream && !starting && !appOnly);
+  if (!stream && !starting && !audioPreviewTrack && !testingAudio) $('audio-level-label').textContent = 'Teste para conferir o som antes de transmitir.';
   $('test-audio').hidden = !appOnly || Boolean(stream) || starting;
   $('test-audio').disabled = !selectedAudioSource;
   $('test-audio').textContent = audioPreviewTrack || testingAudio ? 'Parar teste de áudio' : 'Testar áudio do app';
   $('choose-audio-source').hidden = !manual;
   $('audio-summary').textContent = !$('system-audio').checked ? 'Sem som na transmissão.'
-    : appOnly ? (selectedAudioSource ? 'Som de ' + selectedAudioSource.name + ', sem outros apps.' : 'Escolha o jogo / app em Opções avançadas.')
-    : $('audio-mode').value === 'system' || selectedSource ? 'Som de todo o computador.' : 'Automático: janela usa o som do app; tela inteira usa o som do computador.';
+    : appOnly ? (selectedAudioSource ? 'Som de ' + selectedAudioSource.name + ', sem outros apps.' : 'Escolha o jogo / app abaixo.')
+    : $('audio-mode').value === 'system' || selectedSource ? 'Som de todo o computador.' : 'Janela: só o som do app. Tela inteira: som do computador.';
   $('audio-source-name').textContent = selectedAudioSource?.name || 'Escolher jogo / app';
   $('audio-source-hint').textContent = appOnly ? 'Só o app escolhido e seus processos. Outros apps ficam de fora.' : 'Inclui Discord, notificações e os sons de todos os apps.';
 }
@@ -497,6 +653,7 @@ async function chooseSource(audioOnly = false) {
         if (audioOnly) selectedAudioSource = source;
         else {
           selectedSource = source; $('source-name').textContent = source.name; $('source-description').textContent = source.id.startsWith('screen:') ? 'Tudo nesse monitor será mostrado.' : 'Somente essa janela será mostrada.';
+          $('source-thumb').src = source.thumbnail; $('source-thumb').hidden = false; $('choose-source').classList.add('chosen'); $('source-action').textContent = 'Trocar';
           if (source.id.startsWith('window:')) selectedAudioSource = source;
         }
         updateAudioControls(); $('source-picker').close(); lockSettings(false);
@@ -548,7 +705,7 @@ async function startSharing() {
   if (starting || stream || !selectedSource) return;
   if ($('bitrate-mode').value === 'manual' && !$('bitrate-value').validity.valid) { $('advanced-options').open = true; $('bitrate-value').reportValidity(); return; }
   const appOnly = $('system-audio').checked && audioMode() === 'application';
-  if (appOnly && !selectedAudioSource) { $('advanced-options').open = true; notice('Escolha o jogo/app em Opções avançadas › Fonte do áudio. Você pode compartilhar um monitor inteiro e ouvir só esse app.', true); return; }
+  if (appOnly && !selectedAudioSource) { notice('Escolha o jogo/app em Áudio › Fonte do áudio. Você pode compartilhar um monitor inteiro e ouvir só esse app.', true); return; }
   stopAudioPreview(); const generation = ++captureGeneration;
   starting = true; lockSettings(true); notice('');
   try {
@@ -565,14 +722,6 @@ async function startSharing() {
     if (appOnly) audio.push(await captureAppAudio());
     if (generation !== captureGeneration) { audio.forEach(track => track.stop()); return; }
     void meter.watch(audio[0]);
-    if ($('microphone').checked) {
-      try {
-        const capturedMic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false });
-        if (generation !== captureGeneration) { capturedMic.getTracks().forEach(track => track.stop()); return; }
-        microphone = capturedMic;
-        audio.push(...microphone.getAudioTracks());
-      } catch { notice('O microfone não ficou disponível. A transmissão continua sem ele.'); }
-    }
     stream = new MediaStream([track]);
     if (audio.length > 1) {
       audioContext = new AudioContext(); await audioContext.resume();
@@ -582,7 +731,7 @@ async function startSharing() {
     } else if (audio.length) stream.addTrack(audio[0]);
     track.onended = () => stopSharing();
     video.srcObject = display; video.muted = true; video.play().catch(() => {});
-    showVideo(true); if (!liveSince) setLive(true); $('stream-quality').textContent = qualityLabel();
+    showVideo(true); if (!liveSince) setLive(true);
     publishState(); await media.setStream(stream); localTile(); renderTiles();
     if ($('share-dialog').open) $('share-dialog').close();
   } catch (error) {
@@ -592,17 +741,11 @@ async function startSharing() {
 function stopSharing() {
   ++captureGeneration; stopAudioPreview(); meter.stop();
   void media?.setStream(null);
-  for (const item of [stream, display, microphone]) for (const track of item?.getTracks() || []) { track.onended = null; track.stop(); }
-  audioContext?.close().catch(() => {}); stream = display = microphone = audioContext = mixDestination = undefined;
+  for (const item of [stream, display]) for (const track of item?.getTracks() || []) { track.onended = null; track.stop(); }
+  audioContext?.close().catch(() => {}); stream = display = audioContext = mixDestination = undefined;
   stopAppAudioResources();
   video.srcObject = null; if (!cameraStream) setLive(false);
   publishState(); if (cameraStream) localTile(); else removeTile(self); lockSettings(false); renderTiles();
-}
-async function fillCameraDevices() {
-  const devices = (await navigator.mediaDevices.enumerateDevices().catch(() => [])).filter(device => device.kind === 'videoinput' && device.deviceId);
-  const current = cameraStream?.getVideoTracks()[0]?.getSettings().deviceId || $('camera-device').value;
-  $('camera-device').replaceChildren(new Option('Câmera padrão', ''), ...devices.map((device, index) => new Option(device.label || 'Câmera ' + (index + 1), device.deviceId)));
-  $('camera-device').value = [...$('camera-device').options].some(option => option.value === current) ? current : '';
 }
 // Camera is a separate, explicit capture: video only, granted once per click by the main process.
 async function startCamera() {
@@ -611,11 +754,11 @@ async function startCamera() {
   const generation = ++cameraGeneration; cameraStarting = true; lockSettings(Boolean(stream)); notice('');
   try {
     await native.allowCamera();
-    const id = $('camera-device').value;
+    const id = await deviceId('videoinput', devicePrefs.camera);
     const captured = await navigator.mediaDevices.getUserMedia({ audio: false, video: { ...(id ? { deviceId: { exact: id } } : {}), width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30, max: 30 } } });
     if (generation !== cameraGeneration || socket?.readyState !== WebSocket.OPEN) { captured.getTracks().forEach(track => track.stop()); return; }
     cameraStream = captured; const track = captured.getVideoTracks()[0]; track.contentHint = 'motion'; track.onended = () => stopCamera();
-    void fillCameraDevices(); if (!liveSince) setLive(true);
+    void fillDevices(); if (!liveSince) setLive(true);
     publishState(); await media?.setCamera(track); localTile(); renderTiles();
   } catch (error) {
     if (generation === cameraGeneration) notice(error.name === 'NotAllowedError' ? 'A câmera não foi autorizada. Confira se o acesso à câmera está liberado nas configurações de privacidade do Windows.'
@@ -670,8 +813,34 @@ function renderProfile() {
   $('profile-name').textContent = config.profile.name || 'Escolha seu nome';
   $('profile-avatar').replaceChildren(avatar(config.profile)); $('name-avatar').replaceChildren(avatar(config.profile, 'tile-avatar'));
   renderBanner($('name-banner'), config.profile); renderDiscord();
-  $('remove-banner').hidden = !config.profile.banner;
+  $('remove-banner').hidden = !config.profile.banner; $('remove-photo').hidden = !config.profile.photo;
+  renderNameDraft();
 }
+// Live preview of the name being typed; photo/banner/theme are saved on the spot, only the name waits for Salvar.
+function renderNameDraft() {
+  const draft = $('display-name').value.trim(), saved = config.profile.name || '';
+  $('preview-name').textContent = draft || saved || 'Seu nome';
+  $('preview-sub').textContent = config.discord?.linked ? 'Vinculado ao Discord' : 'Perfil deste computador';
+  $('name-count').textContent = $('display-name').value.length + '/32';
+  $('name-dirty').hidden = !saved || !draft || draft === saved;
+  if (!config.profile.photo) $('name-avatar').replaceChildren(avatar({ ...config.profile, name: draft || saved }, 'tile-avatar'));
+}
+function closeProfileMenus(except) {
+  for (const button of $('name-picker').querySelectorAll('[aria-haspopup="menu"]')) {
+    if (button === except) continue;
+    button.setAttribute('aria-expanded', 'false'); $(button.getAttribute('aria-controls')).hidden = true;
+  }
+}
+for (const button of $('name-picker').querySelectorAll('[aria-haspopup="menu"]')) {
+  const menu = $(button.getAttribute('aria-controls'));
+  button.onclick = () => {
+    const open = menu.hidden; closeProfileMenus(button);
+    menu.hidden = !open; button.setAttribute('aria-expanded', String(open));
+    if (open) menu.querySelector('button:not([hidden])')?.focus();
+  };
+  menu.addEventListener('click', event => { if (event.target.closest('button')) { closeProfileMenus(); button.focus(); } });
+}
+$('name-picker').addEventListener('click', event => { if (!event.target.closest('.menu-anchor')) closeProfileMenus(); });
 function renderDiscord() {
   const state = config.discord || {};
   $('link-discord').hidden = Boolean(state.linked); $('link-discord').disabled = discordPending || !state.configured;
@@ -679,7 +848,7 @@ function renderDiscord() {
   $('refresh-discord').disabled = $('unlink-discord').disabled = discordPending;
   $('cancel-discord').hidden = !discordPending;
   $('discord-status').textContent = discordPending ? 'Conclua a autorização no navegador e volte ao Concord.' : state.linked ? 'Vinculado como ' + state.name : 'Use seu perfil do Discord ou escolha nome e foto aqui.';
-  for (const id of ['photo-button', 'remove-photo', 'banner-button', 'remove-banner', 'display-name', 'save-name']) $(id).disabled = discordPending;
+  for (const id of ['photo-button', 'remove-photo', 'banner-button', 'remove-banner', 'photo-menu-button', 'banner-menu-button', 'display-name', 'save-name']) $(id).disabled = discordPending;
 }
 async function discordAction(action) {
   if (discordPending) return;
@@ -692,12 +861,17 @@ async function discordAction(action) {
   finally { discordPending = false; renderProfile(); }
 }
 async function chooseName() {
-  $('display-name').value = config.profile.name; $('name-error').textContent = ''; $('cancel-name').hidden = !config.profile.name; renderProfile();
+  $('display-name').value = config.profile.name; $('name-error').textContent = ''; $('cancel-name').hidden = $('close-profile').hidden = !config.profile.name; closeProfileMenus(); renderProfile();
   $('name-picker').showModal(); $('display-name').focus();
   return new Promise(resolve => { $('name-picker').addEventListener('close', () => resolve(), { once: true }); });
 }
-$('name-picker').addEventListener('cancel', event => { if (!config?.profile.name) event.preventDefault(); });
-$('cancel-name').onclick = () => $('name-picker').close();
+$('name-picker').addEventListener('cancel', event => {
+  const menu = $('name-picker').querySelector('.profile-menu:not([hidden])');
+  if (menu || !config?.profile.name) event.preventDefault();
+  if (menu) { closeProfileMenus(); $('name-picker').querySelector(`[aria-controls="${menu.id}"]`).focus(); }
+});
+$('cancel-name').onclick = $('close-profile').onclick = () => $('name-picker').close();
+$('display-name').oninput = () => { $('name-error').textContent = ''; renderNameDraft(); };
 $('name-form').onsubmit = async event => {
   event.preventDefault(); $('save-name').disabled = true;
   try { config.profile = await native.setName($('display-name').value); renderProfile(); send({ type: 'profile', ...config.profile }); $('name-picker').close(); }
@@ -720,6 +894,9 @@ async function changeBanner(action) {
 $('banner-button').onclick = () => void changeBanner(() => native.chooseBanner());
 $('remove-banner').onclick = () => void changeBanner(() => native.removeBanner());
 $('profile-button').onclick = () => void chooseName();
+for (const button of document.querySelectorAll('.theme-swatch')) { button.style.background = button.dataset.color; button.onclick = () => { applyTheme(button.dataset.color); savePreferences(); }; }
+$('theme-custom').oninput = () => applyTheme($('theme-custom').value);
+$('theme-custom').onchange = () => { applyTheme($('theme-custom').value); savePreferences(); };
 $('link-discord').onclick = () => void discordAction(() => native.linkDiscord());
 $('refresh-discord').onclick = () => void discordAction(() => native.refreshDiscord());
 $('unlink-discord').onclick = () => void discordAction(() => native.unlinkDiscord());
@@ -797,6 +974,13 @@ $('discord-friends-authorize').onclick = async () => {
   if (config.discord?.social) void openDiscordFriends();
 };
 $('close-member-profile').onclick = closeMemberProfile;
+// Per-person volume (voice and stream), the same value as the slider on their stream tile.
+$('member-volume').oninput = () => {
+  if (!viewedMember) return;
+  volumes.set(viewedMember, Number($('member-volume').value)); applyAudio();
+  const slider = tiles.get(viewedMember)?.top.querySelector('.tile-volume input'); if (slider) slider.value = $('member-volume').value;
+};
+$('member-profile-edit').onclick = () => { closeMemberProfile(); void chooseName(); };
 $('member-profile').addEventListener('cancel', event => { event.preventDefault(); closeMemberProfile(); });
 $('member-profile').addEventListener('keydown', event => { if (event.key === 'Escape') event.stopPropagation(); });
 $('member-profile').addEventListener('pointerdown', event => { profilePointerOutside = event.target === $('member-profile') && outsideMemberProfile(event); });
@@ -815,14 +999,29 @@ $('choose-source').onclick = () => chooseSource(); $('choose-audio-source').oncl
 $('audio-mode').onchange = $('system-audio').onchange = () => { stopAudioPreview(); updateAudioControls(); savePreferences(); };
 $('test-audio').onclick = testAudio; updateAudioControls();
 $('quality').onchange = $('fps').onchange = $('bitrate-mode').onchange = () => { updateBitrateControls(); savePreferences(); }; updateBitrateControls();
-$('bitrate-slider').oninput = () => { $('bitrate-value').value = $('bitrate-slider').value; savePreferences(); };
-$('bitrate-value').oninput = () => { if ($('bitrate-value').validity.valid) { $('bitrate-slider').value = $('bitrate-value').value; savePreferences(); } };
-$('camera-button').onclick = $('bar-camera').onclick = () => { if (cameraStream) stopCamera(); else void startCamera(); };
+$('bitrate-slider').oninput = () => { $('bitrate-value').value = $('bitrate-slider').value; updateBitrateControls(); savePreferences(); };
+$('bitrate-value').oninput = () => { if ($('bitrate-value').validity.valid) { $('bitrate-slider').value = $('bitrate-value').value; updateBitrateControls(); savePreferences(); } };
+$('bar-camera').onclick = () => { if (cameraStream) stopCamera(); else void startCamera(); };
 $('bar-screen').onclick = () => { if (!$('share-dialog').open) $('share-dialog').showModal(); };
 $('close-share').onclick = () => $('share-dialog').close();
-$('bar-mic').onclick = () => void setMicrophone(!$('microphone').checked);
-$('microphone').onchange = () => void setMicrophone($('microphone').checked);
-$('bar-chat').onclick = () => setSide(!sideHidden);
+$('bar-mic').onclick = () => { if (voiceTrack) setVoiceMuted(!voiceMuted && !muted); else { voiceMuted = false; savePreferences(); void startVoice(); } };
+$('settings-button').onclick = openSettings;
+$('close-settings').onclick = () => $('settings-dialog').close();
+$('settings-dialog').addEventListener('close', () => micMeter.stop());
+$('mic-device').onchange = async () => {
+  devicePrefs.mic = $('mic-device').value; savePreferences();
+  if (!voiceTrack) return;
+  const previous = voiceTrack; previous.onended = null; voiceTrack = undefined; previous.stop(); await startVoice();
+};
+$('camera-device').onchange = () => { devicePrefs.camera = $('camera-device').value; savePreferences(); if (cameraStream) { stopCamera(); void startCamera(); } };
+$('chat-toggle').onclick = $('chat-button').onclick = () => setSide(!sideHidden);
+// Collapsed sidebar keeps only the logo, icons and avatars.
+$('sidebar-toggle').onclick = () => {
+  const collapsed = document.body.classList.toggle('sidebar-collapsed'), label = collapsed ? 'Expandir barra lateral' : 'Recolher barra lateral';
+  $('sidebar-toggle').setAttribute('aria-expanded', String(!collapsed)); $('sidebar-toggle').setAttribute('aria-label', 'Concord: ' + label.toLowerCase()); $('sidebar-toggle').title = label;
+  // The video grid re-measures once the width animation settles.
+  setTimeout(renderTiles, 320);
+};
 $('close-picker').onclick = () => $('source-picker').close(); $('start-button').onclick = startSharing; $('stop-button').onclick = () => { stopSharing(); notice(''); if ($('share-dialog').open) $('share-dialog').close(); };
 $('invite-button').onclick = reopenAccess; $('close-invite').onclick = closeInvite; $('cancel-invite').onclick = cancelFallback;
 $('copy-link-button').onclick = async () => {
@@ -845,8 +1044,8 @@ $('join-form').onsubmit = event => {
 };
 $('leave-button').onclick = () => { stopSharing(); stopCamera(); disconnect(); target = null; role = null; status('Não conectado'); showView('home'); notice('Você saiu da sala.'); };
 $('grid-button').onclick = () => { focus = null; renderTiles(); };
-$('sound-button').onclick = () => { muted = !muted; applyAudio(); for (const item of tiles.values()) media?.play(item.video); };
-$('volume').oninput = () => { muted = Number($('volume').value) === 0; applyAudio(); };
+$('sound-button').onclick = () => { muted = !muted; applyAudio(); applyVoice(); publishState(); for (const item of tiles.values()) media?.play(item.video); for (const audio of voices.values()) media?.play(audio); };
+$('volume').oninput = () => applyAudio();
 $('fullscreen-button').onclick = () => { const action = document.fullscreenElement ? document.exitFullscreen() : $('stage').requestFullscreen(); action.catch(error => notice(error.message, true)); };
 document.addEventListener('keydown', event => {
   if (event.defaultPrevented || event.repeat || event.isComposing || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey || document.body.dataset.view !== 'room' || document.querySelector('dialog[open]')) return;
@@ -854,14 +1053,15 @@ document.addEventListener('keydown', event => {
   const key = event.key.toLowerCase();
   if (key === 'm') { event.preventDefault(); $('sound-button').click(); }
   else if (key === 'f') { event.preventDefault(); $('fullscreen-button').click(); }
+  else if (key === 'c' && !$('viewer-controls').hidden) { event.preventDefault(); $('chat-button').click(); }
   else if (key === 'escape' && focus) { event.preventDefault(); $('grid-button').click(); }
 });
 // Files dropped outside the chat are ignored instead of making Chromium open them.
 for (const type of ['dragover', 'drop']) document.addEventListener(type, event => { if ([...(event.dataTransfer?.types || [])].includes('Files')) event.preventDefault(); });
-new ResizeObserver(renderTiles).observe($('stage'));
+new ResizeObserver(renderTiles).observe($('stage')); setInterval(watchLevels, 200);
 setInterval(() => { if (liveSince) { const elapsed = Math.floor((Date.now()-liveSince)/1000); $('stream-clock').textContent = String(Math.floor(elapsed/3600)).padStart(2,'0') + ':' + String(Math.floor(elapsed/60)%60).padStart(2,'0') + ':' + String(elapsed%60).padStart(2,'0'); } }, 1000);
 setInterval(() => { if (inviteRetryAt && Date.now() >= inviteRetryAt) { inviteRetryAt = 0; if (!invitePending) inviteStatus(''); } }, 1000);
-window.addEventListener('beforeunload', () => { terminal = true; clearTimeout(reconnectTimer); stopSharing(); stopCamera(); media?.close(); socket?.close(); stopHosting(); });
+window.addEventListener('beforeunload', () => { terminal = true; clearTimeout(reconnectTimer); stopSharing(); stopCamera(); stopVoice(); media?.close(); socket?.close(); stopHosting(); });
 try {
   if (!native) throw new Error('Abra o executável do Concord.');
   config = await native.bootstrap(); $('app-version').textContent = 'Concord ' + config.version; renderProfile(); applyPreferences(config.preferences);
@@ -875,3 +1075,14 @@ try {
   if (queuedInvite || launchInvite) receiveInvite(queuedInvite || launchInvite);
   if (config.preferencesWarning) notice('Não consegui ler suas preferências. Usei as opções padrão.', true);
 } catch (error) { notice(error.message, true); status('Não consegui abrir'); }
+// Clicking the backdrop closes any modal, through the same cancel path as Esc (so dialogs that must stay open can veto it).
+for (const dialog of document.querySelectorAll('dialog:not(#member-profile)')) {
+  let downOutside = false;
+  const outside = event => { const box = dialog.getBoundingClientRect(); return event.target === dialog && (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom); };
+  dialog.addEventListener('pointerdown', event => { downOutside = outside(event); });
+  dialog.addEventListener('click', event => {
+    if (!downOutside || !outside(event)) return;
+    downOutside = false;
+    if (dialog.dispatchEvent(new Event('cancel', { cancelable: true }))) dialog.close();
+  });
+}

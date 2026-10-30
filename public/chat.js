@@ -14,6 +14,16 @@ function previewType(file) {
 const RISKY = /\.(exe|msi|bat|cmd|com|scr|ps1|vbs|js|jse|wsf|hta|lnk|reg|jar|dll)$/i;
 const PHOTO = /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/;
 const SVG = 'http://www.w3.org/2000/svg';
+const EMOJIS = ['😀', '😂', '🤣', '😊', '😍', '😘', '😎', '🤔', '😅', '😭', '😡', '😱', '👀', '🙄', '😴', '🤯', '🥳', '🤝', '👍', '👎', '👏', '🙏', '💪', '👋', '✌️', '🤙', '🔥', '❤️', '💜', '💯', '✨', '🎉', '🎮', '🏆', '🍕', '☕', '🎧', '📺', '✅', '❌'];
+function icon(...paths) {
+  const svg = document.createElementNS(SVG, 'svg'); svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true');
+  for (const d of paths) {
+    const path = document.createElementNS(SVG, 'path');
+    for (const [name, value] of [['d', d], ['fill', 'none'], ['stroke', 'currentColor'], ['stroke-width', '2'], ['stroke-linecap', 'round'], ['stroke-linejoin', 'round']]) path.setAttribute(name, value);
+    svg.append(path);
+  }
+  return svg;
+}
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -62,21 +72,31 @@ export class RoomChat {
     const attach = el('div', 'chat-attach');
     this.attach = el('button', 'chat-attach-btn'); this.attach.type = 'button';
     this.attach.title = this.attach.ariaLabel = 'Anexar arquivo ou imagem';
-    const icon = document.createElementNS(SVG, 'svg'), path = document.createElementNS(SVG, 'path');
-    icon.setAttribute('viewBox', '0 0 24 24'); icon.setAttribute('width', '18'); icon.setAttribute('height', '18'); icon.setAttribute('aria-hidden', 'true');
-    for (const [name, value] of [['d', 'M21.4 11.1 12.2 20.3a5.5 5.5 0 0 1-7.8-7.8l9.2-9.2a3.7 3.7 0 0 1 5.2 5.2l-9.2 9.2a1.8 1.8 0 0 1-2.6-2.6l8.5-8.5'], ['fill', 'none'], ['stroke', 'currentColor'], ['stroke-width', '2'], ['stroke-linecap', 'round'], ['stroke-linejoin', 'round']]) path.setAttribute(name, value);
-    icon.append(path); this.attach.append(icon);
+    this.attach.append(icon('M12 5v14M5 12h14'));
     attach.append(this.attach);
     this.picker = el('input'); this.picker.type = 'file'; this.picker.multiple = true; this.picker.hidden = true;
     this.input = el('input', 'chat-input'); this.input.type = 'text'; this.input.maxLength = 2000;
     this.input.placeholder = 'Mensagem para a sala'; this.input.autocomplete = 'off'; this.input.ariaLabel = 'Mensagem para a sala';
-    this.submit = el('button', 'chat-send', 'Enviar'); this.submit.type = 'submit';
-    this.form.append(attach, this.picker, this.input, this.submit);
-    root.append(head, this.log, this.off, this.form);
+    // Discord-style bar: + attaches, Enter sends, the face opens a small emoji panel.
+    this.emoji = el('button', 'chat-emoji-btn'); this.emoji.type = 'button'; this.emoji.title = this.emoji.ariaLabel = 'Emojis';
+    this.emoji.setAttribute('aria-expanded', 'false'); this.emoji.setAttribute('aria-haspopup', 'true');
+    this.emoji.append(icon('M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z', 'M8.5 14.5a4.5 4.5 0 0 0 7 0', 'M9 9.5h.01M15 9.5h.01'));
+    this.emojis = el('div', 'chat-emoji-panel'); this.emojis.hidden = true; this.emojis.setAttribute('role', 'group'); this.emojis.ariaLabel = 'Emojis';
+    for (const value of EMOJIS) {
+      const button = el('button', 'chat-emoji', value); button.type = 'button'; button.title = value;
+      button.addEventListener('click', () => { this.insert(value); this.toggleEmojis(false); });
+      this.emojis.append(button);
+    }
+    this.form.append(attach, this.picker, this.input, this.emoji);
+    root.append(head, this.log, this.off, this.emojis, this.form);
 
     this.attach.addEventListener('click', () => this.picker.click());
     this.picker.addEventListener('change', () => { const files = [...this.picker.files]; this.picker.value = ''; this.submitAll(files); });
     this.form.addEventListener('submit', event => { event.preventDefault(); this.submitAll([]); });
+    this.input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); this.submitAll([]); } });
+    this.emoji.addEventListener('click', () => this.toggleEmojis(this.emojis.hidden));
+    this.emojis.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); this.toggleEmojis(false); this.emoji.focus(); } });
+    document.addEventListener('pointerdown', event => { if (!this.emojis.hidden && !this.emojis.contains(event.target) && !this.emoji.contains(event.target)) this.toggleEmojis(false); });
     this.input.addEventListener('paste', event => {
       const files = [...(event.clipboardData?.files || [])].filter(file => file.type.startsWith('image/'));
       if (files.length) { event.preventDefault(); this.submitAll(files); }
@@ -97,11 +117,22 @@ export class RoomChat {
   setEnabled(enabled) {
     this.enabled = Boolean(enabled);
     this.off.hidden = this.enabled;
-    for (const control of [this.attach, this.input, this.submit]) control.disabled = !this.enabled;
+    for (const control of [this.attach, this.input, this.emoji]) control.disabled = !this.enabled;
+    if (!this.enabled) this.toggleEmojis(false);
   }
   setVisible(visible) {
     this.visible = Boolean(visible);
     if (this.visible) { this.setUnread(0); this.scroll(true); }
+  }
+  toggleEmojis(open) {
+    this.emojis.hidden = !open; this.emoji.setAttribute('aria-expanded', String(Boolean(open)));
+    if (open) this.emojis.firstElementChild?.focus();
+  }
+  // Puts the emoji where the caret is, so it can go in the middle of a message.
+  insert(text) {
+    const { input } = this, start = input.selectionStart ?? input.value.length, end = input.selectionEnd ?? start;
+    if (input.value.length - (end - start) + text.length > input.maxLength) return;
+    input.setRangeText(text, start, end, 'end'); input.focus();
   }
   setUnread(count) { if (count !== this.unread) { this.unread = count; this.onUnread?.(count); } }
 
@@ -124,7 +155,7 @@ export class RoomChat {
     for (const url of this.urls) URL.revokeObjectURL(url);
     this.incoming.clear(); this.uploads.clear(); this.acks.clear(); this.urls.clear();
     this.last = null; this.pinned = true; this.queue = Promise.resolve(); this.gen++;
-    this.log.replaceChildren(); this.input.value = '';
+    this.log.replaceChildren(); this.input.value = ''; this.toggleEmojis(false);
     this.setUnread(0);
   }
 

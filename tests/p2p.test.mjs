@@ -104,7 +104,7 @@ test('câmera: recurso anunciado, estado separado e relay com id próprio', asyn
     return { ws, next, send: msg => ws.send(JSON.stringify(msg)) };
   }
   const host = await join('host', app.hostToken, ['camera']);
-  const welcome = await host.next(msg => msg.type === 'welcome'); assert.deepEqual(welcome.features, ['camera', 'chat']);
+  const welcome = await host.next(msg => msg.type === 'welcome'); assert.deepEqual(welcome.features, ['camera', 'chat', 'voice']);
   const guest = await join('viewer', session.inviteKey, ['camera']), old = await join('viewer', session.inviteKey);
   const guestId = (await guest.next(msg => msg.type === 'welcome')).self, oldId = (await old.next(msg => msg.type === 'welcome')).self;
   const room = await host.next(msg => msg.type === 'room' && msg.members.length === 3);
@@ -127,4 +127,34 @@ test('câmera: recurso anunciado, estado separado e relay com id próprio', asyn
   assert.equal(id(await guest.next(item => Buffer.isBuffer(item) && id(item) === 'host')), 'host');
   const oldPacket = await old.next(item => Buffer.isBuffer(item)); assert.equal(id(oldPacket), 'host', 'cliente antigo só recebe a tela');
   for (const client of [host, guest, old]) client.ws.close();
+});
+
+test('voz: recurso anunciado, estado independente da tela e relay Opus com id próprio', async t => {
+  const app = await createConcord({ port: 0 }).listen(); t.after(() => app.close());
+  const session = await (await fetch(app.address + '/api/session', { headers: { 'x-concord-host': app.hostToken } })).json();
+  async function join(role, token, features) {
+    const ws = new WebSocket(app.address.replace('http:', 'ws:') + '/socket', { origin: app.address }), inbox = [];
+    ws.on('message', (data, binary) => inbox.push(binary ? data : JSON.parse(data))); await once(ws, 'open');
+    ws.send(JSON.stringify({ type: 'auth', role, token, profile: { name: role }, ...(features ? { features } : {}) }));
+    const next = async (predicate, timeout = 2000) => { const end = Date.now() + timeout; while (Date.now() < end) { const index = inbox.findIndex(predicate); if (index >= 0) return inbox.splice(index, 1)[0]; await new Promise(resolve => setTimeout(resolve, 10)); } throw new Error('timeout'); };
+    return { ws, next, send: msg => ws.send(JSON.stringify(msg)) };
+  }
+  const host = await join('host', app.hostToken, ['camera', 'voice']); await host.next(msg => msg.type === 'welcome');
+  const guest = await join('viewer', session.inviteKey, ['camera', 'voice', 'x']), old = await join('viewer', session.inviteKey, ['camera']);
+  const guestId = (await guest.next(msg => msg.type === 'welcome')).self; await old.next(msg => msg.type === 'welcome');
+  const room = await host.next(msg => msg.type === 'room' && msg.members.length === 3);
+  assert.deepEqual(room.members.find(member => member.id === guestId).features, ['camera', 'voice'], 'recursos desconhecidos são descartados');
+  old.send({ type: 'stream-state', active: false, voice: true });
+  host.send({ type: 'stream-state', active: false, voice: true, muted: true });
+  const state = (await guest.next(msg => msg.type === 'room' && msg.members.find(member => member.id === 'host')?.stream.voice)).members;
+  assert.deepEqual([state.find(member => member.id === 'host').stream.active, state.find(member => member.id === 'host').stream.muted], [false, true], 'voz não liga a transmissão');
+  assert.equal(Boolean(state.find(member => member.id !== 'host' && member.id !== guestId).stream.voice), false, 'cliente sem recurso não anuncia voz');
+  host.send({ type: 'relay-start', to: [guestId], mime: 'video/webm;codecs=vp8', stream: 'voice' });
+  host.send({ type: 'relay-start', to: [guestId], mime: 'audio/webm;codecs=opus', stream: 'voice' });
+  const start = await guest.next(msg => msg.type === 'relay-start'); assert.deepEqual([start.stream, start.mime], ['voice', 'audio/webm;codecs=opus'], 'voz só aceita Opus');
+  host.send({ type: 'relay-stream', stream: 'voice' }); host.ws.send(Buffer.from([7, 8]));
+  const packet = await guest.next(item => Buffer.isBuffer(item)); assert.equal(packet.subarray(1, 1 + packet[0]).toString(), 'host:voice');
+  host.send({ type: 'stream-state', active: false, voice: false }); await guest.next(msg => msg.type === 'room' && !msg.members.find(member => member.id === 'host').stream.voice);
+  host.send({ type: 'relay-stream', stream: 'voice' }); host.ws.send(Buffer.from([9]));
+  await once(host.ws, 'close'); for (const client of [guest, old]) client.ws.close();
 });

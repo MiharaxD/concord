@@ -2,6 +2,9 @@
 
 ## Agora
 
+0.8.3 (sala estilo Discord, dock com Transmitir tela em destaque, chat lateral fechado por padrão, barra lateral recolhível) pronta localmente, sem commit: usuário testando antes de publicar.
+- [ ] Testar voz entre duas máquinas reais (eco, atraso, relay de voz) e com microfone/câmera físicos trocados no modal.
+
 0.8.2 (blindagem contra aberturas externas) publicada em 29/10/2026 editando a Release da 0.8.1.
 - [ ] Confirmar com o usuário como o vídeo foi enviado (clipe/arrastar/Ctrl+V), em qual PC as abas do Teams abriram e se continuaram com o Concord fechado.
 

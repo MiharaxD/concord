@@ -8,7 +8,7 @@ const { defaults, normalizePreferences, createPreferences } = require('../deskto
 test('Preferências aceitam as oito combinações e preservam limites/privacidade', () => {
   for (const resolution of ['720', '1080', '1440', '2160']) for (const fps of ['30', '60']) {
     assert.deepEqual(normalizePreferences({ ...defaults, resolution, fps, bitrateMode: 'manual', bitrateMbps: 60, audioMode: 'system', audioEnabled: false }),
-      { resolution, fps, bitrateMode: 'manual', bitrateMbps: 60, audioMode: 'system', audioEnabled: false, audioVersion: 2 });
+      { resolution, fps, bitrateMode: 'manual', bitrateMbps: 60, audioMode: 'system', audioEnabled: false, audioVersion: 2, micMuted: false, micDevice: '', cameraDevice: '', themeColor: '#aa96ff' });
     assert.equal(normalizePreferences({ ...defaults, audioMode: 'application' }).audioMode, 'application', 'escolha explícita permanece');
   }
   assert.deepEqual(normalizePreferences(null), defaults); assert.equal(defaults.audioMode, 'auto');
@@ -16,6 +16,9 @@ test('Preferências aceitam as oito combinações e preservam limites/privacidad
   assert.deepEqual(normalizePreferences({ resolution: '8K', fps: '120', bitrateMbps: 1.25, bitrateMode: 'relay', audioMode: 'microphone', source: 'window:1:0', microphone: true }), defaults);
   for (const invalid of [0, 61, '', 'x', Infinity]) assert.equal(normalizePreferences({ bitrateMbps: invalid }).bitrateMbps, 12);
   assert.equal(normalizePreferences({ bitrateMbps: 1 }).bitrateMbps, 1);
+  const voice = normalizePreferences({ micMuted: true, micDevice: 'Mic USB', cameraDevice: 'x'.repeat(300), themeColor: '#4FD08F' });
+  assert.deepEqual([voice.micMuted, voice.micDevice, voice.cameraDevice.length, voice.themeColor], [true, 'Mic USB', 200, '#4fd08f']);
+  assert.equal(normalizePreferences({ themeColor: 'red' }).themeColor, '#aa96ff');
 });
 test('Gravações concorrentes são atômicas e última preferência persiste ao reabrir', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'concord-preferences-')), file = path.join(dir, 'preferences.json');

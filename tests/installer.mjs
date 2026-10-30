@@ -84,7 +84,7 @@ try {
   let page = await launch(firstVersion, true);
   const photo = path.join(run, 'profile.png'); await page.screenshot({ path: photo, mask: [page.locator('#invite-link')] });
   await app.evaluate(({ dialog }, file) => { global.testPhotoDialog = dialog.showOpenDialog; dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }); }, photo);
-  await page.locator('#profile-button').click(); await page.locator('#photo-button').click();
+  await page.locator('#profile-button').click(); await page.locator('#photo-menu-button').click(); await page.locator('#photo-button').click();
   await page.waitForFunction(() => document.querySelector('#name-avatar img')?.naturalWidth === 128); await page.locator('#save-name').click();
   await app.evaluate(({ dialog }) => { dialog.showOpenDialog = global.testPhotoDialog; });
   await closeApp();

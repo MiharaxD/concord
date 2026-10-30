@@ -1,6 +1,6 @@
 {
   "name": "concord",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "private": true,
   "author": "Concord",
   "license": "UNLICENSED",
@@ -25,6 +25,7 @@
     "test:p2p": "node tests/p2p.mjs",
     "test:camera": "node tests/camera.mjs",
     "test:chat": "node tests/chat.mjs",
+    "test:voice": "node tests/voice.mjs",
     "test:experience": "node tests/experience.mjs",
     "test:installer": "node tests/installer.mjs",
     "test:updater": "node tests/updater.mjs"

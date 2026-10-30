@@ -16,7 +16,7 @@ const result = { executablePath, checks: [], passed: false }, errors = [];
 const sampleInvite = 'concord:teste-concord:abcdefghijklmnopqrstuv';
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function launch(name, { data = path.join(run, name), invite, fresh = true } = {}) {
-  const app = await _electron.launch({ executablePath, args: [...(process.env.CONCORD_EXE ? [] : [root]), ...(invite ? [invite] : [])],
+  const app = await _electron.launch({ executablePath, args: [...(process.env.CONCORD_EXE ? [] : [root]), '--use-fake-device-for-media-stream', ...(invite ? [invite] : [])],
     env: { ...process.env, CONCORD_DATA_DIR: data }, timeout: 45000 }); apps.push(app);
   const page = await app.firstWindow(); page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
   if (fresh) { await page.locator('#display-name').fill(name); await page.locator('#save-name').click(); }
@@ -104,7 +104,7 @@ try {
   const png = await host.page.evaluate(() => { const canvas = document.createElement('canvas'); canvas.width = canvas.height = 64; canvas.getContext('2d').fillRect(0, 0, 64, 64); return canvas.toDataURL('image/png'); });
   const photo = path.join(run, 'photo.png'); await writeFile(photo, Buffer.from(png.split(',')[1], 'base64'));
   await host.app.evaluate(({ dialog }, photo) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [photo] }); }, photo);
-  await host.page.locator('#profile-button').click(); await host.page.locator('#photo-button').click(); await host.page.locator('#save-name').click();
+  await host.page.locator('#profile-button').click(); await host.page.locator('#photo-menu-button').click(); await host.page.locator('#photo-button').click(); await host.page.locator('#save-name').click();
 
   await guest.page.locator('#join-room').click(); await guest.page.locator('#join-input').fill('errado'); await guest.page.locator('#join-button').click();
   await guest.page.locator('#join-error').filter({ hasText: 'convite' }).waitFor(); assert.equal(await guest.page.evaluate(() => window.testSockets.length), 0);
@@ -113,7 +113,7 @@ try {
   await guest.page.locator('#join-input').fill(wrong); await guest.page.locator('#join-button').click();
   await guest.page.locator('#join-error').filter({ hasText: /[Cc]onvite|[Aa]cesso/ }).waitFor();
   assert.equal(await guest.page.locator('#join-picker').isVisible(), true);
-  await guest.page.keyboard.press('Escape'); assert.equal(await guest.page.locator('#join-picker').isVisible(), false);
+  await guest.page.keyboard.press('Escape'); await guest.page.locator('#join-picker').waitFor({ state: 'hidden' });
   await guest.page.locator('#join-room').click(); await guest.page.locator('#join-input').fill(invite); await guest.page.locator('#join-button').click();
   await host.page.locator('#audience-list').filter({ hasText: 'Amigo' }).waitFor();
   await guest.page.waitForFunction(() => document.querySelector('#audience-list img')?.naturalWidth === 128);

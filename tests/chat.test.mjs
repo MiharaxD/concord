@@ -27,7 +27,7 @@ const isChunk = msg => msg.type === 'chat-chunk';
 
 test('boas-vindas anunciam chat e mensagem de texto chega só aos outros', async t => {
   const { host, guest, welcome } = await room(t);
-  assert.deepEqual(welcome.features, ['camera', 'chat']);
+  assert.deepEqual(welcome.features, ['camera', 'chat', 'voice']);
   const before = Date.now();
   host.send({ type: 'chat', id: id(1), text: 'Olá\u0007 sala\nlinha 2', from: 'forjado', name: 'Falso', ts: 1 });
   const msg = await guest.next(isChat);

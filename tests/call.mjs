@@ -8,7 +8,7 @@ const root = process.cwd(), apps = [], pages = [];
 const run = path.join(root, 'test-results', 'call-' + Date.now()); await mkdir(run, { recursive: true });
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function launch(name, data = path.join(run, name), fresh = true) {
-  const app = await _electron.launch({ executablePath: process.env.CONCORD_EXE || path.join(root, 'node_modules/electron/dist/electron.exe'), args: process.env.CONCORD_EXE ? [] : [root], env: { ...process.env, CONCORD_DATA_DIR: data }, timeout: 45000 }); apps.push(app);
+  const app = await _electron.launch({ executablePath: process.env.CONCORD_EXE || path.join(root, 'node_modules/electron/dist/electron.exe'), args: [...(process.env.CONCORD_EXE ? [] : [root]), '--mute-audio', '--use-fake-device-for-media-stream'], env: { ...process.env, CONCORD_DATA_DIR: data }, timeout: 45000 }); apps.push(app);
   const page = await app.firstWindow(); pages.push(page); page.setDefaultTimeout(20000); page.on('pageerror', error => console.error('PAGE ERROR:', error.name, error.message, error.stack));
   if (fresh) {
     await page.locator('#name-picker[open]').waitFor();
@@ -63,7 +63,7 @@ try {
   await a.app.evaluate(({ dialog }, file) => {
     global.testPhotoDialog = dialog.showOpenDialog; dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] });
   }, photo);
-  await a.page.locator('#profile-button').click(); await a.page.locator('#photo-button').click();
+  await a.page.locator('#profile-button').click(); await a.page.locator('#photo-menu-button').click(); await a.page.locator('#photo-button').click();
   await a.page.waitForFunction(() => document.querySelector('#name-avatar img')?.naturalWidth === 128);
   await a.page.locator('#save-name').click(); await a.app.evaluate(({ dialog }) => { dialog.showOpenDialog = global.testPhotoDialog; });
   if (process.env.CONCORD_TEST_TUNNEL === '1') await host.page.locator('#invite-result').waitFor({ timeout: 180000 });

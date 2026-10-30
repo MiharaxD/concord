@@ -245,23 +245,24 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
           ws.role = 'viewer'; ws.memberId = randomBytes(12).toString('base64url');
         } else { ws.close(4001, 'Convite inválido ou expirado'); return; }
         ws.profile = visualProfile(auth.profile); ws.profile.name ||= 'Amigo';
-        ws.streamState = { active: false }; ws.relayTargets = new Set(); ws.cameraTargets = new Set(); ws.relayStream = 'screen';
+        ws.streamState = { active: false }; ws.relayTargets = new Set(); ws.cameraTargets = new Set(); ws.voiceTargets = new Set(); ws.relayStream = 'screen';
         ws.chatTimes = []; ws.chatFiles = new Map(); ws.chatQueue = Promise.resolve();
         // 0.7.0+: members that can send/receive a second (camera) video.
-        ws.features = Array.isArray(auth.features) && auth.features.includes('camera') ? ['camera'] : [];
+        // 0.8.3+: 'voice' adds an always-on microphone track, separate from the screen.
+        ws.features = Array.isArray(auth.features) ? ['camera', 'voice'].filter(feature => auth.features.includes(feature)) : [];
         members.set(ws.memberId, ws); clearTimeout(timeout);
-        send(ws, { type: 'welcome', role: ws.role, self: ws.memberId, members: roster(), features: ['camera', 'chat'] });
+        send(ws, { type: 'welcome', role: ws.role, self: ws.memberId, members: roster(), features: ['camera', 'chat', 'voice'] });
         broadcast({ type: 'room', members: roster() });
         return;
       }
       if (ws.readyState !== WebSocket.OPEN) return;
       if (binary) {
-        const targets = ws.relayStream === 'camera' ? ws.cameraTargets : ws.relayTargets;
-        if (!ws.streamState.active) { ws.close(4001, 'Inicie sua transmissão antes de enviar mídia'); return; }
+        const targets = ws.relayStream === 'camera' ? ws.cameraTargets : ws.relayStream === 'voice' ? ws.voiceTargets : ws.relayTargets;
+        if (ws.relayStream === 'voice' ? !ws.streamState.voice : !ws.streamState.active) { ws.close(4001, 'Inicie sua transmissão antes de enviar mídia'); return; }
         // A target may have just left; late chunks are dropped instead of closing the publisher.
         if (!targets.size) return;
         // Prefix each chunk with the authenticated publisher, never a client-supplied ID.
-        const id = Buffer.from(ws.memberId + (ws.relayStream === 'camera' ? ':camera' : ''));
+        const id = Buffer.from(ws.memberId + (ws.relayStream === 'screen' ? '' : ':' + ws.relayStream));
         const packet = Buffer.concat([Buffer.from([id.length]), id, buffer]);
         for (const targetId of targets) {
           const peer = members.get(targetId);
@@ -285,8 +286,10 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
       } else if (msg.type === 'stream-state') {
         const active = Boolean(msg.active);
         // Clients before 0.7.0 send only `active`, which always meant the screen.
-        ws.streamState = { active, screen: active && (msg.screen === undefined || Boolean(msg.screen)), camera: active && Boolean(msg.camera), label: String(msg.label || '').slice(0, 120), quality: String(msg.quality || '').slice(0, 60), relay: Boolean(msg.relay) };
+        ws.streamState = { active, screen: active && (msg.screen === undefined || Boolean(msg.screen)), camera: active && Boolean(msg.camera), label: String(msg.label || '').slice(0, 120), quality: String(msg.quality || '').slice(0, 60), relay: Boolean(msg.relay),
+          voice: ws.features.includes('voice') && Boolean(msg.voice), muted: Boolean(msg.muted) };
         if (!ws.streamState.active) { ws.relayTargets.clear(); ws.cameraTargets.clear(); }
+        if (!ws.streamState.voice) ws.voiceTargets.clear();
         broadcast({ type: 'room', members: roster() });
       } else if (msg.type === 'chat') {
         chat(ws, msg);
@@ -297,13 +300,14 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
         if (peer && peer !== ws) send(peer, { ...msg, from: ws.memberId });
       } else if (msg.type === 'relay-stream') {
         // Selects which of this member's encoders the following binary chunks belong to.
-        ws.relayStream = msg.stream === 'camera' ? 'camera' : 'screen';
-      } else if (msg.type === 'relay-start' && ws.streamState.active) {
-        if (!/^video\/webm;codecs=vp8(?:,opus)?$/.test(msg.mime || '')) return;
+        ws.relayStream = ['camera', 'voice'].includes(msg.stream) ? msg.stream : 'screen';
+      } else if (msg.type === 'relay-start' && (msg.stream === 'voice' ? ws.streamState.voice : ws.streamState.active)) {
+        if (!(msg.stream === 'voice' ? /^audio\/webm;codecs=opus$/ : /^video\/webm;codecs=vp8(?:,opus)?$/).test(msg.mime || '')) return;
         const ids = Array.isArray(msg.to) ? msg.to.slice(0, 8) : [];
         const targets = new Set(ids.filter(id => id !== ws.memberId && members.has(id)));
-        if (msg.stream === 'camera') ws.cameraTargets = targets; else ws.relayTargets = targets;
-        for (const id of targets) send(members.get(id), { type: 'relay-start', from: ws.memberId, mime: msg.mime, ...(msg.stream === 'camera' ? { stream: 'camera' } : {}) });
+        const kind = ['camera', 'voice'].includes(msg.stream) ? msg.stream : 'screen';
+        if (kind === 'camera') ws.cameraTargets = targets; else if (kind === 'voice') ws.voiceTargets = targets; else ws.relayTargets = targets;
+        for (const id of targets) send(members.get(id), { type: 'relay-start', from: ws.memberId, mime: msg.mime, ...(kind === 'screen' ? {} : { stream: kind }) });
       }
     });
     ws.on('error', () => {});
@@ -312,7 +316,7 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
       if (ws === host) host = undefined;
       if (members.get(ws.memberId) === ws) {
         members.delete(ws.memberId);
-        for (const peer of members.values()) { peer.relayTargets.delete(ws.memberId); peer.cameraTargets.delete(ws.memberId); }
+        for (const peer of members.values()) { peer.relayTargets.delete(ws.memberId); peer.cameraTargets.delete(ws.memberId); peer.voiceTargets.delete(ws.memberId); }
         broadcast({ type: 'room', members: roster() });
       }
     });

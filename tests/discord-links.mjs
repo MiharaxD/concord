@@ -12,7 +12,7 @@ async function launch(name, args = [], data = path.join(run, name)) {
   await writeFile(path.join(data, 'tunnel/invite-retry.json'), JSON.stringify({ code: 'RATE_LIMIT', failures: 1, retryAt: Date.now() + 300000 }));
   try { await readFile(path.join(data, 'profile.json')); } catch { await writeFile(path.join(data, 'profile.json'), JSON.stringify({ name, photo: '' })); }
   const app = await _electron.launch({ executablePath: process.env.CONCORD_EXE || path.join(root, 'node_modules/electron/dist/electron.exe'),
-    args: process.env.CONCORD_EXE ? args : [root, ...args], env: { ...process.env, CONCORD_DATA_DIR: data }, timeout: 45000 });
+    args: [...(process.env.CONCORD_EXE ? args : [root, ...args]), '--mute-audio', '--use-fake-device-for-media-stream'], env: { ...process.env, CONCORD_DATA_DIR: data }, timeout: 45000 });
   apps.push(app); const page = await app.firstWindow(); page.setDefaultTimeout(20000);
   page.on('pageerror', error => errors.push(error.message)); await page.locator('#create-room:not([disabled])').waitFor();
   return { app, page, data };
@@ -101,11 +101,11 @@ try {
   await guest.page.waitForFunction(() => document.querySelector('#member-profile-banner img')?.naturalWidth === 512);
   assert.equal(await guest.page.locator('#member-profile-banner').evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(36, 161, 139)');
   await guest.page.screenshot({ path: path.join(run, 'perfil-na-sala.png') }); await guest.page.keyboard.press('Escape');
-  await host.page.locator('#profile-button').click(); await host.page.locator('#remove-banner').click();
+  await host.page.locator('#profile-button').click(); await host.page.locator('#banner-menu-button').click(); await host.page.locator('#remove-banner').click();
   await guest.page.getByRole('button', { name: 'Abrir perfil de Yuri Mihara', exact: true }).click();
   await guest.page.waitForFunction(() => document.querySelector('#member-profile-banner img') === null);
   await host.app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }); }, path.join(root, 'public/invite-icon.png'));
-  await host.page.locator('#banner-button').click(); await guest.page.waitForFunction(() => document.querySelector('#member-profile-banner img')?.naturalWidth === 512);
+  await host.page.locator('#banner-menu-button').click(); await host.page.locator('#banner-button').click(); await guest.page.waitForFunction(() => document.querySelector('#member-profile-banner img')?.naturalWidth === 512);
   const manualBanner = (await host.page.evaluate(() => window.concord.bootstrap())).profile.banner;
   await host.app.evaluate(() => { globalThis.qaHasBanner = false; });
   await host.page.locator('#refresh-discord').click(); await host.page.waitForFunction(() => !document.querySelector('#refresh-discord').disabled);

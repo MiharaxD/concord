@@ -14,7 +14,7 @@ const check = text => { result.checks.push(text); console.log('OK', text); };
 async function launch(name) {
   const data = path.join(run, name); await mkdir(data, { recursive: true });
   await writeFile(path.join(data, 'profile.json'), JSON.stringify({ name, photo: '' }));
-  const flags = ['--use-fake-device-for-media-stream'];
+  const flags = ['--use-fake-device-for-media-stream', '--mute-audio'];
   const app = await _electron.launch({ executablePath: process.env.CONCORD_EXE || path.join(root, 'node_modules/electron/dist/electron.exe'), args: process.env.CONCORD_EXE ? flags : [root, ...flags], env: { ...process.env, CONCORD_DATA_DIR: data }, timeout: 45000 });
   apps.push(app); const page = await app.firstWindow(); pages.push(page); page.setDefaultTimeout(20000);
   page.on('pageerror', error => errors.push(name + ': ' + error.message));
