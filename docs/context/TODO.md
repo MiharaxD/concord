@@ -2,7 +2,7 @@
 
 ## Agora
 
-0.8.0 (barra de controles, pop-up de transmissão e chat) pronta localmente, sem commit: aguardando decisão de publicação.
+0.8.0 (barra de controles, pop-up de transmissão e chat) publicada em 29/10/2026 como Release nova.
 - [ ] Testar envio de arquivo grande (centenas de MB/GB) entre duas máquinas e o microfone ligado no meio da transmissão com microfone real.
 
 0.7.1 (áudio automático) publicada em 29/10/2026 editando a mesma Release.
