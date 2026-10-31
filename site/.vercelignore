@@ -1,0 +1,8 @@
+.env*
+.gitignore
+.vercel
+/invite
+/invite-icon.png
+/invite-preview.png
+/icon.svg
+/pages-root.html

@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Política de Privacidade · Concord</title>
+<meta name="description" content="Quais dados o site e o aplicativo Concord tratam, com quem eles passam e como apagar.">
+<link rel="icon" href="img/icon.svg">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.github.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="theme-color" content="#07060b">
+<link rel="canonical" href="https://concordapp.vercel.app/privacidade">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Concord">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:title" content="Política de Privacidade do Concord">
+<meta property="og:description" content="Quais dados o site e o aplicativo Concord tratam, com quem eles passam e como apagar.">
+<meta property="og:url" content="https://concordapp.vercel.app/privacidade">
+<meta property="og:image" content="https://concordapp.vercel.app/img/painel.png">
+<meta property="og:image:width" content="1600">
+<meta property="og:image:height" content="900">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="css/fonts.css">
+<link rel="stylesheet" href="css/legal.css">
+<script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <a class="mark" href="./"><img src="img/icon.svg" alt="">Concord</a>
+  <nav aria-label="Páginas"><a href="privacidade" aria-current="page">Privacidade</a><a href="termos">Termos</a><a class="nav-dl" href="./#baixar">Baixar</a></nav>
+</header>
+
+<main class="wrap">
+  <div class="doc-head">
+    <p class="kicker">Documento · Concord para Windows</p>
+    <h1>Política de privacidade</h1>
+    <p class="updated">Última atualização: 31 de outubro de 2026</p>
+  </div>
+
+  <aside class="slip" aria-labelledby="resumo">
+    <h2 id="resumo">Resumo rápido</h2>
+    <ul>
+      <li>O app não tem conta, servidor próprio, anúncios nem estatísticas de uso. O desenvolvedor não recebe seus dados.</li>
+      <li>Seu perfil e suas preferências ficam só no seu PC.</li>
+      <li>Tela, câmera, áudio e chat vão direto para quem está na sala e não ficam gravados em lugar nenhum.</li>
+      <li>Para as pessoas se acharem, o app usa serviços de terceiros (GitHub, brokers MQTT, Cloudflare, Google e, se você quiser, Discord). Eles veem seu endereço IP e mais nada.</li>
+      <li>O site conta visitas de forma anônima, sem cookies, para saber quantas pessoas passam por ele.</li>
+    </ul>
+  </aside>
+
+  <div class="doc">
+    <nav class="toc" aria-label="Nesta página">
+      <p>Nesta página</p>
+      <ol>
+        <li><a href="#quem">Quem cuida disto</a></li>
+        <li><a href="#site">O site</a></li>
+        <li><a href="#pc">O que fica no seu PC</a></li>
+        <li><a href="#sala">O que vai para a sala</a></li>
+        <li><a href="#conexao">Como as pessoas se conectam</a></li>
+        <li><a href="#discord">Discord (opcional)</a></li>
+        <li><a href="#atualizacoes">Atualizações</a></li>
+        <li><a href="#terceiros">Serviços de terceiros</a></li>
+        <li><a href="#direitos">Seus direitos (LGPD)</a></li>
+        <li><a href="#idade">Idade mínima</a></li>
+        <li><a href="#mudancas">Mudanças e contato</a></li>
+      </ol>
+    </nav>
+
+    <article class="sheet">
+      <section id="quem">
+        <h2>Quem cuida disto</h2>
+        <p>O Concord é um aplicativo gratuito para Windows, feito por um desenvolvedor independente. Esta política vale para o aplicativo, para o site <code>concordapp.vercel.app</code> e para a página de convites em <code>miharaxd.github.io/concord</code>.</p>
+        <dl class="who">
+          <dt>Desenvolvedor</dt><dd>Yuri Mihara</dd>
+          <dt>E-mail</dt><dd><a href="mailto:miharahy@gmail.com">miharahy@gmail.com</a></dd>
+          <dt>Bugs</dt><dd><a href="https://github.com/MiharaxD/concord/issues" rel="noopener noreferrer">Issues do projeto no GitHub</a></dd>
+        </dl>
+        <p>O Concord foi feito para não coletar nada: não existe cadastro, banco de dados nem servidor central. Quase tudo acontece no seu computador e no computador de quem participa da sala com você.</p>
+      </section>
+
+      <section id="site">
+        <h2>O site</h2>
+        <ul>
+          <li><strong>Hospedagem:</strong> o site fica no Vercel. Como qualquer site, o Vercel recebe seu endereço IP, navegador e o endereço da página acessada, e trata esses registros pela <a href="https://vercel.com/legal/privacy-policy" rel="noopener noreferrer">política de privacidade do Vercel</a>.</li>
+          <li><strong>Contagem de visitas:</strong> o site usa o Vercel Web Analytics para saber quantas pessoas visitam cada página. Ele registra a página, de onde a visita veio, o país, o navegador, o sistema e o tipo de aparelho. Não usa cookies e não identifica ninguém: cada visita vira um código anônimo que é descartado em 24 horas, e os números aparecem só somados.</li>
+          <li><strong>Versão mais recente:</strong> a página inicial consulta a API pública do GitHub para mostrar a última versão e apontar o botão de download. Essa consulta sai do seu navegador direto para o GitHub.</li>
+          <li><strong>Sem cookies, sem anúncios:</strong> o site não usa cookies, pixels de anúncios nem rastreamento entre sites, e as fontes ficam no próprio site. Por isso não há aviso de cookies.</li>
+          <li><strong>Página de convite:</strong> fica no GitHub Pages, que registra os acessos como qualquer site, pela <a href="https://docs.github.com/pt/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener noreferrer">política de privacidade do GitHub</a>. Ela não conta visitas. O código do convite fica no próprio link. A página só usa esse código para abrir o Concord no seu PC e não o envia a nenhum serviço. Como o código faz parte do endereço, ele aparece nos registros de acesso do GitHub Pages, como qualquer endereço visitado. O código só abre a sala enquanto ela existe, e quem criou a sala pode gerar outro convite a qualquer momento.</li>
+          <li><strong>Download:</strong> o instalador é baixado das Releases do GitHub.</li>
+        </ul>
+      </section>
+
+      <section id="pc">
+        <h2>O que fica no seu PC</h2>
+        <p>O aplicativo guarda as configurações na pasta <code>%APPDATA%\Concord</code>, no seu computador:</p>
+        <ul>
+          <li><strong>Perfil:</strong> nome, foto, banner e cor que você escolher. Não precisam ser seu nome nem sua foto reais.</li>
+          <li><strong>Preferências:</strong> qualidade de vídeo, modo de áudio, microfone mutado ou não e, se você ligar o Discord, os identificadores dos amigos favoritos e dos últimos convites enviados.</li>
+          <li><strong>Ligação com o Discord:</strong> as chaves de acesso ficam criptografadas com a proteção de dados do próprio Windows e só funcionam na sua conta de usuário.</li>
+          <li><strong>Plano B do convite:</strong> o horário em que o Cloudflare pediu para esperar, para o app não insistir antes da hora.</li>
+        </ul>
+        <p>Para apagar tudo, desconecte o Discord no app, desinstale o Concord e apague a pasta <code>%APPDATA%\Concord</code>.</p>
+        <p>O Concord não tem telemetria, relatório de erros automático nem estatística de uso.</p>
+      </section>
+
+      <section id="sala">
+        <h2>O que vai para a sala</h2>
+        <p>Quando você entra numa sala, as outras pessoas dela recebem:</p>
+        <ul>
+          <li>seu nome, foto, banner e cor de perfil;</li>
+          <li>sua voz: o microfone abre ao entrar na sala, como numa chamada, e o botão de mudo corta o envio;</li>
+          <li>sua tela, janela, áudio de aplicativo ou câmera, <strong>só depois</strong> que você escolhe o que transmitir;</li>
+          <li>as mensagens, imagens e arquivos que você manda no chat.</li>
+        </ul>
+        <p>Nada disso é gravado pelo Concord. O chat existe só enquanto a sala está aberta e some quando ela fecha. O app não tem como impedir que alguém da sala faça print ou grave a própria tela, então só compartilhe com quem você confia.</p>
+      </section>
+
+      <section id="conexao">
+        <h2>Como as pessoas se conectam</h2>
+        <p>A sala roda no PC de quem a criou. Para os computadores se encontrarem, o Concord usa alguns serviços públicos:</p>
+        <h3>Brokers MQTT (EMQX e HiveMQ)</h3>
+        <p>Antes da conexão direta, os apps trocam mensagens de combinação por servidores públicos de mensagens. Essas mensagens são criptografadas com a chave do convite (AES-GCM): os servidores veem seu IP e bytes embaralhados, não o conteúdo.</p>
+        <h3>Servidores STUN (Cloudflare e Google)</h3>
+        <p>Ajudam cada PC a descobrir o próprio endereço público para a conexão direta. Eles recebem seu IP e mais nada.</p>
+        <h3>Conexão direta entre os participantes</h3>
+        <p>Vídeo, áudio e dados passam direto entre os computadores, com a criptografia padrão do WebRTC. Numa conexão direta, os participantes da sala conseguem, tecnicamente, ver o endereço IP uns dos outros. Se a conexão direta não funcionar, a mídia passa pelo PC de quem criou a sala.</p>
+        <h3>Plano B: túnel da Cloudflare</h3>
+        <p>Se a conexão direta falhar, o PC do dono da sala pode abrir um túnel temporário da Cloudflare (Quick Tunnel). Nesse caso o tráfego da sala passa pela Cloudflare com HTTPS, mas não tem criptografia de ponta a ponta: a Cloudflare tem acesso técnico ao conteúdo que passa por ela. O túnel só é criado quando alguém com o convite precisa dele e fecha junto com a sala.</p>
+      </section>
+
+      <section id="discord">
+        <h2>Discord (opcional)</h2>
+        <p>Você pode ligar sua conta do Discord para usar seu nome e sua foto e mandar convites por mensagem direta. Se fizer isso:</p>
+        <ul>
+          <li>o Concord pede ao Discord seu nome de usuário, sua foto e acesso à sua lista de amigos (permissões <code>identify</code>, <code>openid</code> e <code>sdk.social_layer</code>);</li>
+          <li>a lista de amigos fica só na memória enquanto o app está aberto;</li>
+          <li>um convite só é enviado para quem você escolher e quando você mandar;</li>
+          <li>o Concord não usa bot, não lê suas mensagens e não guarda sua senha.</li>
+        </ul>
+        <p>Para desligar, use Desconectar no app e, se quiser, remova o Concord em <em>Configurações do Discord → Aplicativos autorizados</em>. O uso do Discord segue a <a href="https://discord.com/privacy" rel="noopener noreferrer">política de privacidade do Discord</a>.</p>
+      </section>
+
+      <section id="atualizacoes">
+        <h2>Atualizações</h2>
+        <p>A versão instalada consulta as Releases do GitHub para ver se existe versão nova e baixa a atualização sozinha. A instalação só acontece quando você confirma. O GitHub recebe seu IP e a versão do arquivo pedido, como em qualquer download.</p>
+      </section>
+
+      <section id="terceiros">
+        <h2>Serviços de terceiros</h2>
+        <p>Cada um desses serviços tem a própria política e pode guardar registros de acesso (como o IP) no exterior:</p>
+        <ul>
+          <li><a href="https://vercel.com/legal/privacy-policy" rel="noopener noreferrer">Vercel</a>: hospedagem e contagem de visitas do site;</li>
+          <li><a href="https://docs.github.com/pt/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener noreferrer">GitHub</a>: página de convite, download, versão e atualizações;</li>
+          <li><a href="https://www.emqx.com/en/policy/privacy-policy" rel="noopener noreferrer">EMQX</a> e <a href="https://www.hivemq.com/legal/privacy-policy/" rel="noopener noreferrer">HiveMQ</a>: brokers públicos da combinação de conexão;</li>
+          <li><a href="https://www.cloudflare.com/pt-br/privacypolicy/" rel="noopener noreferrer">Cloudflare</a>: STUN e túnel do plano B;</li>
+          <li><a href="https://policies.google.com/privacy?hl=pt-BR" rel="noopener noreferrer">Google</a>: STUN;</li>
+          <li><a href="https://discord.com/privacy" rel="noopener noreferrer">Discord</a>: só se você ligar a conta.</li>
+        </ul>
+        <p>Como esses serviços ficam fora do Brasil, usar o Concord envolve transferência internacional desses registros, necessária para o app funcionar como você pediu.</p>
+      </section>
+
+      <section id="direitos">
+        <h2>Seus direitos (LGPD)</h2>
+        <p>A Lei Geral de Proteção de Dados (Lei 13.709/2018) garante, entre outros, os direitos de saber quais dados são tratados, corrigir, apagar e revogar consentimentos. No Concord:</p>
+        <ul>
+          <li>você corrige o perfil a qualquer momento no próprio app;</li>
+          <li>você apaga tudo como explicado em <a href="#pc">O que fica no seu PC</a>;</li>
+          <li>você revoga o acesso do Discord desconectando a conta;</li>
+          <li>para registros guardados por Vercel, GitHub, Cloudflare, Google, EMQX, HiveMQ ou Discord, o pedido vai direto para eles, pelos canais das políticas acima.</li>
+        </ul>
+        <p>No app, o que é tratado serve só para fazer o app funcionar como você pediu (art. 7º, V, da LGPD). A contagem anônima de visitas do site se apoia no legítimo interesse de entender o uso do site (art. 7º, IX). Se tiver alguma dúvida, fale pelo contato do item 1. Você também pode procurar a Autoridade Nacional de Proteção de Dados (ANPD).</p>
+      </section>
+
+      <section id="idade">
+        <h2>Idade mínima</h2>
+        <p>O Concord é para pessoas com 13 anos ou mais. Entre 13 e 17 anos, use com o conhecimento de um responsável. A ligação com o Discord segue também a idade mínima exigida pelo Discord no seu país.</p>
+      </section>
+
+      <section id="mudancas">
+        <h2>Mudanças e contato</h2>
+        <p>Se o jeito como o Concord trata dados mudar, esta página muda junto, com a data no topo atualizada. Mudanças importantes também aparecem nas notas da versão.</p>
+        <p>Dúvidas ou pedidos sobre privacidade: <a href="mailto:miharahy@gmail.com">miharahy@gmail.com</a>. Bugs e sugestões: <a href="https://github.com/MiharaxD/concord/issues" rel="noopener noreferrer">issues no GitHub</a>. As issues são públicas; não publique ali dados pessoais nem códigos de convite.</p>
+      </section>
+    </article>
+  </div>
+</main>
+
+<footer><div class="wrap"><span>Desenvolvido por Yuri Mihara</span><nav aria-label="Rodapé"><a href="privacidade">Privacidade</a><a href="termos">Termos</a><a href="https://github.com/MiharaxD/concord" rel="noopener noreferrer">Código no GitHub</a></nav></div></footer>
+</body>
+</html>

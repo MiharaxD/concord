@@ -2,7 +2,7 @@ name: Publicar pagina de convites
 on:
   push:
     branches: [main]
-    paths: ['site/**', '.github/workflows/pages.yml']
+    paths: ['site/invite/**', 'site/icon.svg', 'site/invite-icon.png', 'site/invite-preview.png', 'site/pages-root.html', '.github/workflows/pages.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -22,8 +22,13 @@ jobs:
         with:
           persist-credentials: false
       - uses: actions/configure-pages@v6
+      # Only the invite lives on Pages; the landing is on Vercel and the root redirects there.
+      - run: |
+          mkdir _pages
+          cp -r site/invite site/icon.svg site/invite-icon.png site/invite-preview.png _pages/
+          cp site/pages-root.html _pages/index.html
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: site
+          path: _pages
       - id: deployment
         uses: actions/deploy-pages@v5

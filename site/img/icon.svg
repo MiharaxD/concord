@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1254" height="1254" viewBox="0 0 1254 1254">
+  <title>Câmera com rosto: ícone vetorial</title>
+  <desc>Paródia visual no estilo Discord. Fundo #9B86FF, câmera #171322. Recorte inferior formando um sorriso implícito.</desc>
+  <rect x="12" y="10" width="1230" height="1233" rx="170" fill="#9B86FF" />
+  <path d="M 206 798 C 204 713 202 570 211 506 C 219 453 256 420 303 420 L 394 420 L 394 401 C 394 367 421 339 457 339 L 668 339 C 699 339 722 366 722 397 L 723 420 L 816 420 C 861 420 891 451 891 506 L 894 550 L 1024 465 C 1040 454 1057 461 1068 476 C 1073 483 1077 492 1077 502 L 1077 849 C 1077 874 1054 895 1033 884 L 894 785 C 891 847 852 888 789 888 L 755 889 L 708 809 C 617 851 481 853 391 809 L 343 889 L 305 889 C 247 889 206 855 206 798 Z" fill="#171322" />
+  <circle cx="425.5" cy="653.5" r="82.5" fill="#9B86FF" />
+  <circle cx="688.5" cy="653.5" r="82.5" fill="#9B86FF" />
+</svg>
