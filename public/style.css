@@ -759,3 +759,4 @@ html,body{height:100%}body{display:flex;flex-direction:column;overflow:hidden}
 .motion-wait{opacity:0}
 .motion-naked{background:transparent!important;box-shadow:none!important}
 .motion-nav .nav-item.selected{background:transparent!important;box-shadow:none!important}
+.motion-self .person-tile.own,.motion-face .person-tile.own .avatar,.motion-name .person-tile.own .person-name,.motion-others #people-grid>:not(.own),.motion-others #streams-grid>*{opacity:0}

@@ -570,7 +570,7 @@ function arrange(grid, count, max) {
 }
 function youTag() { const tag = document.createElement('span'); tag.className = 'you-tag'; tag.textContent = 'você'; return tag; }
 function personCard(member) {
-  const own = member.id === self, card = document.createElement('button'); card.type = 'button'; card.className = 'person-tile'; card.dataset.member = member.id;
+  const own = member.id === self, card = document.createElement('button'); card.type = 'button'; card.className = own ? 'person-tile own' : 'person-tile'; card.dataset.member = member.id;
   card.title = own ? 'Ver seu perfil' : 'Abrir perfil de ' + member.name; card.onclick = () => openMemberProfile(member.id);
   const name = document.createElement('span'); name.className = 'person-name'; name.textContent = member.name; if (own) name.append(youTag());
   if (member.id === 'host') name.prepend(svgIcon('icon-crown', 'crown'));

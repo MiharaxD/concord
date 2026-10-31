@@ -3,7 +3,7 @@
 ## Agora
 
 Melhorias de UX de 30/10 (Painel, dock, tile, avisos, conexão, Discord, Configurações) e mocks aprovados (Painel novo, Convidar com favoritos, Compartilhar com fontes no pop-up, página de convite do site): 0.8.9 publicada em 30/10/2026 editando a Release da 0.8.8 (agora 0.8.11: engrenagem do perfil abre as Configurações, janela sem moldura, rolagem própria, carregando do Discord, porcentagem do volume); site atualizado.
-- [ ] 0.9.2 (transições Painel ↔ sala): ver à mão no instalado em velocidade real, com outra pessoa na sala, transmitindo (miniatura com vídeo), com o chat aberto e com a barra lateral expandida; conferir se fica fluido em PC mais fraco.
+- [ ] 0.9.3 (transições Painel ↔ sala, correções da foto ao criar e ao sair após o vídeo do usuário): ver à mão no instalado em velocidade real, com outra pessoa na sala, transmitindo (miniatura com vídeo), com o chat aberto e com a barra lateral expandida; conferir se fica fluido em PC mais fraco.
 - [ ] `tests/member-profile.mjs` quebra desde a 0.9.1 (barra lateral recolhida esconde `.audience-name`, linha 140); ajustar o teste.
 - [ ] 0.9.1 (Painel com logo viva, barra lateral recolhida): conferir à mão a intro completa/curta no instalado, uso de CPU/GPU com o Painel aberto parado e a abertura por convite (deve pular a intro).
 - [ ] Conferir à mão na 0.8.11: arrastar/maximizar pela barra de título, snap layouts e janela em monitor com zoom (2K/4K).

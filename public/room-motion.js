@@ -24,7 +24,10 @@ export function createRoomMotion({ self, onEnd }) {
   let anims = [], undo = [], raf = 0, sky = false;
   const api = { get sky() { return sky; }, stop, create, minimize, resume, leave, cardLeave };
 
-  function A(el, kf, t, d, e = 'std', o = {}) { if (!el) return; const a = el.animate(kf, { delay: Math.max(0, t), duration: d, easing: E[e] || e, fill: 'both', ...o }); anims.push(a); return a; }
+  // persist(): a finished animation must keep its end state even when a later one on the same property also fills.
+  function A(el, kf, t, d, e = 'std', o = {}) { if (!el) return; const a = el.animate(kf, { delay: Math.max(0, t), duration: d, easing: E[e] || e, fill: 'both', ...o }); a.persist?.(); anims.push(a); return a; }
+  // Something to do at a point of the timeline, on whatever element exists by then.
+  function later(t, fn) { const a = layer.animate([{ opacity: 1 }, { opacity: 1 }], { delay: Math.max(0, t), duration: 1 }); anims.push(a); a.onfinish = () => { if (anims.includes(a)) fn(); }; }
   const hide = (el, until) => A(el, [{ opacity: 0 }, { opacity: 0 }], 0, Math.max(1, until), 'linear', { fill: 'backwards' });
   const fade = (el, t, d, from, to, e = 'std') => A(el, [{ opacity: from }, { opacity: to }], t, d, e);
   const rise = (els, t, step = 40, d = 460) => els.forEach((el, i) => A(el, [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], t + i * step, d, 'out'));
@@ -79,11 +82,14 @@ export function createRoomMotion({ self, onEnd }) {
   // Avatar flight between a big circle (tile) and a small one (ready bar); X and Y ease apart, so the path arcs.
   function fly(big, small, avatar, t, d, inward) {
     const wrap = ghost(big, { zIndex: 2 }), inner = freeze(avatar), dx = mid(small).x - mid(big).x, dy = mid(small).y - mid(big).y, k = small.w / big.w;
-    Object.assign(inner.style, { width: '100%', height: '100%', fontSize: css(avatar).fontSize, boxShadow: 'none', animation: 'none' }); wrap.append(inner);
+    // The bounce lives on its own layer, so it never competes with the flight for `transform`.
+    const face = document.createElement('div'); Object.assign(face.style, { width: '100%', height: '100%' });
+    Object.assign(inner.style, { width: '100%', height: '100%', fontSize: css(avatar).fontSize, boxShadow: 'none', animation: 'none' });
+    wrap.className = 'motion-fly'; face.append(inner); wrap.append(face);
     const far = [{ transform: `translateX(${dx}px)` }, { transform: `translateY(${dy}px) scale(${k})` }], near = [{ transform: 'none' }, { transform: 'none' }];
     const [x, y] = inward ? [[far[0], near[0]], [far[1], near[1]]] : [[near[0], far[0]], [near[1], far[1]]];
     A(wrap, x, t, d, inward ? 'cubic-bezier(.55,0,.15,1)' : 'cubic-bezier(.15,.6,.25,1)');
-    A(inner, y, t, d, inward ? 'cubic-bezier(.15,.6,.25,1)' : 'cubic-bezier(.55,0,.15,1)');
+    A(face, y, t, d, inward ? 'cubic-bezier(.15,.6,.25,1)' : 'cubic-bezier(.55,0,.15,1)');
     return { wrap, inner };
   }
   function ripple(r, t, accent) {
@@ -160,7 +166,7 @@ export function createRoomMotion({ self, onEnd }) {
     const look = { borderRadius: s.borderRadius, backgroundColor: s.backgroundColor, color: s.color, fontSize: s.fontSize, fontWeight: s.fontWeight, fontFamily: s.fontFamily, gap: s.gap };
     const items = shared(room, old).map(item => Object.assign(item, { from: shown(item.ready) ? box(item.ready) : null }));
     const navFrom = nav($('home-tab'));
-    sky = true; run(); front(room); flag(room, 'motion-wait'); flag($('room-people'), 'motion-wait');
+    sky = true; run(); front(room); for (const name of ['motion-wait', 'motion-others', 'motion-self', 'motion-name', 'motion-face']) flag(room, name); flag($('room-people'), 'motion-wait');
     if (!src.btn) return stop();
     pill(navFrom, $('host-tab'), 260);
     // The button presses in and takes over from the real one, which stays hidden underneath.
@@ -195,37 +201,46 @@ export function createRoomMotion({ self, onEnd }) {
       room.classList.remove('motion-wait'); $('room-people').classList.remove('motion-wait');
       A(stage, [{ opacity: 0, transform: 'scale(.985)' }, { opacity: 1, transform: 'none' }], T(320), 620, 'out');
       headerIn(T(520));
-      const others = [...room.querySelectorAll('#people-grid > *, #streams-grid > *')].filter(el => el !== tile && shown(el));
-      others.forEach((el, i) => {
-        A(el, [{ opacity: 0, transform: 'translateX(48px) scale(.96)' }, { opacity: 1, transform: 'none' }], T(760 + i * 60), 560, 'out');
-        kids(el).forEach((child, j) => A(child, [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], T(880 + i * 60 + j * 45), 360, 'out'));
+      // The room re-renders cards while it connects (voice state, invite), so tiles stay hidden by class and each
+      // reveal looks up the card that exists at that moment instead of animating one that may be gone.
+      const own = () => mine() || room.querySelector('#people-grid .person-tile.own'), others = () => [...room.querySelectorAll('#people-grid > :not(.own), #streams-grid > *')].filter(shown);
+      later(T(760), () => {
+        room.classList.remove('motion-others');
+        others().forEach((el, i) => {
+          A(el, [{ opacity: 0, transform: 'translateX(48px) scale(.96)' }, { opacity: 1, transform: 'none' }], i * 60, 560, 'out', { fill: 'backwards' });
+          kids(el).forEach((child, j) => A(child, [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], 120 + i * 60 + j * 45, 360, 'out', { fill: 'backwards' }));
+        });
       });
       if (tile) {
-        const to = box(tile), tl = css(tile), face = tile.querySelector('.avatar'), name = tile.querySelector('.person-name'), end = T(850);
+        const to = box(tile), tl = css(tile), face = tile.querySelector('.avatar'), end = T(850), big = face && box(face);
         A(g, [{ ...at(src.btn), borderRadius: look.borderRadius, backgroundColor: accent, boxShadow: `0 0 0 0 ${alpha(accent, 0)}, inset 0 0 0 2px ${accent}` },
           { offset: .55, boxShadow: `0 40px 120px -30px ${alpha(accent, .55)}, inset 0 0 0 2px ${accent}`, backgroundColor: alpha(accent, .35) },
           { ...at(to), borderRadius: tl.borderRadius, backgroundColor: '#1f2128', boxShadow: `0 0 0 0 ${alpha(accent, 0)}, inset 0 0 0 2px ${alpha(accent, .8)}` }], T(150), 700, 'morph');
-        fade(g, end - 40, 200, 1, 0, 'linear'); fade(tile, end - 60, 200, 0, 1, 'linear');
-        if (name) A(name, [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], T(930), 360, 'out');
+        fade(g, end - 40, 200, 1, 0, 'linear');
+        later(end - 60, () => { room.classList.remove('motion-self'); fade(own(), 0, 200, 0, 1, 'linear'); });
+        later(T(930), () => { room.classList.remove('motion-name'); A(own()?.querySelector('.person-name'), [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], 0, 360, 'out', { fill: 'backwards' }); });
         glow(box(stage) || to, mid(to), accent, T(620));
-        if (face && box(face)) {
-          const big = box(face);
-          if (src.av) { fly(big, src.av, face, T(260), 780, true); hide(face, T(1040) + 1); }
-          else A(face, [{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'none' }], T(900), 460, 'pop');
-          A(face, [{ transform: 'none' }, { transform: 'scale(1.08)', offset: .3, easing: E.out }, { transform: 'scale(.98)', offset: .65, easing: E.soft }, { transform: 'none' }], T(1030), 460, 'linear', { composite: 'add' });
+        if (big) {
+          if (src.av) fly(big, src.av, face, T(260), 780, true);
+          later(src.av ? T(1040) : T(900), () => {
+            room.classList.remove('motion-face'); const now = own()?.querySelector('.avatar');
+            if (!src.av) return A(now, [{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'none' }], 0, 460, 'pop', { fill: 'backwards' });
+            layer.querySelectorAll('.motion-fly').forEach(el => el.remove());
+            A(now, [{ transform: 'none' }, { transform: 'scale(1.08)', offset: .3, easing: E.out }, { transform: 'scale(.98)', offset: .65, easing: E.soft }, { transform: 'none' }], 0, 460, 'linear', { fill: 'none' });
+          });
           ripple(big, T(1040), accent);
-        }
-      } else fade(g, T(150), 300, 1, 0);
+        } else later(T(900), () => room.classList.remove('motion-face'));
+      } else { fade(g, T(150), 300, 1, 0); for (const name of ['motion-self', 'motion-name', 'motion-face']) room.classList.remove(name); }
       if (bar) {
         const ready = new Set(items.map(item => item.holder)), parts = kids(bar).filter(el => !ready.has(el)), center = mid(box(bar)).x;
         if (src.bar) {
           shell(room, bar, src.bar, box(bar), barLook, snap(bar), T(120), 620); flag(bar, 'motion-naked');
-          items.forEach(({ holder, icon, from: r }, i) => {
+          items.forEach(({ holder, button, icon, from: r }, i) => {
             if (!holder) return;
-            A(holder, [{ backgroundColor: 'rgba(0, 0, 0, 0)' }, { backgroundColor: css(holder).backgroundColor }], T(640 + i * 30), 420, 'out');
+            A(holder, [{ backgroundColor: 'rgba(0, 0, 0, 0)' }, { backgroundColor: css(holder).backgroundColor }], T(640 + i * 30), 420, 'out', { fill: 'backwards' });
             for (const caret of holder.querySelectorAll('.device-caret')) A(caret, [{ opacity: 0, transform: 'translateX(6px)' }, { opacity: 1, transform: 'none' }], T(700 + i * 30), 320, 'out');
             const to = box(icon); if (!r || !to) return fade(holder, T(640), 300, 0, 1);
-            A(icon, [{ transform: `translate(${mid(r).x - mid(to).x}px,${mid(r).y - mid(to).y}px) scale(${r.w / to.w})` }, { transform: 'none' }], T(140 + i * 30), 640, 'morph');
+            A(button, [{ transform: `translate(${mid(r).x - mid(to).x}px,${mid(r).y - mid(to).y}px) scale(${r.w / to.w})` }, { transform: 'none' }], T(140 + i * 30), 640, 'morph');
           });
         } else A(bar, [{ opacity: 0, transform: 'translateY(20px)' }, { opacity: 1, transform: 'none' }], T(500), 520, 'out');
         parts.map(el => ({ el, d: Math.abs(mid(box(el)).x - center) })).sort((a, b) => a.d - b.d)
@@ -306,7 +321,7 @@ export function createRoomMotion({ self, onEnd }) {
     } else if (button) rise([button], 420);
     if (from.av && to.av && face) {
       const { inner } = fly(from.av, to.av, face, 140, 620, false);
-      A(inner, [{ transform: 'none' }, { transform: 'scale(1.07)', offset: .5 }, { transform: 'none' }], 0, 220, 'soft', { composite: 'add' });
+      A(inner, [{ transform: 'none' }, { transform: 'scale(1.07)', offset: .5 }, { transform: 'none' }], 0, 220, 'soft');
       hide(avatar, 760);
     }
     if (from.bar && to.bar) {
@@ -314,11 +329,11 @@ export function createRoomMotion({ self, onEnd }) {
       const moving = new Set(items.map(item => item.holder)), center = mid(from.bar).x;
       kids(bar).filter(el => !moving.has(el)).map(el => ({ el, d: Math.abs(mid(box(el)).x - center) })).sort((a, b) => b.d - a.d)
         .forEach(({ el }, i) => A(el, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(8px) scale(.6)' }], i * 22, 200, 'in'));
-      icons.forEach(({ holder, icon, ready, from: r }, i) => {
+      icons.forEach(({ holder, button, icon, ready, from: r }, i) => {
         A(holder, [{ backgroundColor: css(holder).backgroundColor }, { backgroundColor: 'rgba(0, 0, 0, 0)' }], 60, 200, 'in');
         for (const caret of holder.querySelectorAll('.device-caret')) fade(caret, 40, 140, 1, 0, 'in');
         const target = shown(ready) ? box(ready) : null; if (!r || !target) return fade(holder, 0, 200, 1, 0, 'in');
-        A(icon, [{ transform: 'none' }, { transform: `translate(${mid(target).x - mid(r).x}px,${mid(target).y - mid(r).y}px) scale(${target.w / r.w})` }], 130 + i * 20, 580, 'morph');
+        A(button, [{ transform: 'none' }, { transform: `translate(${mid(target).x - mid(r).x}px,${mid(target).y - mid(r).y}px) scale(${target.w / r.w})` }], 130 + i * 20, 580, 'morph');
         hide(ready, 760);
       });
       fade(bar, 780, 1, 1, 0, 'linear');
