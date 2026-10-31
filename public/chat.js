@@ -51,8 +51,8 @@ function fromBase64(text) {
 }
 
 export class RoomChat {
-  constructor({ root, send, notice, onUnread }) {
-    Object.assign(this, { root, rawSend: send, notice, onUnread, selfId: '', selfProfile: {}, members: new Map(), enabled: true, visible: false, unread: 0, pinned: true });
+  constructor({ root, send, notice, onUnread, onIncoming }) {
+    Object.assign(this, { root, rawSend: send, notice, onUnread, onIncoming, selfId: '', selfProfile: {}, members: new Map(), enabled: true, visible: false, unread: 0, pinned: true });
     this.incoming = new Map(); this.uploads = new Map(); this.acks = new Map(); this.urls = new Set();
     this.queue = Promise.resolve(); this.last = null; this.drag = 0; this.gen = 0;
     this.build();
@@ -250,7 +250,7 @@ export class RoomChat {
     const file = ok ? { id: raw.id, name: raw.name.slice(0, 200), size: raw.size, mime: typeof raw.mime === 'string' ? raw.mime.toLowerCase() : 'application/octet-stream' } : null;
     const ts = Number.isFinite(msg.ts) ? msg.ts : Date.now();
     const entry = this.render({ from: msg.from, name, photo: member?.photo, ts, text: msg.text.slice(0, 2000), file });
-    if (!this.visible) this.setUnread(this.unread + 1);
+    if (!this.visible) { this.setUnread(this.unread + 1); this.onIncoming?.({ from: msg.from, name, text: msg.text.slice(0, 2000), file }); }
     if (!entry) return;
     if (this.incoming.has(file.id)) { this.fail(entry, 'Arquivo não recebido.'); return; }
     const state = { entry, from: msg.from, size: file.size, got: 0, next: 0, parts: [], pending: [], pendingBytes: 0, timer: 0 };

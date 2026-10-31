@@ -38,11 +38,20 @@ try {
   assert.equal(await host.page.locator('.chat-msg').filter({ hasText: 'Oi, tudo bem?' }).count(), 1, 'remetente vê a própria mensagem uma vez');
   check('Texto chega pela conexão P2P com nome de quem enviou.');
 
+  await guest.page.evaluate(() => { window.testPings = 0; const start = OscillatorNode.prototype.start; OscillatorNode.prototype.start = function (...args) { window.testPings++; return start.apply(this, args); }; });
   await guest.page.locator('#chat-toggle').click(); await guest.page.locator('#chat-root').waitFor({ state: 'hidden' }); assert.equal(await guest.page.locator('#chat-button').getAttribute('aria-expanded'), 'false');
   await say(host.page, 'Você viu?');
   await guest.page.locator('#chat-badge:not([hidden])').filter({ hasText: '1' }).waitFor();
+  await guest.page.locator('#chat-toast:not([hidden])').filter({ hasText: 'Yuri' }).filter({ hasText: 'Você viu?' }).waitFor();
+  await guest.page.waitForFunction(() => window.testPings === 1); assert.equal(await host.page.locator('#chat-toast').isHidden(), true, 'chat aberto não mostra aviso');
   await guest.page.keyboard.press('c'); await guest.page.locator('#chat-badge').waitFor({ state: 'hidden' }); await guest.page.locator('.chat-input').waitFor();
+  assert.equal(await guest.page.locator('#chat-toast').isHidden(), true, 'abrir o chat some com o aviso');
   check('Chat começa fechado e abre pelo dock; escondido mostra o contador de não lidas; a tecla C abre e zera.');
+  await guest.page.locator('#chat-toggle').click(); await guest.page.locator('#chat-root').waitFor({ state: 'hidden' });
+  await say(host.page, 'Clica aqui');
+  await guest.page.locator('#chat-toast:not([hidden])').filter({ hasText: 'Clica aqui' }).click(); await guest.page.locator('.chat-input').waitFor();
+  assert.equal(await guest.page.locator('#chat-toast').isHidden(), true); assert.equal(await guest.page.evaluate(() => window.testPings), 2);
+  check('Com o chat recolhido, mensagem nova mostra aviso com nome e texto e toca o som; clicar no aviso abre o chat.');
 
   await guest.page.locator('.chat-root input[type=file]').setInputFiles({ name: 'foto.png', mimeType: 'image/png', buffer: png });
   await host.page.waitForFunction(() => [...document.querySelectorAll('.chat-img')].some(image => image.naturalWidth === 8), null, { timeout: 30000, polling: 250 });

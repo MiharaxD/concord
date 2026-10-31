@@ -26,7 +26,7 @@ const cameraViews = new Map(), cameraModes = new Map(), voices = new Map();
 let themeColor = '#aa96ff', voiceTrack, voiceStarting = false, voiceGeneration = 0, voiceMuted = false, roomVoice = false, devicePrefs = { mic: '', camera: '', speaker: '' };
 const meter = new AudioMeter($('audio-level'), $('audio-level-label'));
 const chat = new RoomChat({ root: $('chat-root'), send: value => send(value), notice: (text, error) => notice(text, error),
-  onUnread: count => { $('chat-badge').hidden = !count; $('chat-badge').textContent = count > 9 ? '9+' : String(count); } });
+  onUnread: count => { $('chat-badge').hidden = !count; $('chat-badge').textContent = count > 9 ? '9+' : String(count); }, onIncoming: message => chatToast(message) });
 let noticeTimer;
 // Confirmations fade after a few seconds; errors stay until replaced.
 function notice(text, error = false) {
@@ -191,6 +191,31 @@ function avatar(profile, className = '') {
   if (profile.photo) { element.src = profile.photo; element.alt = ''; }
   else element.textContent = (profile.name || 'A').slice(0, 2).toUpperCase();
   return element;
+}
+// Chat collapsed: a toast with the message plus a short rising "bounce" blip (synthesized from the user's sample).
+let chatToastTimer, pingContext;
+function chatToast({ from, name, text, file }) {
+  const toast = $('chat-toast'), member = members.find(item => item.id === from) || { name };
+  const title = document.createElement('strong'); title.textContent = name;
+  const body = document.createElement('span'); body.textContent = text || (file ? 'Enviou ' + file.name : '');
+  const copy = document.createElement('span'); copy.className = 'chat-toast-text'; copy.append(title, body);
+  toast.replaceChildren(avatar(member, 'chat-toast-avatar'), copy); toast.hidden = false;
+  toast.classList.remove('show'); void toast.offsetWidth; toast.classList.add('show');
+  clearTimeout(chatToastTimer); chatToastTimer = setTimeout(hideChatToast, 6000);
+  void playPing();
+}
+function hideChatToast() { clearTimeout(chatToastTimer); $('chat-toast').hidden = true; }
+async function playPing() {
+  const volume = Number($('volume').value); if (muted || !volume) return;
+  pingContext ||= new AudioContext();
+  const sink = await deviceId('audiooutput', devicePrefs.speaker);
+  if (pingContext.setSinkId && pingContext.sinkId !== sink) await pingContext.setSinkId(sink).catch(() => {});
+  if (pingContext.state === 'suspended') await pingContext.resume().catch(() => {});
+  const now = pingContext.currentTime, tone = pingContext.createOscillator(), gain = pingContext.createGain();
+  tone.type = 'sine'; tone.frequency.setValueAtTime(320, now); tone.frequency.exponentialRampToValueAtTime(1250, now + 0.025);
+  gain.gain.setValueAtTime(0.0001, now); gain.gain.exponentialRampToValueAtTime(0.3 * volume, now + 0.004);
+  gain.gain.exponentialRampToValueAtTime(0.02 * volume, now + 0.03); gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+  tone.connect(gain).connect(pingContext.destination); tone.start(now); tone.stop(now + 0.17);
 }
 function renderBanner(element, profile) {
   const safe = visualProfile(profile);
@@ -487,7 +512,7 @@ function renderCallBar() {
   $('chat-button').setAttribute('aria-expanded', String(!sideHidden)); $('chat-button').title = sideHidden ? 'Abrir chat (C)' : 'Esconder chat (C)';
   $('bar-screen').disabled = !connected; $('bar-camera').disabled = !connected || cameraStarting;
 }
-function setSide(hidden) { sideHidden = hidden; document.body.classList.toggle('side-hidden', hidden); chat.setVisible(!hidden); renderCallBar(); renderTiles(); }
+function setSide(hidden) { if (!hidden) hideChatToast(); sideHidden = hidden; document.body.classList.toggle('side-hidden', hidden); chat.setVisible(!hidden); renderCallBar(); renderTiles(); }
 // Voice works like Discord: the mic opens when you enter a room and the button only mutes it.
 // Muting and deafening disable the track (silence is sent); leaving the room stops the capture.
 async function deviceId(kind, name) {
@@ -593,7 +618,7 @@ function publishState() {
     voice: Boolean(voiceTrack), muted: voiceMuted || muted });
 }
 function disconnect() {
-  closeDiscordFriends(); chat.clear(); stopVoice(); roomVoice = false; volumes.clear();
+  closeDiscordFriends(); chat.clear(); hideChatToast(); stopVoice(); roomVoice = false; volumes.clear();
   terminal = true; clearTimeout(reconnectTimer); clearTimeout(joinTimer); const previous = socket; socket = undefined; previous?.close();
   media?.close(); media = null; for (const id of [...cameraViews.keys()]) removeCamera(id); self = ''; for (const id of [...tiles.keys()]) removeTile(id); members = []; renderMembers(); renderCallBar();
 }
@@ -1042,6 +1067,7 @@ $('device-menu').addEventListener('keydown', event => {
 document.addEventListener('pointerdown', event => { if (deviceMenuFor && !event.target.closest('#device-menu, .device-caret')) closeDeviceMenu(); });
 addEventListener('resize', () => { if (deviceMenuFor) closeDeviceMenu(); });
 $('chat-toggle').onclick = $('chat-button').onclick = () => setSide(!sideHidden);
+$('chat-toast').onclick = () => setSide(false);
 // Collapsed sidebar keeps only the logo, icons and avatars.
 $('sidebar-toggle').onclick = () => {
   const collapsed = document.body.classList.toggle('sidebar-collapsed'), label = collapsed ? 'Expandir barra lateral' : 'Recolher barra lateral';

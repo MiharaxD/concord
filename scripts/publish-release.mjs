@@ -37,6 +37,11 @@ async function api(url, options = {}, allow404 = false) {
 const notes = [
       `## Novidades do Concord ${pkg.version}`,
       '',
+      '- **Aviso de mensagem:** com o chat recolhido, mensagem nova aparece num aviso no canto com um som curto. Clique no aviso para abrir o chat. Ensurdecido ou com volume zerado, o som não toca.',
+      '- Na faixa de participantes durante uma transmissão, o “você” fica embaixo do nome em vez de cortado.',
+      '',
+      '### Da 0.8.6',
+      '',
       '- **Telas grandes:** em monitores 2K e 4K o app ocupa a tela toda e aumenta textos e botões na proporção da janela, em vez de ficar no canto.',
       '- Ícone do Painel na barra lateral corrigido, no mesmo tamanho dos outros.',
       '',
