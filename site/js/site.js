@@ -84,7 +84,10 @@ async function peel() {
   shown = (shown + 1) % photos.length; count.textContent = shown + 1;
   busy = false; schedule();
 }
-const schedule = () => { clearTimeout(timer); if (!still) timer = setTimeout(() => document.hidden || stack.matches(':hover') ? schedule() : peel(), 3800); };
+// Pause only while a real mouse rests on it: after a tap, touch browsers keep :hover stuck and the loop would never resume.
+const mouseOver = el => { let on = false; el.addEventListener('pointerenter', e => { on = e.pointerType === 'mouse'; }); el.addEventListener('pointerleave', () => { on = false; }); return () => on; };
+const stackHovered = mouseOver(stack);
+const schedule = () => { clearTimeout(timer); if (!still) timer = setTimeout(() => document.hidden || stackHovered() ? schedule() : peel(), 3800); };
 function startStack() { schedule(); }
 stack.addEventListener('click', peel);
 if (still) startStack();
@@ -120,7 +123,8 @@ function showStory(next) {
   }, weak ? 650 : 230);
   setTimeout(() => screen.classList.remove('weak', 'switching'), weak ? 1000 : 520);
 }
-const tvLoop = () => { clearTimeout(tvTimer); if (!still) tvTimer = setTimeout(() => { if (!playing && onScreen && !document.hidden && !screen.closest('.tv').matches(':hover')) showStory(story + 1); tvLoop(); }, 3400); };
+const tvHovered = mouseOver(screen.closest('.tv'));
+const tvLoop = () => { clearTimeout(tvTimer); if (!still) tvTimer = setTimeout(() => { if (!playing && onScreen && !document.hidden && !tvHovered()) showStory(story + 1); tvLoop(); }, 3400); };
 const glitchLoop = () => { glitchTimer = setTimeout(() => { if (onScreen) { screen.classList.add('tear'); hiss(160); setTimeout(() => screen.classList.remove('tear'), 190); } glitchLoop(); }, 2200 + Math.random() * 4200); };
 document.getElementById('knob-channel').addEventListener('click', e => { if (playing) return; channelTurn += 45; e.currentTarget.style.setProperty('--turn', channelTurn + 'deg'); showStory(story + 1); tvLoop(); });
 document.getElementById('knob-sound').addEventListener('click', e => { soundOn = !soundOn; e.currentTarget.setAttribute('aria-pressed', soundOn); e.currentTarget.style.setProperty('--turn', soundOn ? '120deg' : '0deg'); if (soundOn) hiss(300); });
