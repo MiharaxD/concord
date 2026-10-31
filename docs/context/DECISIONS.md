@@ -120,7 +120,7 @@ Exceção autorizada em 30/10/2026: a 0.8.4 (correções da voz após revisão) 
 
 Exceção autorizada em 29/10/2026 (quinta): a 0.8.2 (blindagem) edita a entrada da Release 0.8.1 (ID 428529679), de v0.8.1 para v0.8.2, com tag v0.8.1 preservada.
 
-Exceção autorizada em 31/10/2026 ("da push e edita o release ai com as mudanças"): a 0.9.3 (transições Painel ↔ sala) edita a entrada da Release 0.9.1 (ID 429679125), de v0.9.1 para v0.9.3, com tag v0.9.1 preservada e anexos 0.9.1 copiados em `dist/installer/0.9.1/github/`. A 0.9.2 nunca foi publicada.
+Exceção autorizada em 31/10/2026 ("da push e edita o release ai com as mudanças"): a 0.9.3 (transições Painel ↔ sala) edita a entrada da Release 0.9.1 (ID 429679125), de v0.9.1 para v0.9.3, com tag v0.9.1 preservada e anexos 0.9.1 copiados em `dist/installer/0.9.1/github/`. A 0.9.2 nunca foi publicada. Mesma exceção repetida em 31/10 ("conserta isso ai e ja da push e edita release"): a 0.9.4 (+ do Criar sala na saída) edita a mesma entrada, de v0.9.3 para v0.9.4, com tag v0.9.3 preservada e anexos 0.9.3 já em `dist/installer/0.9.3/github/`.
 
 ## Instalação e atualizações
 

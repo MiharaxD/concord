@@ -60,6 +60,12 @@ export function createRoomMotion({ self, onEnd }) {
     clone.hidden = false; clone.inert = true; clone.setAttribute('aria-hidden', 'true'); return clone;
   }
   const pick = (root, sel) => root?.querySelector(root.dataset.mid ? sel.replace(/#([\w-]+)/g, '[data-mid="$1"]') : sel);
+  // Out of the button the icon loses the rule that sizes it, so the clone keeps its measured size.
+  function caption(button, gap) {
+    const el = document.createElement('div'); Object.assign(el.style, { display: 'flex', alignItems: 'center', gap, whiteSpace: 'nowrap' });
+    for (const child of button.children) { const clone = freeze(child), s = css(child); if (child instanceof SVGElement) Object.assign(clone.style, { width: s.width, height: s.height, flexShrink: '0' }); el.append(clone); }
+    return el;
+  }
   function copy(view, z) {
     const r = box(view), clone = freeze(view);
     Object.assign(clone.style, { position: 'fixed', ...at(r), margin: '0', maxWidth: 'none', zIndex: z, pointerEvents: 'none' });
@@ -171,8 +177,7 @@ export function createRoomMotion({ self, onEnd }) {
     pill(navFrom, $('host-tab'), 260);
     // The button presses in and takes over from the real one, which stays hidden underneath.
     const g = ghost(src.btn, { zIndex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: look.borderRadius, background: look.backgroundColor, color: look.color, fontSize: look.fontSize, fontWeight: look.fontWeight, fontFamily: look.fontFamily });
-    const label = document.createElement('div'); Object.assign(label.style, { display: 'flex', alignItems: 'center', gap: look.gap, whiteSpace: 'nowrap' });
-    label.append(...[...button.children].map(freeze));
+    const label = caption(button, look.gap);
     const sheen = document.createElement('div'); Object.assign(sheen.style, { position: 'absolute', inset: '0', background: 'linear-gradient(110deg,transparent 35%,#ffffffa0 50%,transparent 65%)', transform: 'translateX(-120%)' });
     g.append(label, sheen); tweak(button, 'visibility', 'hidden');
     A(g, [{ transform: 'scale(1)' }, { transform: 'scale(.955)', offset: .3, easing: E.out }, { transform: 'scale(1)', easing: E.pop }], 0, 360, 'linear');
@@ -310,8 +315,7 @@ export function createRoomMotion({ self, onEnd }) {
       // Your tile shrinks back into Criar sala.
       const accent = look.backgroundColor;
       const g = ghost(from.tile, { zIndex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', color: look.color, fontSize: look.fontSize, fontWeight: look.fontWeight, fontFamily: look.fontFamily });
-      const label = document.createElement('div'); Object.assign(label.style, { display: 'flex', alignItems: 'center', gap: look.gap, whiteSpace: 'nowrap' });
-      label.append(...[...button.children].map(freeze)); g.append(label);
+      const label = caption(button, look.gap); g.append(label);
       hide(ghostTile, 5000);
       A(g, [{ ...at(from.tile), borderRadius: tileLook.borderRadius, backgroundColor: '#1f2128', boxShadow: `inset 0 0 0 2px ${alpha(accent, .8)}` }, { offset: .6, backgroundColor: alpha(accent, .5) },
         { ...at(to.btn), borderRadius: look.borderRadius, backgroundColor: accent, boxShadow: `inset 0 0 0 2px ${accent}` }], 120, 620, 'morph');
