@@ -1,5 +1,5 @@
 // Room chat between two app instances over the real P2P route: text, unread badge,
-// image preview, a 3 MB file checked by SHA-256, executable warning and clearing on leave.
+// image preview, media viewer (zoom, fullscreen, download), a 3 MB file checked by SHA-256, executable warning and clearing on leave.
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { createHash, randomBytes } from 'node:crypto';
@@ -67,7 +67,7 @@ try {
     return [...new Uint8Array(await new Blob(parts).arrayBuffer())];
   });
   await guest.page.locator('.chat-root input[type=file]').setInputFiles({ name: 'clipe.webm', mimeType: 'application/octet-stream', buffer: Buffer.from(clip) });
-  await host.page.waitForFunction(() => [...document.querySelectorAll('.chat-video')].some(video => video.videoWidth === 160 && video.controls && video.paused), null, { timeout: 30000, polling: 250 });
+  await host.page.waitForFunction(() => [...document.querySelectorAll('.chat-video')].some(video => video.videoWidth === 160 && !video.controls && video.paused), null, { timeout: 30000, polling: 250 });
   assert.equal(await guest.page.locator('.chat-video').count(), 1, 'quem envia também vê a prévia');
   for (const name of ['foto.png', 'clipe.webm']) {
     const message = host.page.locator('.chat-file').filter({ has: host.page.locator(`.chat-media-download[download="${name}"]`) });
@@ -77,7 +77,38 @@ try {
     await message.locator('.chat-media').hover(); await host.page.waitForFunction(node => getComputedStyle(node).opacity === '1', await save.elementHandle(), { polling: 100 });
   }
   check('Imagem e vídeo aparecem só com a prévia; o ícone de download surge no canto ao passar o mouse.');
-  check('Vídeo aparece com player no chat (sem tocar sozinho), inclusive sem tipo informado.');
+  await host.page.locator('.chat-img-btn').click();
+  const viewer = host.page.locator('dialog.chat-viewer[open]'); await viewer.waitFor();
+  assert.equal(await viewer.locator('.chat-viewer-name').textContent(), 'foto.png');
+  assert.equal(await viewer.locator('.chat-viewer-download').getAttribute('download'), 'foto.png');
+  assert.equal(await host.page.evaluate(() => document.fullscreenElement), null, 'abrir a imagem não entra em tela cheia');
+  const box = await viewer.evaluate(node => [node.offsetWidth, node.offsetHeight, innerWidth, innerHeight]);
+  assert.deepEqual([box[0], box[1]], [box[2], box[3]], 'o visualizador ocupa a janela');
+  const picture = viewer.locator('.chat-viewer-img'); await host.page.waitForFunction(node => node.naturalWidth === 8, await picture.elementHandle());
+  await picture.hover(); await host.page.mouse.wheel(0, -400);
+  await host.page.waitForFunction(() => document.querySelector('.chat-viewer-reset').textContent !== '100%');
+  assert.match(await picture.evaluate(node => node.style.transform), /scale\((?!1\))/);
+  await host.page.waitForTimeout(300); await host.page.screenshot({ path: path.join(run, 'visualizador-imagem.png') });
+  await viewer.locator('.chat-viewer-reset').click(); assert.equal(await viewer.locator('.chat-viewer-reset').textContent(), '100%');
+  await viewer.locator('.chat-viewer-in').click(); assert.equal(await viewer.locator('.chat-viewer-reset').textContent(), '125%');
+  await picture.dblclick(); assert.equal(await viewer.locator('.chat-viewer-reset').textContent(), '100%');
+  await viewer.locator('.chat-viewer-full').click(); await host.page.waitForFunction(() => document.fullscreenElement?.classList.contains('chat-viewer-frame'));
+  await viewer.locator('.chat-viewer-full').click(); await host.page.waitForFunction(() => !document.fullscreenElement);
+  await viewer.locator('.chat-viewer-close').click(); await host.page.locator('dialog.chat-viewer').waitFor({ state: 'hidden' });
+  check('Clicar na imagem abre o visualizador na janela (sem tela cheia) com X, Baixar, zoom pela roda/botões/clique duplo e botão de tela cheia.');
+  await host.page.locator('.chat-video-btn').click(); await viewer.waitFor();
+  assert.equal(await viewer.locator('.chat-viewer-zoom').isHidden(), true, 'vídeo não mostra zoom');
+  assert.equal(await viewer.locator('.chat-viewer-full').isHidden(), true, 'vídeo usa a tela cheia do próprio player');
+  assert.equal(await viewer.locator('.chat-viewer-download').getAttribute('download'), 'clipe.webm');
+  await host.page.waitForFunction(() => { const video = document.querySelector('.chat-viewer-video'); return video?.controls && !video.paused && video.currentTime > 0; }, null, { timeout: 10000, polling: 100 });
+  assert.equal(await host.page.locator('.chat-file .chat-video').evaluate(video => video.paused), true, 'a prévia no chat não toca');
+  await host.page.waitForTimeout(300); await host.page.screenshot({ path: path.join(run, 'visualizador-video.png') });
+  await host.page.keyboard.press('f'); await host.page.waitForFunction(() => document.fullscreenElement?.classList.contains('chat-viewer-video'));
+  await host.page.keyboard.press('f'); await host.page.waitForFunction(() => !document.fullscreenElement);
+  await host.page.keyboard.press('Escape'); await host.page.locator('dialog.chat-viewer').waitFor({ state: 'hidden' });
+  assert.equal(await host.page.locator('.chat-viewer-video').count(), 0, 'fechar para o vídeo');
+  check('Clicar no vídeo abre o visualizador e toca lá, com Baixar e a tela cheia do player (também pela tecla F); Esc fecha e para o vídeo.');
+  check('Vídeo aparece com prévia no chat (sem tocar sozinho), inclusive sem tipo informado.');
 
   const big = randomBytes(3 * 1024 * 1024 + 123), digest = createHash('sha256').update(big).digest('hex');
   // The app CSP blocks fetch() of blob: URLs, so keep a reference to the Blob behind each link.

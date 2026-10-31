@@ -11,6 +11,10 @@ Consequência: não exigir instalação de Node ou ferramentas de desenvolviment
 Decisão: pedido do usuário em 30/10/2026. Chamada igual ao Discord: ao entrar na sala o microfone já funciona; o botão só muta, e o mute fica salvo. Microfone e câmera saem do menu de transmissão e ficam nas setinhas dos botões de microfone e câmera (0.8.5, pedido do usuário, como no Discord; o fone ganhou setinha para a saída de áudio e a engrenagem saiu da barra); câmera desligada aparece vermelha e riscada. Substitui "microfone desligado ao abrir". Cor tema escolhida no perfil (roxo, verde, azul, rosa, vermelho ou seletor livre), só neste PC, aplicada a tudo que era roxo, inclusive o logo da barra lateral.
 Consequência: microfone aberto enquanto estiver numa sala (indicador do Windows aceso), mesmo mutado. Salas cujo dono está em versão anterior à 0.8.3 não têm voz. Relay de voz tem mais atraso que a rota direta. Cores muito escuras no seletor livre reduzem o contraste de textos em destaque.
 
+## Visualizador de mídia do chat (0.8.8)
+
+Decisão: pedido do usuário em 30/10/2026. Clicar em imagem/vídeo abre grande dentro da janela (não tela cheia), X em cima, Baixar embaixo, botão de tela cheia; imagem com zoom. Vídeo do chat vira miniatura e toca só no visualizador; a tela cheia do vídeo é a do player.
+
 ## Aviso de mensagem (0.8.7)
 
 Decisão: pedido do usuário em 30/10/2026. Só com o chat recolhido: aviso visual com nome e texto + som curto sintetizado (o arquivo enviado foi só referência, não é empacotado). Sem notificação do Windows.

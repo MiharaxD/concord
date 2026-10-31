@@ -37,6 +37,10 @@ async function api(url, options = {}, allow404 = false) {
 const notes = [
       `## Novidades do Concord ${pkg.version}`,
       '',
+      '- **Imagens e vídeos em tamanho grande:** clique numa imagem ou vídeo do chat para ver grande dentro da janela, com Baixar embaixo e o X em cima. Imagens têm zoom pela rodinha do mouse, pelos botões + e − ou com clique duplo, e dá para arrastar. Tela cheia pelo botão (ou tecla F); no vídeo, pelo botão do próprio player.',
+      '',
+      '### Da 0.8.7',
+      '',
       '- **Aviso de mensagem:** com o chat recolhido, mensagem nova aparece num aviso no canto com um som curto. Clique no aviso para abrir o chat. Ensurdecido ou com volume zerado, o som não toca.',
       '- Na faixa de participantes durante uma transmissão, o “você” fica embaixo do nome em vez de cortado.',
       '',

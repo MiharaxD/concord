@@ -2,7 +2,8 @@
 
 ## Agora
 
-0.8.7 (aviso de chat com som, "você" na faixa) publicada editando a Release da 0.8.6 (antes 0.8.5/0.8.4/0.8.3).
+0.8.8 (visualizador de mídia do chat) publicada editando a Release da 0.8.7 (antes 0.8.6/0.8.5/0.8.4/0.8.3).
+- [ ] Conferir à mão zoom e arrastar do visualizador com foto grande.
 - [ ] Testar voz entre duas máquinas reais (eco, atraso, relay de voz) e com microfone/câmera físicos trocados no modal.
 
 0.8.3 (sala estilo Discord, voz, perfil e modais) publicada em 30/10/2026 como Release nova.

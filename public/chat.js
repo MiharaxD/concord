@@ -149,6 +149,7 @@ export class RoomChat {
   }
 
   clear() {
+    this.closeViewer();
     for (const upload of this.uploads.values()) upload.aborted = true;
     for (const wait of [...this.acks.values()]) wait.done(false);
     for (const entry of this.incoming.values()) clearTimeout(entry.timer);
@@ -217,21 +218,23 @@ export class RoomChat {
       // Like Discord: only the media; a download icon shows in the corner on hover. Without a decoder, back to the card.
       const frame = el('div', 'chat-media'), save = el('a', 'chat-media-download');
       save.href = url; save.download = entry.file.name; save.title = 'Baixar'; save.setAttribute('aria-label', 'Baixar ' + entry.file.name);
-      const icon = document.createElementNS(SVG, 'svg'), path = document.createElementNS(SVG, 'path');
-      icon.setAttribute('viewBox', '0 0 24 24'); icon.setAttribute('aria-hidden', 'true'); path.setAttribute('d', 'M12 4v11m0 0-4-4m4 4 4-4M5 19h14'); icon.append(path); save.append(icon);
+      save.append(icon('M12 4v11m0 0-4-4m4 4 4-4M5 19h14'));
       const fallback = () => { frame.remove(); entry.card.hidden = false; };
       let media;
       if (preview.kind === 'image') {
         media = el('button', 'chat-img-btn'); const image = el('img', 'chat-img');
-        media.type = 'button'; media.ariaLabel = 'Ampliar imagem'; image.alt = entry.file.name;
+        media.ariaLabel = 'Ampliar imagem'; image.alt = entry.file.name;
         image.addEventListener('load', () => this.scroll()); image.addEventListener('error', fallback);
-        media.addEventListener('click', () => image.classList.toggle('chat-img-big'));
         image.src = source; media.append(image);
       } else {
-        media = el('video', 'chat-video'); media.controls = true; media.preload = 'metadata'; media.playsInline = true;
-        media.addEventListener('loadedmetadata', () => this.scroll()); media.addEventListener('error', fallback);
-        media.src = source;
+        // The inline video is only a still with a play mark; it plays in the viewer.
+        media = el('button', 'chat-video-btn'); const video = el('video', 'chat-video'), play = el('span', 'chat-play');
+        media.ariaLabel = 'Abrir vídeo'; video.preload = 'metadata'; video.muted = true; video.playsInline = true;
+        video.addEventListener('loadedmetadata', () => this.scroll()); video.addEventListener('error', fallback);
+        play.append(icon('M8 5v14l11-7z')); video.src = source; media.append(video, play);
       }
+      media.type = 'button';
+      media.addEventListener('click', () => this.view({ kind: preview.kind, source, url, name: entry.file.name }));
       frame.append(media, save); entry.slot.append(frame); entry.card.hidden = true;
       return;
     }
@@ -242,6 +245,83 @@ export class RoomChat {
     player.addEventListener('error', () => player.remove());
     player.src = source; entry.slot.append(player);
   }
+
+  // Discord-style viewer (Chromium cannot fullscreen a dialog, so the inner frame goes fullscreen): big inside the window (not fullscreen), X on top, Baixar below; images zoom with wheel, buttons and double-click.
+  buildViewer() {
+    const viewer = this.viewer = el('dialog', 'chat-viewer'), frame = this.viewFrame = el('div', 'chat-viewer-frame'), top = el('div', 'chat-viewer-top'), tools = el('div', 'chat-viewer-tools'), bottom = el('div', 'chat-viewer-bottom');
+    viewer.ariaLabel = 'Visualizar mídia';
+    const button = (className, label, paths, action) => {
+      const node = el('button', 'chat-viewer-btn ' + className); node.type = 'button'; node.title = node.ariaLabel = label;
+      node.append(icon(...paths)); node.addEventListener('click', action); return node;
+    };
+    this.viewName = el('span', 'chat-viewer-name');
+    this.viewFull = button('chat-viewer-full', 'Tela cheia', ['M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5'], () => this.toggleFull());
+    const close = button('chat-viewer-close', 'Fechar', ['M6 6l12 12M18 6 6 18'], () => this.closeViewer()); close.autofocus = true;
+    tools.append(this.viewFull, close); top.append(this.viewName, tools);
+    this.stage = el('div', 'chat-viewer-stage');
+    this.zoomBar = el('div', 'chat-viewer-zoom'); this.zoomText = el('button', 'chat-viewer-btn chat-viewer-reset', '100%');
+    this.zoomText.type = 'button'; this.zoomText.title = 'Tamanho original'; this.zoomText.addEventListener('click', () => this.zoom(1));
+    this.zoomBar.append(button('chat-viewer-out', 'Diminuir zoom', ['M5 12h14'], () => this.zoom(this.scale / 1.25)), this.zoomText, button('chat-viewer-in', 'Aumentar zoom', ['M12 5v14M5 12h14'], () => this.zoom(this.scale * 1.25)));
+    this.viewSave = el('a', 'chat-viewer-download'); this.viewSave.append(icon('M12 4v11m0 0-4-4m4 4 4-4M5 19h14'), el('span', '', 'Baixar'));
+    bottom.append(this.zoomBar, this.viewSave); frame.append(top, this.stage, bottom); viewer.append(frame); document.body.append(viewer);
+    viewer.addEventListener('close', () => this.resetViewer());
+    // Electron takes the Esc that leaves fullscreen; only a later Esc closes the viewer.
+    viewer.addEventListener('cancel', event => { if (document.fullscreenElement) event.preventDefault(); });
+    document.addEventListener('fullscreenchange', () => {
+      const full = document.fullscreenElement === frame;
+      this.viewFull.title = this.viewFull.ariaLabel = full ? 'Sair da tela cheia' : 'Tela cheia'; this.viewFull.setAttribute('aria-pressed', String(full));
+      if (this.viewImage) this.zoom(1);
+    });
+    viewer.addEventListener('keydown', event => {
+      if (event.ctrlKey || event.altKey || event.metaKey) return;
+      const key = event.key.toLowerCase(), action = { f: () => this.toggleFull(this.viewImage ? this.viewFrame : this.stage.firstElementChild), '+': () => this.zoom(this.scale * 1.25), '=': () => this.zoom(this.scale * 1.25), '-': () => this.zoom(this.scale / 1.25), 0: () => this.zoom(1) }[key];
+      if (action && this.stage.firstElementChild && (key === 'f' || this.viewImage)) { event.preventDefault(); action(); }
+    });
+    this.stage.addEventListener('click', event => { if (event.target === this.stage) this.closeViewer(); });
+    this.stage.addEventListener('wheel', event => { if (!this.viewImage) return; event.preventDefault(); this.zoom(this.scale * Math.exp(-event.deltaY * 0.002), event); }, { passive: false });
+    this.stage.addEventListener('dblclick', event => { if (event.target === this.viewImage) this.zoom(this.scale > 1 ? 1 : 2.5, event); });
+    this.stage.addEventListener('pointerdown', event => {
+      const image = this.viewImage; if (event.target !== image || this.scale <= 1 || event.button !== 0) return;
+      this.pan = { x: event.clientX - this.panX, y: event.clientY - this.panY }; image.setPointerCapture(event.pointerId); image.classList.add('chat-viewer-drag');
+    });
+    this.stage.addEventListener('pointermove', event => { if (this.pan) { this.panX = event.clientX - this.pan.x; this.panY = event.clientY - this.pan.y; this.applyZoom(); } });
+    for (const type of ['pointerup', 'pointercancel']) this.stage.addEventListener(type, () => { this.pan = null; this.viewImage?.classList.remove('chat-viewer-drag'); });
+  }
+
+  view({ kind, source, url, name }) {
+    if (!this.viewer) this.buildViewer();
+    this.resetViewer();
+    const image = kind === 'image', media = el(image ? 'img' : 'video', image ? 'chat-viewer-img' : 'chat-viewer-video');
+    if (image) { media.alt = name; media.draggable = false; Object.assign(this, { viewImage: media, scale: 1, panX: 0, panY: 0 }); }
+    else { media.controls = true; media.playsInline = true; media.autoplay = true; media.disablePictureInPicture = true; }
+    media.src = source; this.stage.replaceChildren(media);
+    // Videos use the player's own fullscreen button, which shows only the video.
+    this.zoomBar.hidden = this.viewFull.hidden = !image; this.zoomText.textContent = '100%';
+    this.viewName.textContent = name; this.viewSave.href = url; this.viewSave.download = name; this.viewSave.ariaLabel = 'Baixar ' + name;
+    this.viewer.showModal();
+  }
+
+  // Zooms around the cursor (or the centre) and keeps the image covering its own box while panning.
+  zoom(next, point) {
+    const image = this.viewImage; if (!image) return;
+    const scale = Math.min(8, Math.max(1, next)), box = this.stage.getBoundingClientRect();
+    const x = point ? point.clientX - box.left - image.offsetLeft : image.offsetWidth / 2, y = point ? point.clientY - box.top - image.offsetTop : image.offsetHeight / 2;
+    this.panX = x - (x - this.panX) * scale / this.scale; this.panY = y - (y - this.panY) * scale / this.scale; this.scale = scale;
+    this.applyZoom();
+  }
+  applyZoom() {
+    const image = this.viewImage, { scale } = this;
+    this.panX = Math.min(0, Math.max(image.offsetWidth * (1 - scale), this.panX)); this.panY = Math.min(0, Math.max(image.offsetHeight * (1 - scale), this.panY));
+    image.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${scale})`;
+    image.classList.toggle('chat-viewer-zoomed', scale > 1); this.zoomText.textContent = Math.round(scale * 100) + '%';
+  }
+  toggleFull(target = this.viewFrame) { (document.fullscreenElement ? document.exitFullscreen() : target.requestFullscreen()).catch(error => this.notice(error.message, true)); }
+  resetViewer() {
+    if (this.viewer.contains(document.fullscreenElement)) document.exitFullscreen().catch(() => {});
+    for (const video of this.stage.querySelectorAll('video')) { video.pause(); video.removeAttribute('src'); video.load(); }
+    this.stage.replaceChildren(); this.viewImage = null; this.pan = null;
+  }
+  closeViewer() { if (this.viewer?.open) this.viewer.close(); }
 
   receive(msg) {
     if (typeof msg.id !== 'string' || typeof msg.from !== 'string' || typeof msg.text !== 'string') return;
