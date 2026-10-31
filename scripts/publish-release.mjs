@@ -37,6 +37,11 @@ async function api(url, options = {}, allow404 = false) {
 const notes = [
       `## Novidades do Concord ${pkg.version}`,
       '',
+      '- **Barra lateral recolhida** ao abrir o app; clique no logo para expandir.',
+      '- **Engrenagem na barra do Painel**, ao lado do microfone e da câmera, abre as Configurações de voz e vídeo.',
+      '',
+      '### Da 0.9.0',
+      '',
       '- **Painel novo, com a logo viva:** ao abrir o Concord, os 8 lugares da sala se juntam e viram a logo, que se desenha, abre os olhos e mostra o nome. A intro completa aparece na primeira abertura do dia e depois de cada atualização; nas outras é rápida, e qualquer clique pula. Abrir por um convite entra direto.',
       '- Depois disso a logo continua viva: os olhos seguem o mouse e o convite que você digita, e os 8 pontos ficam em órbita.',
       '- **Menos texto, uma ação principal:** Criar sala em destaque, convite numa linha só (Entrar fica em destaque quando o convite é válido) e uma barra com seu perfil, microfone e câmera. Clique no microfone para entrar mutado ou falando.',

@@ -75,6 +75,9 @@ try {
   assert.equal((await guest.page.evaluate(() => window.concord.bootstrap())).preferences.resolution, '720');
   check('Configurações: teste de microfone para ao trocar de aba, qualidade padrão salva e travada ao transmitir.');
 
+  // 0.9.1: the app opens with the sidebar collapsed; the profile gear shows once it is expanded.
+  assert.equal(await guest.page.evaluate(() => document.body.classList.contains('sidebar-collapsed')), true, 'barra lateral começa recolhida');
+  await guest.page.locator('#sidebar-toggle').click();
   await guest.page.locator('#profile-settings').click(); await guest.page.locator('#settings-dialog[open]').waitFor();
   assert.equal(await guest.page.locator('#name-picker[open]').count(), 0, 'engrenagem não abre o perfil');
   await guest.page.keyboard.press('Escape'); await guest.page.locator('#settings-dialog').waitFor({ state: 'hidden' });

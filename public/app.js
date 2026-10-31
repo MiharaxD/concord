@@ -207,6 +207,7 @@ $('home-join-input').oninput = joinFieldState;
 $('room-live-leave').onclick = () => $('leave-button').click();
 async function openSettings(tab) { closeDeviceMenu(); settingsTab(tab); await fillSettings(); if (!$('settings-dialog').open) $('settings-dialog').showModal(); }
 $('ready-mic').onclick = () => { setVoiceMuted(!voiceMuted); renderReady(); }; $('ready-camera').onclick = () => void openSettings('video');
+$('ready-settings').onclick = () => void openSettings('voice');
 $('ready-profile').onclick = () => void chooseName();
 function createRoom() {
   const creating = role !== 'host' || !target;
