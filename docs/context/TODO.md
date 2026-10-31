@@ -2,7 +2,7 @@
 
 ## Agora
 
-Melhorias de UX de 30/10 (Painel, dock, tile, avisos, conexão, Discord, Configurações) e mocks aprovados (Painel novo, Convidar com favoritos, Compartilhar com fontes no pop-up, página de convite do site): 0.8.9 publicada em 30/10/2026 editando a Release da 0.8.8; site atualizado.
+Melhorias de UX de 30/10 (Painel, dock, tile, avisos, conexão, Discord, Configurações) e mocks aprovados (Painel novo, Convidar com favoritos, Compartilhar com fontes no pop-up, página de convite do site): 0.8.9 publicada em 30/10/2026 editando a Release da 0.8.8 (agora 0.8.10, com a engrenagem do perfil abrindo as Configurações); site atualizado.
 - [ ] Testar o teste de microfone das Configurações com microfone físico.
 - [ ] Conferir favoritos do Discord no menu Convidar com conta real (testado só com SDK simulado).
 - [ ] `tests/experience.mjs` falha no teste de áudio do app (WASAPI) porque agora roda com `--mute-audio`; decidir como testar esse trecho sem tocar som no PC.
