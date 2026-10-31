@@ -4,82 +4,77 @@
 
 <h1 align="center">Concord</h1>
 
-<p align="center">Compartilhamento de tela em salas privadas para Windows.</p>
+<p align="center">Compartilhe a tela com os amigos numa sala só de vocês.</p>
 
 <p align="center">
-  <a href="https://github.com/MiharaxD/concord/releases/download/v0.8.11/Concord-0.8.11-Setup.exe"><strong>Baixar para Windows · v0.8.11</strong></a>
-  &nbsp;·&nbsp;
-  <a href="https://github.com/MiharaxD/concord/releases">Todas as versões</a>
+  <a href="https://github.com/MiharaxD/concord/releases/latest"><strong>Baixar para Windows</strong></a>
 </p>
 
-Até **8 pessoas** na mesma sala, com várias transmissões simultâneas. Sem cadastro no Concord, domínio ou servidor próprio. Feito em Electron e JavaScript.
+<p align="center">
+  <img src=".github/concord.png" alt="Sala do Concord com duas transmissões ao vivo e o chat aberto">
+</p>
+
+Até **8 pessoas** por sala, várias telas ao vivo ao mesmo tempo, voz, câmera e chat. Sem conta, sem servidor e sem nada salvo.
 
 ## Como usar
 
 1. **Instale e escolha seu nome.** Foto e banner são opcionais.
-2. **Crie uma sala** e use **Copiar link** para compartilhar o convite.
-3. Para participar, abra o link ou cole o convite em **Entrar em uma sala** e confirme.
-4. Escolha a tela ou janela, ajuste qualidade e áudio e clique em **Compartilhar tela**.
+2. **Crie uma sala** e clique em **Copiar link**.
+3. Mande o link pros amigos. Quem abre já cai na sala.
+4. Quer mostrar algo? Escolha a tela ou janela e clique em **Compartilhar tela**.
 
-O link fica pronto assim que você clica em **Criar sala**. Quem entra se conecta direto ao seu PC; se a rede não permitir, o Concord prepara sozinho um acesso de compatibilidade pela Cloudflare só para essa pessoa.
+Clique numa transmissão pra deixar ela grande; clique de novo pra voltar à grade.
 
-Clique em uma transmissão para focar; clique novamente para voltar à grade. Na grade, você ouve todas as streams recebidas; em foco, apenas a selecionada.
+**Parar de transmitir mantém a sala aberta. Fechar o Concord de quem criou a sala fecha a sala e o link.**
 
-**Parar a transmissão mantém a sala aberta. Fechar o Concord de quem criou a sala encerra a sala e seu link.**
+## Como a conexão funciona
+
+A sala roda no PC de quem criou. Não existe servidor do Concord no meio.
+
+- **O link é a chave.** Cada sala gera uma chave aleatória que vai dentro do link. Só entra quem tem o link.
+- **Os PCs se encontram sozinhos.** O Concord usa servidores públicos só pra apresentar um PC ao outro, e essa conversa vai cifrada com a chave da sala. Depois disso a conexão é direta entre vocês.
+- **Sem configurar nada.** Nada de abrir porta no roteador, IP ou cadastro. Se a rede de alguém bloquear a conexão direta, o Concord monta um caminho alternativo pela Cloudflare só pra essa pessoa.
+- **Você decide o que aparece.** Tela e câmera só começam quando você escolhe. O microfone abre ao entrar na sala e dá pra mutar a qualquer momento.
+
+## Segurança e privacidade
+
+- **Sem conta e sem histórico.** Chat, imagens e arquivos ficam só na memória e somem quando a sala fecha.
+- **Conexão cifrada.** Vídeo, voz e chat viajam criptografados direto entre os participantes (WebRTC). No caminho alternativo pela Cloudflare, o tráfego passa por ela.
+- **Link vazou?** Em **Convidar → Fechar acesso**, o link para de funcionar e ninguém novo entra. Depois é só gerar um convite novo.
+- **Discord é opcional.** Se ligar a conta, o acesso fica guardado criptografado no seu PC e serve só pra importar o perfil e mandar convites.
 
 ## Recursos
 
 | Recurso | O que oferece |
 | --- | --- |
-| Transmissões | Várias telas simultâneas, grade adaptável, foco e tela cheia |
-| Chat | Texto, imagens, vídeos e arquivos na sala, com prévia de mídia e sem limite de tamanho; some quando a sala fecha |
-| Controles | Barra estilo Discord: tela, câmera, microfone (liga/desliga ao vivo), chat e sair |
-| Câmera | Webcam sozinha ou junto com a tela; quem assiste vê no canto, em tela cheia ou em quadro separado |
-| Qualidade | 720p, 1080p, 1440p ou 4K; 30 ou 60 FPS |
-| Bitrate | Automático ou personalizado de 1 a 60 Mbps, em **Opções avançadas** |
-| Áudio | Som do jogo/app ou do computador, microfone opcional e medidor de nível |
-| Perfil | Nome, foto e banner salvos no PC; cartão de perfil dos participantes |
-| Discord | Vinculação opcional para importar o perfil e convidar amigos por mensagem direta |
-| Atualizações | Download em segundo plano e instalação ao clicar em **Reiniciar e atualizar** |
+| Transmissões | Várias telas ao mesmo tempo, grade adaptável, foco e tela cheia |
+| Voz | Microfone com mute, ensurdecer e volume por pessoa |
+| Câmera | Sozinha ou junto com a tela, no canto, em tela cheia ou em quadro separado |
+| Chat | Texto, imagens, vídeos e arquivos de qualquer tamanho; some quando a sala fecha |
+| Qualidade | 720p, 1080p, 1440p ou 4K, a 30 ou 60 FPS; bitrate automático ou de 1 a 60 Mbps |
+| Áudio | Som só do jogo/app ou do computador inteiro, escolhido sozinho |
+| Perfil | Nome, foto e banner salvos no seu PC |
+| Discord | Opcional: importa o perfil e convida amigos por mensagem direta |
+| Atualizações | Baixam sozinhas; é só clicar em **Reiniciar e atualizar** |
 
 ## Atalhos
 
 | Tecla | Ação |
 | --- | --- |
-| **M** | Silenciar ou ativar o áudio recebido |
-| **F** | Alternar tela cheia |
+| **M** | Silenciar ou ativar o som da sala |
+| **F** | Tela cheia |
 | **Esc** | Voltar à grade ou fechar um pop-up |
 
-Os atalhos ficam desativados enquanto você digita ou usa um pop-up.
+## Requisitos
 
-## Requisitos e limites
-
-- **Windows 10/11 de 64 bits.** O instalador inclui os componentes; não exige Node.js ou ferramentas de desenvolvimento.
-- O áudio é **automático**: ao compartilhar uma janela, vai só o som daquele app; ao compartilhar a tela inteira, vai o som do computador (o Windows não separa som por monitor). Dá para trocar em **Opções avançadas**. Som só do app exige Windows build 20348+; Windows 11 é recomendado. Pode incluir outras janelas do mesmo processo.
-- Convites usam servidores MQTT públicos só para os PCs se encontrarem (mensagens cifradas) e uma página no GitHub Pages. A Cloudflare entra apenas quando a conexão direta falha e pode ter bloqueios temporários.
-- Salas criadas na 0.6.0 ou mais nova exigem a 0.6.0 ou mais nova para entrar.
-- O Discord é opcional. A cota atual de desenvolvimento é de **100 mensagens diretas a cada 2 horas para o aplicativo inteiro**.
-- Mais participantes e transmissões exigem mais upload e processamento. O modo de compatibilidade pode ter mais atraso.
-
-## Desenvolvimento
-
-No Windows, use **Node.js 22+** e **pnpm 11.19.0**.
-
-```powershell
-pnpm install --frozen-lockfile
-node scripts/prepare.mjs
-pnpm build:audio
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-discord.ps1
-pnpm start
-```
-
-- **Testes:** `pnpm test`
-- **Instalador:** `pnpm build:installer` ou abra `build-installer.bat`
-- **Saída:** `dist/installer/<versão>/`
+- **Windows 10 ou 11, 64 bits.** O instalador já traz tudo.
+- Som só de um app exige Windows build 20348+ (Windows 11 recomendado).
+- Mais gente transmitindo pede mais internet e processamento de quem está na sala.
+- Convites pelo Discord têm limite de 100 mensagens a cada 2 horas para o app inteiro.
 
 ## Documentação
 
-- [Guia de uso](COMO%20USAR.txt)
-- [Build, instalação e publicação](BUILD_WINDOWS.md)
-- [Verificações da versão](VERIFICACAO.md)
-- [Arquitetura](docs/context/ARCHITECTURE.md) · [Limitações e pendências](docs/context/TODO.md)
+- Termos de uso (link em breve)
+- Política de privacidade (link em breve)
+
+<p align="center"><sub>Desenvolvido por Yuri Mihara</sub></p>

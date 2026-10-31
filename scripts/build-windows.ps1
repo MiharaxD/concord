@@ -70,6 +70,6 @@ try {
     exit 0
 } catch {
     Write-Host "Nao consegui gerar o pacote: $($_.Exception.Message)" -ForegroundColor Red
-    Write-Host 'Ferramentas necessarias apenas no PC de desenvolvimento: Node.js 22+ e pnpm 11.19.0. Veja BUILD_WINDOWS.md.'
+    Write-Host 'Ferramentas necessarias apenas no PC de desenvolvimento: Node.js 22+ e pnpm 11.19.0.'
     exit 1
 } finally { Pop-Location }
