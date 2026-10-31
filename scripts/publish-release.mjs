@@ -37,6 +37,13 @@ async function api(url, options = {}, allow404 = false) {
 const notes = [
       `## Novidades do Concord ${pkg.version}`,
       '',
+      '- **Janela inteira do Concord:** a barra do Windows saiu; o topo agora é do próprio app, com minimizar, maximizar e fechar no lugar de sempre.',
+      '- **Barras de rolagem** finas e no visual do app, em todas as telas.',
+      '- **Amigos do Discord:** os favoritos e a lista mostram que estão carregando enquanto o Discord responde.',
+      '- **Volume da sala:** passe o mouse ou arraste para ver a porcentagem.',
+      '',
+      '### Da 0.8.10',
+      '',
       '- **Engrenagem ao lado do perfil:** agora abre as Configurações de voz e vídeo. Para editar o perfil, clique na sua foto ou no seu nome.',
       '',
       '### Da 0.8.9',

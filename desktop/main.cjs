@@ -256,6 +256,8 @@ if (primaryInstance) app.whenReady().then(async () => {
   });
   window = new BrowserWindow({ width: 1280, height: 850, minWidth: 880, minHeight: 640,
     title: 'Concord', backgroundColor: '#101114', autoHideMenuBar: true, icon: path.join(__dirname, 'icon.ico'),
+    // The page draws its own 32px title bar; Windows keeps the native caption buttons (snap layouts) on top of it.
+    titleBarStyle: 'hidden', titleBarOverlay: { color: '#0b0c0f', symbolColor: '#999ca9', height: 32 },
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false, backgroundThrottling: false }
   });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -264,8 +266,11 @@ if (primaryInstance) app.whenReady().then(async () => {
   window.webContents.on('will-frame-navigate', event => { if (event.url !== concord.address + '/') event.preventDefault(); });
   window.webContents.on('will-redirect', event => event.preventDefault());
   // Big monitors (2K/4K at 100%): scale the whole UI up instead of leaving it tiny; small windows stay at 1x.
+  let overlayHeight = 32;
   const fitZoom = () => { if (window.isDestroyed()) return; const [width, height] = window.getContentSize();
-    window.webContents.setZoomFactor(Math.floor(Math.max(1, Math.min(1.3, width / 1800, height / 850)) * 20) / 20); };
+    const zoom = Math.floor(Math.max(1, Math.min(1.3, width / 1800, height / 850)) * 20) / 20;
+    window.webContents.setZoomFactor(zoom);
+    if (Math.round(32 * zoom) !== overlayHeight) window.setTitleBarOverlay({ height: overlayHeight = Math.round(32 * zoom) }); };
   window.on('resize', fitZoom); window.webContents.on('did-finish-load', fitZoom);
   window.on('close', event => {
     if (!quitting && window.webContents.getTitle().includes('AO VIVO')) {

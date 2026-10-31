@@ -5,6 +5,7 @@ Consulte apenas para captura, mídia, perfis, transporte, permissões ou empacot
 ## Autoridade e sala
 
 - Blindagem (0.8.2): `web-contents-created` nega janelas novas/webview em qualquer web contents; janela principal bloqueia `will-navigate`, `will-frame-navigate` e `will-redirect` fora de `${address}/`; renderer ignora arquivos soltos fora do chat; `shell.openExternal` só aceita `https://discord.com/oauth2/authorize?`.
+- Janela (0.8.11): `titleBarStyle: hidden` + `titleBarOverlay` (botões nativos do Windows, snap layouts). A página desenha `.titlebar` (32 px, `-webkit-app-region: drag`); `fitZoom` ajusta a altura do overlay ao zoom. O CSS usa `--vh` (= 100vh − barra) no lugar de 100vh, exceto regras `:fullscreen`; `.shell` é quem rola. Barras de rolagem só por `::-webkit-scrollbar` (não usar `scrollbar-width`/`scrollbar-color`, que desligam o estilo).
 - Electron principal possui seleção nativa, helper de áudio e túnel. Interface em loopback, sandbox/context isolation e preload restrito; IPC valida janela e URL próprias.
 - Administração HTTP exige chave do dono, conexão local e ausência de cabeçalhos de proxy. Convidados entram com chave curta de 128 bits ou legada de 256 bits; renovação revoga ambas e remove todos os convidados.
 - Sala admite até 8 pessoas contando o dono. Cada socket autenticado recebe ID próprio, perfil visual e estado de transmissão. Aparência é descrição escolhida pelo participante, não autenticação.

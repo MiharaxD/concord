@@ -82,8 +82,8 @@ try {
   assert.equal(await viewer.locator('.chat-viewer-name').textContent(), 'foto.png');
   assert.equal(await viewer.locator('.chat-viewer-download').getAttribute('download'), 'foto.png');
   assert.equal(await host.page.evaluate(() => document.fullscreenElement), null, 'abrir a imagem não entra em tela cheia');
-  const box = await viewer.evaluate(node => [node.offsetWidth, node.offsetHeight, innerWidth, innerHeight]);
-  assert.deepEqual([box[0], box[1]], [box[2], box[3]], 'o visualizador ocupa a janela');
+  const box = await viewer.evaluate(node => [node.offsetWidth, node.offsetHeight, innerWidth, innerHeight - document.querySelector('.titlebar').offsetHeight]);
+  assert.deepEqual([box[0], box[1]], [box[2], box[3]], 'o visualizador ocupa a janela abaixo da barra de título');
   const picture = viewer.locator('.chat-viewer-img'); await host.page.waitForFunction(node => node.naturalWidth === 8, await picture.elementHandle());
   await picture.hover(); await host.page.mouse.wheel(0, -400);
   await host.page.waitForFunction(() => document.querySelector('.chat-viewer-reset').textContent !== '100%');

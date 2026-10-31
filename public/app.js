@@ -88,14 +88,17 @@ async function loadFavorites() {
   if (code !== favInvite) { favInvite = code; favInvites.clear(); }
   if (!config.discord?.social || !discordFavorites.length) { favFriends = []; renderFavorites(); return; }
   if (!favFriends.length) {
-    try { const result = await native.discordFriends(); if (generation !== favGeneration || result.error) return; favFriends = result.value; }
-    catch { return; }
+    // The first friends request can take a few seconds while the Discord SDK starts.
+    const loading = document.createElement('p'); loading.className = 'invite-fav-loading is-loading'; loading.textContent = 'Carregando favoritos…';
+    $('invite-fav-list').replaceChildren(loading); $('invite-favorites').hidden = false; $('invite-favorites').setAttribute('aria-busy', 'true');
+    try { const result = await native.discordFriends(); if (generation !== favGeneration) return; if (!result.error) favFriends = result.value; }
+    catch { if (generation !== favGeneration) return; }
   }
   renderFavorites();
 }
 function renderFavorites() {
   const list = discordFavorites.map(id => favFriends.find(friend => friend.id === id)).filter(Boolean).slice(0, 5);
-  $('invite-favorites').hidden = !list.length;
+  $('invite-favorites').hidden = !list.length; $('invite-favorites').removeAttribute('aria-busy');
   $('invite-fav-list').replaceChildren(...list.map(friend => {
     const row = document.createElement('div'); row.className = 'invite-fav'; row.dataset.friend = friend.id;
     const face = document.createElement('span'); face.className = 'friend-avatar'; face.append(avatar(friend));
@@ -679,7 +682,7 @@ function outsideMemberProfile(event) {
   return event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom;
 }
 function setLive(active) {
-  $('live-dot').classList.toggle('red', active); $('live-badge').hidden = !active; document.title = active ? 'Concord · AO VIVO' : 'Concord'; liveSince = active ? Date.now() : 0;
+  $('live-dot').classList.toggle('red', active); $('live-badge').hidden = !active; document.title = $('titlebar-title').textContent = active ? 'Concord · AO VIVO' : 'Concord'; liveSince = active ? Date.now() : 0;
   $('stream-clock').hidden = !active; $('stream-clock').textContent = active ? '00:00:00' : '';
 }
 function showVideo() { renderTiles(); }
@@ -1352,15 +1355,16 @@ async function openDiscordFriends() {
   $('discord-friend-search').value = ''; $('discord-friend-search').disabled = true; renderSlots();
   $('discord-friends-authorize').hidden = $('discord-friends-retry').hidden = true;
   if (!$('discord-friends').open) $('discord-friends').showModal();
-  $('discord-friends-status').textContent = 'Carregando amigos do Discord…';
+  const status = $('discord-friends-status'), loaded = () => { status.classList.remove('is-loading'); $('discord-friend-list').removeAttribute('aria-busy'); };
   if (!config.discord?.social) {
-    $('discord-friends-status').textContent = 'Autorize o acesso aos amigos no Discord para usar os convites.'; $('discord-friends-authorize').hidden = false; return;
+    loaded(); status.textContent = 'Autorize o acesso aos amigos no Discord para usar os convites.'; $('discord-friends-authorize').hidden = false; return;
   }
+  status.textContent = 'Carregando amigos do Discord…'; status.classList.add('is-loading'); $('discord-friend-list').setAttribute('aria-busy', 'true');
   try {
-    const result = await native.discordFriends(); if (generation !== friendsGeneration) return;
-    if (result.error) { $('discord-friends-status').textContent = result.error; $('discord-friends-authorize').hidden = result.code !== 'RELINK'; $('discord-friends-retry').hidden = result.code === 'RELINK'; return; }
+    const result = await native.discordFriends(); if (generation !== friendsGeneration) return; loaded();
+    if (result.error) { status.textContent = result.error; $('discord-friends-authorize').hidden = result.code !== 'RELINK'; $('discord-friends-retry').hidden = result.code === 'RELINK'; return; }
     discordFriends = result.value; $('discord-friend-search').disabled = false; renderDiscordFriends(); $('discord-friend-search').focus();
-  } catch { if (generation === friendsGeneration) { $('discord-friends-status').textContent = 'Não foi possível carregar os amigos do Discord.'; $('discord-friends-retry').hidden = false; } }
+  } catch { if (generation === friendsGeneration) { loaded(); status.textContent = 'Não foi possível carregar os amigos do Discord.'; $('discord-friends-retry').hidden = false; } }
 }
 $('invite-discord-button').onclick = () => { closeInvitePop(); void openDiscordFriends(); };
 $('close-discord-friends').onclick = closeDiscordFriends;
@@ -1471,7 +1475,17 @@ $('join-form').onsubmit = event => {
 $('leave-button').onclick = () => { stopSharing(); stopCamera(); disconnect(); target = null; role = null; status('Não conectado'); showView('home'); notice('Você saiu da sala.'); };
 $('grid-button').onclick = () => { focus = null; renderTiles(); };
 $('sound-button').onclick = () => { muted = !muted; applyAudio(); applyVoice(); publishState(); for (const item of tiles.values()) media?.play(item.video); for (const audio of voices.values()) media?.play(audio); };
-$('volume').oninput = () => applyAudio();
+// Percentage bubble over the thumb while hovering or dragging the dock volume.
+function volumeTip() {
+  const input = $('volume'), value = Number(input.value), percent = Math.round(value * 100) + '%';
+  $('volume-tip').textContent = percent; input.setAttribute('aria-valuetext', percent);
+  $('volume-tip').style.left = (8 + value * (input.offsetWidth - 16)) + 'px';
+}
+$('volume').oninput = () => { volumeTip(); applyAudio(); };
+$('volume').parentElement.addEventListener('pointerenter', volumeTip); $('volume').addEventListener('focus', volumeTip);
+$('volume').addEventListener('pointerdown', () => { volumeTip(); $('volume').parentElement.classList.add('adjusting'); });
+addEventListener('pointerup', () => $('volume').parentElement.classList.remove('adjusting'));
+addEventListener('pointercancel', () => $('volume').parentElement.classList.remove('adjusting'));
 $('fullscreen-button').onclick = () => { const action = document.fullscreenElement ? document.exitFullscreen() : $('stage').requestFullscreen(); action.catch(error => notice(error.message, true)); };
 document.addEventListener('keydown', event => {
   if (event.defaultPrevented || event.repeat || event.isComposing || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey || document.body.dataset.view !== 'room' || document.querySelector('dialog[open]')) return;
