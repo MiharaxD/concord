@@ -258,11 +258,11 @@ body.locked{overflow:hidden}
 .mini-tape .reel{width:5.6cqw;border-width:.6cqw}
 @keyframes slide-in{0%{transform:translateY(-120%)}40%,55%{transform:translateY(-6%)}100%{transform:translateY(112%)}}
 .lower strong{display:block;width:fit-content;max-width:94%;padding:1.4cqw 3cqw 1cqw 4cqw;background:var(--violet);color:var(--ink);font:900 6cqw/1 var(--condensed);letter-spacing:.03em;text-transform:uppercase;clip-path:polygon(0 0,100% 0,97% 100%,0 100%)}
-.lower span{display:block;width:fit-content;max-width:90%;padding:1.2cqw 3cqw 1.2cqw 4cqw;background:#0b0912e6;color:#f1edf6;font:500 max(11px,3.4cqw)/1.25 var(--sans)}
+.lower span{display:block;width:fit-content;max-width:90%;padding:1.2cqw 3cqw 1.2cqw 4cqw;background:#0b0912e6;color:#f1edf6;font:500 max(12px,3.4cqw)/1.25 var(--sans)}
 .ticker{position:absolute;left:0;right:0;bottom:0;z-index:3;height:7.6cqw;display:flex;align-items:center;overflow:hidden;background:#000;border-top:.4cqw solid var(--violet)}
 .ticker b{flex:none;align-self:stretch;display:grid;place-items:center;padding:0 2.4cqw 0 6cqw;background:var(--violet);color:var(--ink);font:900 3.2cqw/1 var(--condensed);letter-spacing:.08em;position:relative;z-index:1}
 .ticker div{display:flex;width:max-content;animation:crawl 22s linear infinite}
-.ticker span{font:400 3.2cqw/1 var(--type);color:#e6e0ee;white-space:nowrap;padding-left:4cqw}
+.ticker span{font:400 max(10px,3.2cqw)/1 var(--type);color:#e6e0ee;white-space:nowrap;padding-left:4cqw}
 .ticker span:after{content:"✦";margin-left:4cqw;color:var(--violet)}
 /* CRT layers on top of the picture */
 .snow{position:absolute;inset:0;z-index:5;width:100%;height:100%;image-rendering:pixelated;opacity:var(--snow,.06);mix-blend-mode:screen;pointer-events:none;transition:opacity .12s}
@@ -287,11 +287,11 @@ body.locked{overflow:hidden}
   box-shadow:0 .8cqw 1.4cqw #000c,inset 0 .2cqw 0 #ffffff26;transform:rotate(var(--turn));transition:transform .35s var(--ease)}
 .knob:after{content:"";position:absolute;left:50%;top:10%;width:.7cqw;height:28%;margin-left:-.35cqw;border-radius:.4cqw;background:var(--lilac)}
 .knob:hover{filter:brightness(1.2)}
-.knob-label{margin:-1cqw 0 0;font:400 1.5cqw/1 var(--type);color:#a29cb4;letter-spacing:.14em;text-transform:uppercase}
+.knob-label{margin:-1cqw 0 0;font:400 max(11px,1.5cqw)/1 var(--type);color:#a29cb4;letter-spacing:.14em;text-transform:uppercase}
 .knob[aria-pressed="true"]{box-shadow:0 .8cqw 1.4cqw #000c,0 0 0 .4cqw #9b86ff66}
 .deck{width:100%;display:grid;gap:1.1cqw;padding:1.2cqw;border-radius:1cqw;background:linear-gradient(#0d0b10,#1a1720);box-shadow:inset 0 0 0 .25cqw #2c2734}
 .slot{position:relative;height:2.2cqw;border-radius:.4cqw;background:#000;box-shadow:inset 0 .5cqw .7cqw #000,0 .25cqw 0 #ffffff1a}
-.deck-row{display:flex;justify-content:space-between;align-items:center;font:400 1.4cqw/1 var(--type);color:#a29cb4;letter-spacing:.12em}
+.deck-row{display:flex;justify-content:space-between;align-items:center;font:400 max(11px,1.4cqw)/1 var(--type);color:#a29cb4;letter-spacing:.12em}
 .deck.playing .deck-led{color:#80d5af;text-shadow:0 0 1cqw #80d5af}
 .eject{display:grid;place-items:center;width:4.6cqw;height:3cqw;padding:0;border:0;border-radius:.5cqw;background:linear-gradient(#4a4555,#26222d);color:#d8d2e4;cursor:pointer}
 .eject svg{width:55%;height:auto}
@@ -318,27 +318,32 @@ body.locked{overflow:hidden}
 .postit{position:absolute;z-index:4;right:-13cqw;top:66cqw;width:17cqw;margin:0;padding:2cqw 1.8cqw 2.4cqw;background:linear-gradient(160deg,#d6ccff,#b9a8ff);color:#1c1238;font:2.3cqw/1.15 var(--marker);transform:rotate(5deg);box-shadow:0 2cqw 2.4cqw -1.2cqw #000c}
 .postit:before{content:"";position:absolute;top:-1.4cqw;left:50%;width:8cqw;height:2.6cqw;margin-left:-4cqw;background:#e6e0eebb;transform:rotate(-4deg)}
 .postit svg{display:block;width:7cqw;height:auto;margin-top:1cqw;stroke:#1c1238;fill:none;stroke-width:3;stroke-linecap:round}
+/* the margin beside the TV only exists on wide screens; below that the note sits between the TV and the rack */
+@media(max-width:1279px){
+  .postit{position:relative;right:auto;top:auto;width:34cqw;margin:4cqw auto 3.4cqw;padding:2.2cqw 2.4cqw 2cqw;font-size:max(15px,2.4cqw);transform:rotate(-2deg)}
+  .postit svg{width:8cqw}
+}
 .tape-c:hover .reel{animation:spin 1.2s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .tape-label{position:relative;display:grid;gap:1cqw;padding:0 1.6cqw 1.2cqw;border-radius:.5cqw;background:linear-gradient(var(--violet) 0 1.3cqw,var(--paper) 1.3cqw);color:var(--paper-ink)}
 .tape-label header{display:flex;align-items:baseline;gap:1.2cqw;padding-top:2.2cqw}
 .tape-label b{font:900 3.4cqw/1 var(--stencil);color:var(--deep)}
 .tape-label h3{margin:0;font:2.7cqw/1.05 var(--marker);color:var(--plum);font-weight:400}
-.tape-label p{margin:0;font:400 1.55cqw/1.35 var(--type)}
+.tape-label p{margin:0;font:400 max(14px,1.55cqw)/1.35 var(--type)}
 .window{display:flex;justify-content:space-between;align-items:center;height:5.2cqw;padding:0 2.4cqw;border-radius:2.6cqw;background:linear-gradient(90deg,#120f18 0 30%,#3a2a24 30% 70%,#120f18 70%);box-shadow:inset 0 0 0 .25cqw #ffffff26}
 .reel{width:3.6cqw;aspect-ratio:1;border-radius:50%;border:.35cqw solid #efe9f7;background:radial-gradient(circle,#120f18 0 24%,transparent 25%),conic-gradient(#efe9f7 0 9%,transparent 9% 33%,#efe9f7 33% 42%,transparent 42% 66%,#efe9f7 66% 75%,transparent 75%)}
 @container (max-width:620px){
   .tv{grid-template-columns:minmax(0,1fr);gap:3cqw;padding:3.6cqw}
   .panel{flex-direction:row;padding:2.4cqw 3cqw;gap:4cqw}
-  .panel{flex-wrap:wrap}.deck{order:9;flex-basis:100%;gap:2cqw;padding:2.4cqw}.slot{height:4cqw}.deck-row{font-size:3cqw}.eject{width:10cqw;height:6.4cqw}
+  .panel{flex-wrap:wrap}.deck{order:9;flex-basis:100%;gap:2cqw;padding:2.4cqw}.slot{height:4cqw}.deck-row{font-size:max(12px,3cqw)}.eject{width:12cqw;height:8cqw}
   .postit{position:relative;right:auto;top:auto;width:62cqw;margin:5cqw auto 4cqw;font-size:5.4cqw;padding:4cqw 4cqw 4.4cqw;transform:rotate(-2deg)}.postit:before{width:16cqw;height:5cqw;margin-left:-8cqw;top:-2.6cqw}.postit svg{width:14cqw}
-  .knob{width:14cqw}.knob-label{display:none}.plate{font-size:3cqw}.grille{min-height:12cqw;align-self:stretch}.led{width:2.4cqw;height:2.4cqw}
+  .knob{width:14cqw}.knob-label{display:none}.plate{font-size:max(11px,3cqw)}.grille{min-height:12cqw;align-self:stretch}.led{width:2.4cqw;height:2.4cqw}
   .antenna{margin-left:33cqw;height:22cqw}.antenna i{height:26cqw}.antenna i:nth-child(2){height:22cqw}
   .cubby{flex-direction:column;align-items:center;gap:5cqw;padding:12cqw 4cqw 5cqw}
   .tape-c{flex:none;width:88cqw;padding:2.6cqw 2.6cqw 6cqw}.tape-c:after{height:5cqw}
   .tape-label{gap:2cqw;padding:0 3cqw 2.4cqw;background:linear-gradient(var(--violet) 0 2.6cqw,var(--paper) 2.6cqw)}
   .tape-label header{gap:2.4cqw;padding-top:4cqw}
-  .tape-label b{font-size:7cqw}.tape-label h3{font-size:6.4cqw}.tape-label p{font-size:max(13px,3.8cqw)}
+  .tape-label b{font-size:7cqw}.tape-label h3{font-size:6.4cqw}.tape-label p{font-size:max(15px,4.2cqw)}
   .window{height:10cqw;padding:0 5cqw;border-radius:5cqw}.reel{width:7cqw;border-width:.7cqw}
   .shelf-tag{font-size:6.4cqw;top:-2cqw}
 }
@@ -369,11 +374,30 @@ footer a{color:var(--lilac);text-underline-offset:4px}
   .hero{padding-top:100px}
   .hero h1{font-size:11.2vw}
   .hero .wrap{grid-template-columns:minmax(0,1fr)}
+  .hero .lede{font-size:clamp(28px,5.4vw,40px);max-width:17ch}
   .btn{padding:16px 22px 14px;font-size:18px}
-  .topbar nav{gap:16px;font-size:13px}
+  .topbar nav{gap:6px;font-size:15px}
+  .topbar nav a{padding:10px 6px}
   .topbar nav .nav-dl{display:none}
+  /* one column: the prints get a sane width instead of filling the whole tablet */
+  .stack{width:min(100%,580px);justify-self:center;margin-top:12px}
   .photo figcaption{font-size:18px}
   .tvroom h2,.final h2{font-size:9.4vw}
+}
+@media(max-width:600px){
+  .topbar{padding:16px 24px}
+  .topbar .mark{font-size:20px}.topbar .mark img{width:30px;height:30px}
+  .topbar nav{margin-right:-4px;font-size:14px}.topbar nav a{padding:10px 4px}
+  .btn{padding:16px 20px 14px;font-size:17px;white-space:nowrap}
+  .cta .btn{width:100%;justify-content:center}
+  /* smaller frame and tape so the screenshot itself gets the room */
+  .stack{width:92%}
+  .photo .shot{padding:7px 7px 40px}
+  .photo figcaption{left:12px;right:12px;bottom:9px;font-size:16px}
+  .photo .tape{width:74px;height:22px}
+  .photo .tape.tl{top:-6px;left:-18px}.photo .tape.tr{top:-6px;right:-18px}.photo .tape.br{bottom:-4px;right:-16px}
+  .stack-count{bottom:-36px}
+  .tvroom h2,.final h2{font-size:10.4vw}
 }
 @media(prefers-reduced-motion:reduce){
   .grain{animation:none}
