@@ -3,7 +3,7 @@
 ## Agora
 
 Melhorias de UX de 30/10 (Painel, dock, tile, avisos, conexão, Discord, Configurações) e mocks aprovados (Painel novo, Convidar com favoritos, Compartilhar com fontes no pop-up, página de convite do site): 0.8.9 publicada em 30/10/2026 editando a Release da 0.8.8 (agora 0.8.11: engrenagem do perfil abre as Configurações, janela sem moldura, rolagem própria, carregando do Discord, porcentagem do volume); site atualizado.
-- [ ] 0.9.0 (Painel com logo viva): conferir à mão a intro completa/curta no instalado, uso de CPU/GPU com o Painel aberto parado e a abertura por convite (deve pular a intro).
+- [ ] 0.9.1 (Painel com logo viva, barra lateral recolhida): conferir à mão a intro completa/curta no instalado, uso de CPU/GPU com o Painel aberto parado e a abertura por convite (deve pular a intro).
 - [ ] Conferir à mão na 0.8.11: arrastar/maximizar pela barra de título, snap layouts e janela em monitor com zoom (2K/4K).
 - [ ] Testar o teste de microfone das Configurações com microfone físico.
 - [ ] Conferir favoritos do Discord no menu Convidar com conta real (testado só com SDK simulado).
