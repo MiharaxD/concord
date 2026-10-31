@@ -75,6 +75,14 @@ try {
   assert.equal((await guest.page.evaluate(() => window.concord.bootstrap())).preferences.resolution, '720');
   check('Configurações: teste de microfone para ao trocar de aba, qualidade padrão salva e travada ao transmitir.');
 
+  await guest.page.locator('#profile-settings').click(); await guest.page.locator('#settings-dialog[open]').waitFor();
+  assert.equal(await guest.page.locator('#name-picker[open]').count(), 0, 'engrenagem não abre o perfil');
+  await guest.page.keyboard.press('Escape'); await guest.page.locator('#settings-dialog').waitFor({ state: 'hidden' });
+  await guest.page.locator('#profile-button').click(); await guest.page.locator('#name-picker[open]').waitFor();
+  assert.equal(await guest.page.locator('#settings-dialog[open]').count(), 0);
+  await guest.page.keyboard.press('Escape'); await guest.page.locator('#name-picker').waitFor({ state: 'hidden' });
+  check('Engrenagem ao lado do perfil abre as Configurações; foto e nome abrem o perfil.');
+
   await guest.page.locator('#leave-button').click();
   await host.page.locator('.room-toast', { hasText: 'Ana saiu da sala' }).waitFor();
   check('Dono vê o aviso de saída.');

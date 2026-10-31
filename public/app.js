@@ -1271,6 +1271,7 @@ async function changeBanner(action) {
 $('banner-button').onclick = () => void changeBanner(() => native.chooseBanner());
 $('remove-banner').onclick = () => void changeBanner(() => native.removeBanner());
 $('profile-button').onclick = () => void chooseName();
+$('profile-settings').onclick = () => void openSettings('voice');
 for (const button of document.querySelectorAll('.theme-swatch')) { button.style.background = button.dataset.color; button.onclick = () => { applyTheme(button.dataset.color); savePreferences(); }; }
 $('theme-custom').oninput = () => applyTheme($('theme-custom').value);
 $('theme-custom').onchange = () => { applyTheme($('theme-custom').value); savePreferences(); };

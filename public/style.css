@@ -676,3 +676,16 @@ dialog[open]::backdrop{opacity:1;transition-duration:.26s}
 @media(prefers-reduced-motion:reduce){.invite-pop{animation:none}}
 .share-dialog .share-actions .button{font-size:14px;max-width:360px}.share-dialog #start-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .live-tag{font-size:11px}.share-hint,.invite-slots,.invite-item em,.ready-text small,.invite-fav-title{font-size:12px}
+/* Barra do perfil: foto e nome abrem o perfil; a engrenagem abre as Configurações de voz e vídeo. */
+.profile-bar{display:flex;align-items:center;gap:2px;flex-shrink:0;margin-top:16px;padding:4px;border-radius:8px;background:#0d0e11}
+body[data-view="home"] .profile-bar{margin-top:auto}
+.connection-panel:not([hidden])+.profile-bar{margin-top:8px}
+.profile-bar .profile-button{flex:1;min-width:0;width:auto;margin:0;padding:4px;border-radius:6px;background:transparent}
+.profile-bar .profile-button:hover{background:#1b1c22}
+.profile-settings{display:grid;place-items:center;width:34px;height:34px;flex-shrink:0;border:0;border-radius:6px;background:transparent;color:var(--muted);transition:background .15s,color .15s}
+.profile-settings:hover{background:#1b1c22;color:var(--text)}
+.profile-settings:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.profile-settings .profile-gear{margin:0;color:inherit}
+body.sidebar-collapsed .profile-settings{display:none}
+body.sidebar-collapsed .profile-bar{padding:4px 0;background:transparent}
+.profile-bar{margin-bottom:10px}

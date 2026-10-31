@@ -37,6 +37,10 @@ async function api(url, options = {}, allow404 = false) {
 const notes = [
       `## Novidades do Concord ${pkg.version}`,
       '',
+      '- **Engrenagem ao lado do perfil:** agora abre as Configurações de voz e vídeo. Para editar o perfil, clique na sua foto ou no seu nome.',
+      '',
+      '### Da 0.8.9',
+      '',
       '- **Painel novo:** Criar sala em destaque e o convite colado no próprio Painel, com aviso na hora se ele é válido. Se você copiou um convite, o Painel oferece entrar sem colar. Dentro de uma sala, o Painel mostra a sala atual com quem está transmitindo e os botões Voltar e Sair.',
       '- **Compartilhar tela em menos cliques:** as janelas e telas aparecem no próprio pop-up. Qualidade em Leve, Nítida ou Máxima e som em Automático, Do PC ou Sem som; o resto fica em Avançado.',
       '- **Convidar:** um botão só, com o link à vista, envio por DM no Discord e seus amigos favoritos logo abaixo para convidar com um clique. Fechar acesso e Trocar link dizem o que acontece antes de você clicar.',
