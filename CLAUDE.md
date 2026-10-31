@@ -36,6 +36,7 @@ App desktop Windows x64 (Electron + JavaScript) de compartilhamento de tela e á
 | `public/mqtt.js` | Cliente MQTT 3.1.1 mínimo sobre WSS (QoS 0) para os brokers públicos. |
 | `public/invites.js` | Parser/gerador de convites (`concord:p2p:<chave>`, página do GitHub Pages, `concord:<túnel>:<chave>`, `/invite?join=`, `#join=` legado). Compartilhado com o servidor. |
 | `site/` | Página estática do convite e landing, publicada no GitHub Pages por `.github/workflows/pages.yml`. |
+| `public/room-motion.js` | Transições Painel ↔ sala (criar, ir ao Painel, voltar, sair) com elementos compartilhados via WAAPI; cópias congeladas nunca duplicam ids. Sem animação com `prefers-reduced-motion`. |
 | `public/profile.js` | `visualProfile()`: whitelist de nome/foto/banner/cor. Compartilhado com o servidor. |
 | `public/stream-settings.js`, `audio-meter.js`, `app-audio-worklet.js` | Presets/bitrate, medidor de nível, worklet do PCM do helper. |
 | `public/invite.html/js/css` | Página pública do link (Abrir no Concord / Baixar). Sem conexão à sala; o servidor injeta Open Graph. |

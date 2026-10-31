@@ -754,3 +754,8 @@ html,body{height:100%}body{display:flex;flex-direction:column;overflow:hidden}
 .volume-tip{position:absolute;bottom:calc(100% + 12px);left:50%;transform:translate(-50%,4px);padding:4px 8px;border:1px solid var(--line);border-radius:7px;background:#0b0c0f;color:var(--text);font-size:12px;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap;box-shadow:0 6px 16px #0008;opacity:0;pointer-events:none;transition:opacity .12s,transform .12s}
 .volume-control:hover .volume-tip,.volume-control.adjusting .volume-tip,.volume-control:has(input:focus-visible) .volume-tip{opacity:1;transform:translate(-50%,0)}
 @media(prefers-reduced-motion:reduce){.volume-tip{transition:none}}
+/* 0.9.2 transições Painel ↔ sala (room-motion.js): camada dos elementos compartilhados e estados temporários. */
+.motion-layer{position:fixed;inset:0;z-index:50;pointer-events:none;overflow:hidden}
+.motion-wait{opacity:0}
+.motion-naked{background:transparent!important;box-shadow:none!important}
+.motion-nav .nav-item.selected{background:transparent!important;box-shadow:none!important}

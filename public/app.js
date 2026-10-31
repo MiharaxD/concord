@@ -6,6 +6,7 @@ import { RoomChat } from './chat.js';
 import { AudioMeter } from './audio-meter.js';
 import { visualProfile } from './profile.js';
 import { createHomeIntro } from './home-intro.js';
+import { createRoomMotion } from './room-motion.js';
 const $ = id => document.getElementById(id);
 const native = window.concord, video = $('screen-video');
 let config, role = null, socket, target, reconnectTimer, terminal = false, retries = 0, processing = Promise.resolve();
@@ -31,6 +32,7 @@ const chat = new RoomChat({ root: $('chat-root'), send: value => send(value), no
 let noticeTimer;
 const homeIntro = createHomeIntro({ brand: $('hero-brand'), logo: $('hero-logo'), look: $('hero-look'), eyes: $('hero-eyes'), glint: $('hero-glint'),
   back: $('home-sky'), front: $('home-sky-front'), field: $('home-join-input'), rise: [$('home-sub'), $('room-live'), $('clip-invite'), document.querySelector('.home-actions'), $('home-ready')] });
+const roomMotion = createRoomMotion({ self: () => self, onEnd: () => homeIntro.setActive(document.body.dataset.view === 'home' && !target) });
 // Confirmations fade after a few seconds; errors stay until replaced.
 function notice(text, error = false) {
   clearTimeout(noticeTimer); $('notice').textContent = text; $('notice').classList.toggle('error', error); $('notice').hidden = !text;
@@ -156,7 +158,7 @@ function showView(view) {
   $('host-tab').hidden = !target; $('room-people').hidden = view !== 'room';
   $('room-name').textContent = role === 'viewer' ? 'Sala atual' : 'Minha sala'; renderInvite(); renderTiles(); renderHome();
   if (view === 'home') void checkClipboard(); else hideClip();
-  homeIntro.setActive(view === 'home' && !target);
+  homeIntro.setActive(view === 'home' && !target || roomMotion.sky);
 }
 // Painel: outside a room, the living logo, Criar sala, the invite field and how you enter; inside, a live card with who is there.
 function renderHome() {
@@ -554,7 +556,8 @@ function applyAudio() {
 }
 // Picks the column count that gives each 16:9 cell the largest size; `max` caps the cell width (people cards).
 function arrange(grid, count, max) {
-  const bounds = grid.getBoundingClientRect(), gap = 8;
+  // Layout size, not the painted box: the Painel ↔ sala transition scales the stage while tiles re-render.
+  const bounds = { width: grid.offsetWidth, height: grid.offsetHeight }, gap = 8;
   let columns = 1, best = 0;
   for (let c = 1; c <= Math.max(count, 1); c++) {
     const rows = Math.ceil(count / c) || 1;
@@ -1399,10 +1402,10 @@ $('member-profile').addEventListener('click', event => {
 });
 $('member-profile').addEventListener('close', () => { if (!$('member-profile').open) closeMemberProfile(); });
 
-$('home-tab').onclick = () => { stopAudioPreview(); showView('home'); };
-$('create-room').onclick = () => { homeIntro.react('burst'); createRoom(); };
+$('home-tab').onclick = () => { stopAudioPreview(); if (target && document.body.dataset.view === 'room') { roomMotion.minimize(() => showView('home')); renderTiles(); } else showView('home'); };
+$('create-room').onclick = () => { homeIntro.react('burst'); roomMotion.create(createRoom); };
 $('create-room').onpointerenter = () => homeIntro.react('hover'); $('create-room').onpointerleave = () => homeIntro.react('leave');
-$('resume-room').onclick = $('host-tab').onclick = () => { if (target) showView('room'); };
+$('resume-room').onclick = $('host-tab').onclick = () => { if (!target) return; if (document.body.dataset.view === 'home') roomMotion.resume(() => showView('room')); else showView('room'); };
 $('join-room-nav').onclick = () => openJoin();
 $('home-join-form').onsubmit = event => {
   event.preventDefault(); const value = $('home-join-input').value.trim();
@@ -1481,7 +1484,10 @@ $('join-form').onsubmit = event => {
     joinTimer = setTimeout(() => joinFailure('Não consegui entrar. Confira o convite e tente novamente.'), parsed.p2p ? 210000 : 15000);
   } catch (error) { $('join-error').textContent = error.message; }
 };
-$('leave-button').onclick = () => { stopSharing(); stopCamera(); disconnect(); target = null; role = null; status('Não conectado'); showView('home'); notice('Você saiu da sala.'); };
+$('leave-button').onclick = () => {
+  const leave = () => { stopSharing(); stopCamera(); disconnect(); target = null; role = null; status('Não conectado'); showView('home'); notice('Você saiu da sala.'); };
+  if (document.body.dataset.view === 'room') roomMotion.leave(leave); else roomMotion.cardLeave(leave);
+};
 $('grid-button').onclick = () => { focus = null; renderTiles(); };
 $('sound-button').onclick = () => { muted = !muted; applyAudio(); applyVoice(); publishState(); for (const item of tiles.values()) media?.play(item.video); for (const audio of voices.values()) media?.play(audio); };
 // Percentage bubble over the thumb while hovering or dragging the dock volume.
