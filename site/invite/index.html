@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Convite para o Concord</title><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"><meta name="referrer" content="no-referrer"><meta property="og:type" content="website"><meta property="og:site_name" content="Concord"><meta property="og:title" content="Convite para uma sala do Concord"><meta property="og:description" content="Abra este convite no aplicativo Concord para entrar na sala."><meta property="og:image" content="https://miharaxd.github.io/concord/invite-icon.png?v=camera-1"><meta property="og:image:width" content="512"><meta property="og:image:height" content="512"><meta name="theme-color" content="#9b86ff"><meta name="description" content="Abra este convite no aplicativo Concord para entrar na sala."><link rel="icon" href="../icon.svg"><link rel="stylesheet" href="page.css"><script type="module" src="invite.js"></script></head>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Convite para o Concord</title><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"><meta name="referrer" content="no-referrer"><meta property="og:type" content="website"><meta property="og:site_name" content="Concord"><meta property="og:title" content="Convite para uma sala do Concord"><meta property="og:description" content="Abra este convite no aplicativo Concord para entrar na sala."><meta property="og:image" content="https://miharaxd.github.io/concord/invite-icon.png?v=camera-1"><meta property="og:image:width" content="512"><meta property="og:image:height" content="512"><meta name="theme-color" content="#9b86ff"><meta name="description" content="Abra este convite no aplicativo Concord para entrar na sala."><link rel="icon" href="../icon.svg"><link rel="stylesheet" href="page.css"><link rel="stylesheet" href="den.css"><script defer src="den.js"></script><script type="module" src="invite.js"></script></head>
 <body><div class="wrap">
   <main>
     <p class="brand"><img class="logo" src="../icon.svg" alt="">Concord<span>.</span></p>
@@ -16,5 +16,60 @@
     <details id="manual-invite" hidden><summary>Usar código de convite</summary><label for="manual-code">Convite da sala</label><textarea id="manual-code" readonly rows="2"></textarea><p class="hint">Selecione o código, copie com Ctrl+C e cole em Entrar com convite, no Painel do Concord.</p></details>
     <p class="fine">É preciso ter o Concord 0.6.0 ou mais novo instalado neste computador.</p>
   </main>
-  <figure class="preview"><div class="preview-bar" aria-hidden="true"><i></i><i></i><i></i></div><img src="../invite-preview.png" alt="Sala do Concord com duas pessoas e o chat aberto" width="1259" height="816"></figure>
+  <div class="den" id="den" role="img" aria-label="O mascote do Concord no sofá, comendo pipoca e assistindo na TV um amigo transmitir uma corrida pelo Concord">
+    <div class="den-room">
+      <div class="den-rug"></div>
+      <div class="den-couch">
+        <svg viewBox="0 0 460 232">
+          <defs>
+            <linearGradient id="cb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b2e5e"/><stop offset="1" stop-color="#211932"/></linearGradient>
+            <linearGradient id="cs" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a3b76"/><stop offset="1" stop-color="#2a2045"/></linearGradient>
+            <linearGradient id="ca" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#43356b"/><stop offset="1" stop-color="#1f1830"/></linearGradient>
+            <pattern id="pop" width="14" height="10" patternUnits="userSpaceOnUse"><rect width="7" height="10" fill="#9b86ff"/><rect x="7" width="7" height="10" fill="#f1edf6"/></pattern>
+            <g id="kern"><circle r="5" fill="#f6eedb"/><circle cx="4" cy="-3" r="4" fill="#fbf5e8"/><circle cx="-4" cy="-2" r="3.6" fill="#eadfc2"/></g>
+          </defs>
+          <rect x="34" y="52" width="392" height="112" rx="28" fill="url(#cb)"/>
+          <rect x="56" y="62" width="170" height="92" rx="20" fill="#3a2d5c"/><rect x="234" y="62" width="170" height="92" rx="20" fill="#3a2d5c"/>
+          <g transform="translate(55 -37.6) scale(.22)"><g class="hop"><g class="pet">
+            <path fill="#9B86FF" d="M 206 798 C 204 713 202 570 211 506 C 219 453 256 420 303 420 L 394 420 L 394 401 C 394 367 421 339 457 339 L 668 339 C 699 339 722 366 722 397 L 723 420 L 816 420 C 861 420 891 451 891 506 L 894 550 L 1024 465 C 1040 454 1057 461 1068 476 C 1073 483 1077 492 1077 502 L 1077 849 C 1077 874 1054 895 1033 884 L 894 785 C 891 847 852 888 789 888 L 755 889 L 708 809 C 617 851 481 853 391 809 L 343 889 L 305 889 C 247 889 206 855 206 798 Z"/>
+            <g class="eyes"><g class="lid"><circle cx="425.5" cy="653.5" r="82.5" fill="#151021"/><circle cx="688.5" cy="653.5" r="82.5" fill="#151021"/></g></g>
+          </g></g></g>
+          <rect x="56" y="140" width="176" height="44" rx="12" fill="url(#cs)"/><rect x="228" y="140" width="176" height="44" rx="12" fill="url(#cs)"/>
+          <path d="M70 147h148M242 147h148" stroke="#ffffff14" stroke-width="3" stroke-linecap="round"/>
+          <rect x="34" y="176" width="392" height="36" rx="10" fill="#1d1630"/>
+          <rect x="58" y="208" width="12" height="20" rx="3" fill="#120d1c"/><rect x="390" y="208" width="12" height="20" rx="3" fill="#120d1c"/>
+          <rect x="6" y="104" width="64" height="108" rx="26" fill="url(#ca)"/><rect x="390" y="104" width="64" height="108" rx="26" fill="url(#ca)"/>
+          <path d="M24 114h28M408 114h28" stroke="#ffffff1c" stroke-width="5" stroke-linecap="round"/>
+          <g transform="rotate(-8 357 136)"><rect x="338" y="131" width="38" height="11" rx="4" fill="#15111d"/><circle cx="347" cy="136.5" r="2" fill="#e5484d"/><circle cx="356" cy="136.5" r="1.6" fill="#5a5466"/><circle cx="363" cy="136.5" r="1.6" fill="#5a5466"/></g>
+          <g class="bucket">
+            <use href="#kern" x="256" y="106"/><use href="#kern" x="268" y="100"/><use href="#kern" x="281" y="103"/><use href="#kern" x="294" y="105"/><use href="#kern" x="265" y="93"/><use href="#kern" x="286" y="94"/><use href="#kern" x="276" y="87"/><use href="#kern" x="302" y="108"/>
+            <path d="M250 111h58l-7 60h-44z" fill="url(#pop)"/><path d="M290 111h18l-7 60h-14z" fill="#0004"/>
+            <rect x="246" y="107" width="66" height="9" rx="3" fill="#f1edf6"/>
+          </g>
+          <use href="#kern" x="128" y="225"/><use href="#kern" x="334" y="227"/><use href="#kern" x="352" y="222"/>
+          <use href="#kern" class="toss"/>
+          <use href="#kern" class="spill d1"/><use href="#kern" class="spill d2"/><use href="#kern" class="spill d3"/>
+        </svg>
+      </div>
+      <div class="den-glow"></div>
+      <div class="den-tv">
+        <div class="den-ant"><i></i><i></i></div>
+        <div class="dtv wood">
+          <div class="dtv-bezel"><div class="dtv-screen">
+            <div class="cc">
+              <div class="cc-top"><img src="../icon.svg" alt="">Sala de Bia<span>3 na sala</span></div>
+              <div class="cc-main">
+                <div class="cc-tile"><canvas id="den-game" width="300" height="240"></canvas><span class="cc-live">AO VIVO</span><span class="cc-name">Léo</span></div>
+                <div class="cc-chat" id="den-chat"><p class="cc-msg"><b class="ana">Ana</b>começou!</p><p class="cc-msg"><b class="mi">Bia</b>que carro é esse</p></div>
+              </div>
+              <div class="cc-bar"><i></i><i></i><b>Transmitir tela</b><i class="leave"></i></div>
+            </div>
+            <div class="scan"></div><div class="glass"></div>
+          </div></div>
+          <div class="dtv-side"><i></i><i></i><span></span></div>
+        </div>
+        <div class="dtv-legs"><i></i><i></i></div>
+      </div>
+    </div>
+  </div>
 </div></body></html>
