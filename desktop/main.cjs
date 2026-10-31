@@ -179,6 +179,12 @@ if (primaryInstance) app.whenReady().then(async () => {
     const code = value === undefined ? (await api('/api/session')).guestInvite : value;
     clipboard.writeText(code); return true;
   });
+  // Only a valid invite ever leaves the clipboard; anything else returns empty.
+  handle('concord:clipboard-invite', async () => {
+    const text = String(await clipboard.readText() ?? '').trim();
+    if (!text || text.length > 2048) return '';
+    try { parseInvite(text); return text; } catch { return ''; }
+  });
   handle('concord:copy-link', async value => {
     if (typeof value !== 'string' || value.length > 2048) throw new Error('Convite inválido.');
     clipboard.writeText(webInvite(value)); return true;

@@ -2,6 +2,12 @@
 
 ## Agora
 
+Melhorias de UX de 30/10 (Painel, dock, tile, avisos, conexão, Discord, Configurações) e mocks aprovados (Painel novo, Convidar com favoritos, Compartilhar com fontes no pop-up, página de convite do site): instalador local 0.8.9 gerado, sem commit nem Release.
+- [ ] Usuário testar o instalador 0.8.9; commit/push/Release só com pedido (notas da 0.8.9 ainda não escritas em `scripts/publish-release.mjs`).
+- [ ] Testar o teste de microfone das Configurações com microfone físico.
+- [ ] Conferir favoritos do Discord no menu Convidar com conta real (testado só com SDK simulado) e publicar a página do site (precisa de push).
+
+
 0.8.8 (visualizador de mídia do chat) publicada editando a Release da 0.8.7 (antes 0.8.6/0.8.5/0.8.4/0.8.3).
 - [ ] Conferir à mão zoom e arrastar do visualizador com foto grande.
 - [ ] Testar voz entre duas máquinas reais (eco, atraso, relay de voz) e com microfone/câmera físicos trocados no modal.

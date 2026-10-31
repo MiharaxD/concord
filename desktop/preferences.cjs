@@ -1,6 +1,8 @@
 const { readFile, writeFile, rename } = require('node:fs/promises');
 
-const defaults = Object.freeze({ resolution: '1080', fps: '30', bitrateMode: 'auto', bitrateMbps: 12, audioMode: 'auto', audioEnabled: true, audioVersion: 2, micMuted: false, micDevice: '', cameraDevice: '', speakerDevice: '', themeColor: '#aa96ff' });
+const defaults = Object.freeze({ resolution: '1080', fps: '30', bitrateMode: 'auto', bitrateMbps: 12, audioMode: 'auto', audioEnabled: true, audioVersion: 2, micMuted: false, micDevice: '', cameraDevice: '', speakerDevice: '', themeColor: '#aa96ff', discordFavorites: [], discordRecent: [] });
+// Discord friends are kept only as IDs (favorites and recent invites); names and photos come from the SDK at runtime.
+const friendIds = (value, max) => Array.isArray(value) ? [...new Set(value.filter(id => typeof id === 'string' && /^\d{5,25}$/.test(id)))].slice(0, max) : [];
 const deviceName = value => typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f-\u009f]/g, '').slice(0, 200) : '';
 function normalizePreferences(value = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) value = {};
@@ -17,7 +19,8 @@ function normalizePreferences(value = {}) {
     // Voice: mute is remembered like Discord; devices are kept by name because Chromium IDs change with the app port.
     micMuted: typeof value.micMuted === 'boolean' ? value.micMuted : defaults.micMuted,
     micDevice: deviceName(value.micDevice), cameraDevice: deviceName(value.cameraDevice), speakerDevice: deviceName(value.speakerDevice),
-    themeColor: typeof value.themeColor === 'string' && /^#[0-9a-f]{6}$/i.test(value.themeColor) ? value.themeColor.toLowerCase() : defaults.themeColor
+    themeColor: typeof value.themeColor === 'string' && /^#[0-9a-f]{6}$/i.test(value.themeColor) ? value.themeColor.toLowerCase() : defaults.themeColor,
+    discordFavorites: friendIds(value.discordFavorites, 50), discordRecent: friendIds(value.discordRecent, 8)
   };
 }
 async function createPreferences(file) {
@@ -25,12 +28,12 @@ async function createPreferences(file) {
   try { current = normalizePreferences(JSON.parse(await readFile(file, 'utf8'))); }
   catch (error) { warning = error.code !== 'ENOENT'; }
   return {
-    get: () => ({ ...current }), warning,
+    get: () => structuredClone(current), warning,
     save(value) {
       const next = normalizePreferences(value);
       const saved = queue.then(async () => {
         await writeFile(file + '.tmp', JSON.stringify(next), 'utf8');
-        await rename(file + '.tmp', file); current = next; return { ...current };
+        await rename(file + '.tmp', file); current = next; return structuredClone(current);
       });
       queue = saved.catch(() => {}); return saved;
     }

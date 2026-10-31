@@ -24,6 +24,11 @@
 - Publicação anterior 0.4.3, em 15/10/2026: [Release](https://github.com/MiharaxD/concord/releases/tag/v0.4.3), commit/tag `a6708d06eb587c7cca5f27d3e8f877444a51efda`. Setup público SHA-256 `0238a3c0e024a613fc2ff2984d014ade31ff1d794b1bb0c4c13c98405900b3b4`; local separado `68bd2dd27d15c5982393ab1a5f7a04fa95884de9071d7afc9ee88f62dd51daf2`.
 - Instaladores/portáteis e relatórios anteriores preservados em `dist/`, ignorada pelo Git. Gerar pacote não publica. Página de download do convite /releases/latest agora oferece a 0.5.2 pública.
 
+## Em andamento (não publicado)
+
+- Melhorias de UX aprovadas em 30/10/2026, versão 0.8.9 local (sem commit/Release): `dist/installer/0.8.9/Concord-0.8.9-Setup.exe`, 128.403.392 bytes, SHA-256 `5152e4bf5ba934b6ac6827e4f4a699241acb30a3f0827a97b250be6a91def3e5` (refeito após os mocks aprovados: Painel novo com cartão da sala, menu Convidar com favoritos do Discord, Compartilhar com fontes no pop-up, página de convite do site com print novo). Validação no fonte: 51 unitários; room-ux, discord-links (agora com favoritos no menu), p2p, room-navigation, member-profile, camera, chat e voice passaram; experience passa até o teste de áudio do app por WASAPI, que falha porque o teste agora roda com `--mute-audio` (captura vem muda). Instalador novo não testado à mão. Conteúdo: convite da área de transferência e campo no Painel, dock reagrupada com engrenagem de Configurações, qualidade real/fixar/tela cheia no tile, avisos de entrada/saída/transmissão, popover de conexão no sinal da barra lateral, favoritos/recentes do Discord e vagas da sala, Copiar link com confirmação no botão. Coberto por `tests/room-ux.mjs` e `tests/discord-links.mjs`.
+- Electron 44: `clipboard.readText()` no principal retorna Promise; sempre usar `await`.
+
 ## Produto atual
 
 - Logo atual: SVG original de câmera fornecido pelo usuário, em public/icon.svg; ICO Windows/instalador com DIB 32 bits em 16–128 px e PNG 256 px, PNG Open Graph 512 px. Mesmas cores/transparência. Página/favicon/interface usam vetor; og:image usa `/invite-icon.png?v=camera-1` para revisar a imagem em cache. Cartões de mensagens antigas no Discord podem continuar em cache.

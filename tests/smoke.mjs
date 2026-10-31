@@ -11,7 +11,7 @@ const executablePath = process.env.CONCORD_EXE || path.resolve(buildConfig.direc
 const directory = path.resolve('test-results/smoke-' + Date.now()); await mkdir(directory, { recursive: true });
 let app, preconnection;
 try {
-  app = await _electron.launch({ executablePath, args: ['--use-fake-device-for-media-stream'], env: { ...process.env, CONCORD_DATA_DIR: directory }, timeout: 45000 });
+  app = await _electron.launch({ executablePath, args: ['--mute-audio', '--use-fake-device-for-media-stream'], env: { ...process.env, CONCORD_DATA_DIR: directory }, timeout: 45000 });
   const page = await app.firstWindow(); page.setDefaultTimeout(15000);
   await page.locator('#name-picker[open]').waitFor(); await page.locator('#display-name').fill('Teste do pacote'); await page.locator('#save-name').click();
   if (await page.locator('#create-room').count()) await page.locator('#create-room').click();

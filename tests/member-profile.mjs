@@ -54,7 +54,7 @@ async function start(page, color) {
       window.profileCapture = stream; return stream;
     };
   }, color);
-  await openShare(page); await page.locator('#choose-source').click(); await page.locator('.source-choice').first().click();
+  await openShare(page); await page.locator('#choose-source').click(); await page.locator('#tab-screens').click(); await page.locator('.share-source').first().click();
   await openShare(page); await page.locator('#start-button').click(); await page.locator('#bar-screen[aria-pressed="true"]').waitFor();
 }
 async function frames(page, count) {

@@ -1,5 +1,5 @@
 import { qualityPreset, videoBitrate, formatMbps } from './stream-settings.js';
-import { parseInvite } from './invites.js';
+import { parseInvite, webInvite } from './invites.js';
 import { RoomMedia } from './room-media.js';
 import { connectRoom, P2PHost } from './p2p.js';
 import { RoomChat } from './chat.js';
@@ -11,7 +11,7 @@ let config, role = null, socket, target, reconnectTimer, terminal = false, retri
 let media, self = '', members = [], focus = null, muted = false;
 let viewedMember = null, profilePointerOutside = false, profileOpener;
 let discordPending = false;
-let discordFriends = [], friendsGeneration = 0, friendsInvite = '', friendPhotoObserver;
+let discordFriends = [], friendsGeneration = 0, friendsInvite = '', friendPhotoObserver, discordFavorites = [], discordRecent = [];
 const friendInvites = new Map();
 const tiles = new Map(), volumes = new Map(), levels = new Map();
 let peopleKey = '', levelContext;
@@ -24,7 +24,7 @@ let audioPreviewTrack, testingAudio = false, audioGeneration = 0, captureGenerat
 let cameraStream, cameraStarting = false, cameraGeneration = 0, roomCamera = false, relayStream = 'screen';
 const cameraViews = new Map(), cameraModes = new Map(), voices = new Map();
 let themeColor = '#aa96ff', voiceTrack, voiceStarting = false, voiceGeneration = 0, voiceMuted = false, roomVoice = false, devicePrefs = { mic: '', camera: '', speaker: '' };
-const meter = new AudioMeter($('audio-level'), $('audio-level-label'));
+const meter = new AudioMeter($('audio-level'), $('audio-level-label')), micMeter = new AudioMeter($('mic-test-level'), $('mic-test-label'));
 const chat = new RoomChat({ root: $('chat-root'), send: value => send(value), notice: (text, error) => notice(text, error),
   onUnread: count => { $('chat-badge').hidden = !count; $('chat-badge').textContent = count > 9 ? '9+' : String(count); }, onIncoming: message => chatToast(message) });
 let noticeTimer;
@@ -33,9 +33,10 @@ function notice(text, error = false) {
   clearTimeout(noticeTimer); $('notice').textContent = text; $('notice').classList.toggle('error', error); $('notice').hidden = !text;
   if (text && !error) noticeTimer = setTimeout(() => notice(''), 4000);
 }
+$('notice').onclick = () => notice('');
 function status(text, online = false) {
   document.body.dataset.connected = String(online); document.body.dataset.connectionState = text;
-  updateRoomMessage();
+  updateRoomMessage(); renderHome();
 }
 function updateRoomMessage() {
   const state = document.body.dataset.connectionState;
@@ -57,19 +58,147 @@ function renderInvite() {
   const message = p2pOffline && !accessClosed ? 'Sem acesso ao serviço de conexão. Convidados podem não conseguir entrar até a internet voltar.' : ownInviteMessage;
   $('own-invite-controls').hidden = guest;
   $('invite-result').hidden = !code; $('invite-link').value = code || '';
+  let link = ''; try { link = code ? webInvite(code).replace(/^https:\/\//, '') : ''; } catch {}
+  $('invite-url').textContent = link; $('invite-url').title = link;
   $('invite-status').textContent = guest ? '' : message;
   $('invite-status').hidden = guest || !message;
   $('invite-button').hidden = !accessClosed;
   $('cancel-invite').hidden = !invitePending;
-  document.querySelector('.invite-manage').hidden = !code;
-  renderTiles();
+  $('invite-manage').hidden = guest || !code;
+  if (!code) closeInvitePop();
+  renderInviteSlots(); renderTiles();
 }
+// Invite popover: link, Discord DM, starred Discord friends and the access actions with their consequences.
+let favFriends = [], favGeneration = 0, favInvite = '';
+const favInvites = new Map();
+function renderInviteSlots() {
+  const free = Math.max(0, 8 - members.length);
+  $('invite-slots').textContent = free ? 'Quem abrir o link entra direto. ' + (free === 1 ? 'Cabe mais 1 pessoa.' : 'Cabem mais ' + free + ' pessoas.') : 'A sala está cheia (8 pessoas).';
+}
+function closeInvitePop() {
+  if ($('invite-pop').hidden) return;
+  $('invite-pop').hidden = true; $('invite-menu-button').setAttribute('aria-expanded', 'false'); ++favGeneration;
+}
+function openInvitePop() {
+  closeDeviceMenu(); $('invite-pop').hidden = false; $('invite-menu-button').setAttribute('aria-expanded', 'true');
+  renderInviteSlots(); $('copy-link-button').focus({ preventScroll: true }); void loadFavorites();
+}
+async function loadFavorites() {
+  const code = $('invite-link').value, generation = ++favGeneration;
+  if (code !== favInvite) { favInvite = code; favInvites.clear(); }
+  if (!config.discord?.social || !discordFavorites.length) { favFriends = []; renderFavorites(); return; }
+  if (!favFriends.length) {
+    try { const result = await native.discordFriends(); if (generation !== favGeneration || result.error) return; favFriends = result.value; }
+    catch { return; }
+  }
+  renderFavorites();
+}
+function renderFavorites() {
+  const list = discordFavorites.map(id => favFriends.find(friend => friend.id === id)).filter(Boolean).slice(0, 5);
+  $('invite-favorites').hidden = !list.length;
+  $('invite-fav-list').replaceChildren(...list.map(friend => {
+    const row = document.createElement('div'); row.className = 'invite-fav'; row.dataset.friend = friend.id;
+    const face = document.createElement('span'); face.className = 'friend-avatar'; face.append(avatar(friend));
+    const name = document.createElement('span'); name.className = 'invite-fav-name'; name.textContent = friend.name;
+    const state = favInvites.get(friend.id), button = document.createElement('button'); button.type = 'button'; button.className = 'button subtle';
+    button.textContent = state?.phase === 'sent' ? 'Enviado' : state?.phase === 'pending' ? 'Enviando…' : state?.error ? 'Tentar de novo' : 'Convidar';
+    button.disabled = state?.phase === 'pending' || state?.phase === 'sent'; button.setAttribute('aria-label', 'Convidar ' + friend.name + ' por DM');
+    if (state?.error) { button.title = state.error; row.classList.add('failed'); }
+    button.onclick = () => void inviteFavorite(friend);
+    row.append(face, name, button);
+    if (!friend.photo) void native.discordFriendPhoto(friend.id).then(photo => { if (photo && row.isConnected) { friend.photo = photo; face.replaceChildren(avatar(friend)); } }).catch(() => {});
+    return row;
+  }));
+}
+async function inviteFavorite(friend) {
+  const code = $('invite-link').value, phase = favInvites.get(friend.id)?.phase;
+  if (!code || phase || socket?.readyState !== WebSocket.OPEN) return;
+  favInvites.set(friend.id, { phase: 'pending' }); renderFavorites();
+  try {
+    const result = await native.sendDiscordInvite(friend.id, code);
+    if (result.error) throw new Error(result.error);
+    if (result.value !== true) throw new Error('O Discord não confirmou o envio.');
+    discordRecent = [friend.id, ...discordRecent.filter(id => id !== friend.id)].slice(0, 8); savePreferences();
+    if (code === favInvite) favInvites.set(friend.id, { phase: 'sent' });
+    notice('Convite enviado para ' + friend.name + '.');
+  } catch (error) { if (code === favInvite) favInvites.set(friend.id, { error: error.message }); }
+  if (!$('invite-pop').hidden) renderFavorites();
+}
+$('invite-menu-button').onclick = () => { if ($('invite-pop').hidden) openInvitePop(); else closeInvitePop(); };
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape' || $('invite-pop').hidden || document.querySelector('dialog[open]')) return;
+  event.preventDefault(); event.stopPropagation(); closeInvitePop(); $('invite-menu-button').focus();
+}, true);
+document.addEventListener('pointerdown', event => { if (!$('invite-pop').hidden && !event.target.closest('#invite-pop, #invite-menu-button')) closeInvitePop(); });
+// Clipboard invite: offered on the Painel when the window gains focus; own, used and ignored invites are not offered.
+const knownInvites = new Set(); let clipInvite = '';
+function inviteKey(value) { try { return parseInvite(value).token; } catch { return ''; } }
+function hideClip() { clipInvite = ''; $('clip-invite').hidden = true; }
+async function checkClipboard() {
+  const open = () => uiReady && !target && !joining && document.body.dataset.view === 'home';
+  if (!open()) { hideClip(); return; }
+  const value = await native.clipboardInvite().catch(() => '');
+  if (!open() || !value || knownInvites.has(inviteKey(value))) { hideClip(); return; }
+  clipInvite = value; $('clip-invite').hidden = false;
+}
+$('clip-ignore').onclick = () => { knownInvites.add(inviteKey(clipInvite)); hideClip(); };
+$('clip-join').onclick = () => { const value = clipInvite; knownInvites.add(inviteKey(value)); hideClip(); receiveInvite(value); };
+addEventListener('focus', () => void checkClipboard());
 function showView(view) {
   document.body.dataset.view = view; $('home-view').hidden = view !== 'home'; $('room-view').hidden = view !== 'room';
   $('home-tab').classList.toggle('selected', view === 'home'); $('host-tab').classList.toggle('selected', view === 'room');
-  $('host-tab').hidden = !target; $('resume-room').hidden = !target; $('room-people').hidden = view !== 'room';
-  $('room-name').textContent = role === 'viewer' ? 'Sala atual' : 'Minha sala'; renderInvite(); renderTiles();
+  $('host-tab').hidden = !target; $('room-people').hidden = view !== 'room';
+  $('room-name').textContent = role === 'viewer' ? 'Sala atual' : 'Minha sala'; renderInvite(); renderTiles(); renderHome();
+  if (view === 'home') void checkClipboard(); else hideClip();
 }
+// Painel: inside a room, a live card with who is there; outside, Criar sala first, the invite field and how you enter.
+function renderHome() {
+  if (document.body.dataset.view !== 'home') return;
+  const inRoom = Boolean(target), code = document.createElement('code'); code.textContent = 'concord:';
+  $('room-live').hidden = $('resume-room').hidden = !inRoom; $('home-ready').hidden = inRoom;
+  $('home-view').classList.toggle('in-room', inRoom);
+  $('home-sub').textContent = inRoom ? 'Você continua na sala enquanto navega.' : 'Crie uma sala ou cole um convite. Nada é capturado até você escolher.';
+  $('create-room').hidden = inRoom && role === 'host';
+  $('create-title').textContent = inRoom ? 'Criar sala sua' : 'Criar sala';
+  $('create-hint').textContent = inRoom ? 'Você sai da sala atual e abre uma sala sua.' : 'O link fica pronto na hora. Até 7 pessoas entram por ele.';
+  if (inRoom) $('home-join-hint').textContent = 'Ao entrar em outra sala, você sai da atual.';
+  else $('home-join-hint').replaceChildren('Aceita o link do convite ou o código ', code, '. Links abertos no navegador já trazem você direto.');
+  if (inRoom) renderLiveCard(); else renderReady();
+}
+function renderLiveCard() {
+  const live = members.filter(screenLive), count = members.length;
+  $('room-live-title').textContent = $('room-title').textContent;
+  $('room-live-meta').textContent = (document.body.dataset.connected !== 'true' ? 'Conectando… · ' : '')
+    + (live.length ? live.map(member => member.id === self ? 'Você' : member.name).join(', ') + (live.length > 1 ? ' estão transmitindo' : ' está transmitindo') + ' · ' : 'Ninguém transmitindo · ')
+    + count + ' de 8 ' + (count === 1 ? 'pessoa' : 'pessoas');
+  $('room-live-faces').replaceChildren(...members.slice(0, 6).map(member => { const face = avatar(member, 'live-face'); face.title = member.name; return face; }));
+  $('room-live-tag').hidden = !live.length;
+  // Snapshot of the first playing stream; the card keeps the room icon when nothing is on screen.
+  const playing = [...tiles.values()].find(item => item.video.readyState >= 2 && item.video.videoWidth), canvas = $('room-live-thumb');
+  canvas.classList.toggle('filled', Boolean(playing));
+  if (playing) {
+    const context = canvas.getContext('2d'), { videoWidth: w, videoHeight: h } = playing.video, scale = Math.max(canvas.width / w, canvas.height / h);
+    context.drawImage(playing.video, (canvas.width - w * scale) / 2, (canvas.height - h * scale) / 2, w * scale, h * scale);
+  }
+}
+function renderReady() {
+  $('ready-mic-name').textContent = devicePrefs.mic || 'Microfone padrão';
+  $('ready-mic-state').textContent = voiceMuted ? 'Você entra mutado' : 'Liga ao entrar na sala';
+  $('ready-name').textContent = config?.profile?.name || 'Seu nome';
+  $('ready-avatar').replaceChildren(avatar(config?.profile || { name: '?' }));
+}
+function joinFieldState() {
+  const value = $('home-join-input').value.trim(), state = $('home-join-state');
+  let valid = false; if (value) { try { parseInvite(value); valid = true; } catch {} }
+  state.hidden = !value; state.className = 'join-state ' + (valid ? 'ok' : 'bad');
+  state.replaceChildren(...(valid ? [svgIcon('icon-check'), 'Convite reconhecido'] : ['Convite inválido']));
+  $('home-join-input').closest('.join-field').dataset.state = !value ? '' : valid ? 'ok' : 'bad';
+}
+$('home-join-input').oninput = joinFieldState;
+$('room-live-leave').onclick = () => $('leave-button').click();
+async function openSettings(tab) { closeDeviceMenu(); settingsTab(tab); await fillSettings(); if (!$('settings-dialog').open) $('settings-dialog').showModal(); }
+$('ready-mic').onclick = () => void openSettings('voice'); $('ready-camera').onclick = () => void openSettings('video');
+$('ready-profile').onclick = () => void chooseName();
 function createRoom() {
   const creating = role !== 'host' || !target;
   if (creating) { stopSharing(); stopCamera(); connect(config.address, config.hostToken, 'host'); }
@@ -124,7 +253,7 @@ function cancelJoin() {
 function preferenceValues() {
   return { resolution: $('quality').value, fps: $('fps').value, bitrateMode: $('bitrate-mode').value,
     bitrateMbps: Number($('bitrate-value').value), audioMode: $('audio-mode').value, audioEnabled: $('system-audio').checked, audioVersion: 2,
-    micMuted: voiceMuted, micDevice: devicePrefs.mic, cameraDevice: devicePrefs.camera, speakerDevice: devicePrefs.speaker, themeColor };
+    micMuted: voiceMuted, micDevice: devicePrefs.mic, cameraDevice: devicePrefs.camera, speakerDevice: devicePrefs.speaker, themeColor, discordFavorites, discordRecent };
 }
 // Theme: every purple in the CSS derives from --accent; text on it turns dark or white by brightness.
 function applyTheme(color) {
@@ -147,6 +276,7 @@ function applyPreferences(saved) {
   $('audio-mode').value = saved.audioMode; $('system-audio').checked = saved.audioEnabled;
   applyTheme(saved.themeColor || '#aa96ff');
   voiceMuted = Boolean(saved.micMuted); devicePrefs = { mic: saved.micDevice || '', camera: saved.cameraDevice || '', speaker: saved.speakerDevice || '' };
+  discordFavorites = [...(saved.discordFavorites || [])]; discordRecent = [...(saved.discordRecent || [])];
   updateBitrateControls(); updateAudioControls();
 }
 function qualityKey() { return $('quality').value + ':' + $('fps').value; }
@@ -168,6 +298,8 @@ function renderUpdate(state) {
   $('install-update').hidden = !['ready', 'installing'].includes(state.phase);
   $('install-update').disabled = state.phase === 'installing';
   $('install-update').title = 'Encerra sua sala e reabre o Concord atualizado.';
+  $('settings-update-label').textContent = messages[state.phase] || (state.enabled ? 'Atualizações automáticas pelo GitHub.' : 'Atualizações automáticas só no app instalado.');
+  $('settings-check-updates').hidden = !state.enabled || $('check-updates').hidden; $('settings-check-updates').disabled = $('check-updates').disabled;
 }
 $('check-updates').onclick = () => { void native.checkUpdates().then(renderUpdate).catch(() => {}); };
 $('install-update').onclick = () => { void native.installUpdate().catch(() => {}); };
@@ -203,6 +335,36 @@ function chatToast({ from, name, text, file }) {
   toast.classList.remove('show'); void toast.offsetWidth; toast.classList.add('show');
   clearTimeout(chatToastTimer); chatToastTimer = setTimeout(hideChatToast, 6000);
   void playPing();
+}
+// Room events (someone joined, left or started streaming) stack above the chat toast and fade on their own.
+function roomToast(member, title, text, action) {
+  const toast = document.createElement('div'); toast.className = 'chat-toast room-toast show';
+  const heading = document.createElement('strong'); heading.textContent = title;
+  const body = document.createElement('span'); body.textContent = text;
+  const copy = document.createElement('span'); copy.className = 'chat-toast-text'; copy.append(heading, ...(text ? [body] : []));
+  const dismiss = () => { clearTimeout(timer); toast.classList.add('leaving'); setTimeout(() => toast.remove(), 180); };
+  toast.append(avatar(member, 'chat-toast-avatar'), copy);
+  if (action) {
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'button primary toast-action'; button.textContent = action.label;
+    button.onclick = () => { dismiss(); action.run(); }; toast.append(button);
+  }
+  const close = document.createElement('button'); close.type = 'button'; close.className = 'toast-close'; close.textContent = '×'; close.setAttribute('aria-label', 'Fechar aviso'); close.onclick = dismiss;
+  toast.append(close); $('room-toasts').append(toast);
+  while ($('room-toasts').children.length > 3) $('room-toasts').firstElementChild.remove();
+  const timer = setTimeout(dismiss, action ? 8000 : 4500);
+}
+function screenLive(member) { return Boolean(member?.stream?.active && member.stream.screen !== false); }
+function roomEvents(previous, next) {
+  if (!self) return;
+  const before = new Map(previous.map(member => [member.id, member]));
+  for (const member of next) {
+    if (member.id === self) continue;
+    const old = before.get(member.id); before.delete(member.id);
+    if (!old) roomToast(member, member.name + ' entrou na sala', '');
+    if (screenLive(member) && !screenLive(old)) roomToast(member, member.name + ' começou a transmitir', member.stream.label || '',
+      { label: 'Assistir', run: () => { showView('room'); if (tiles.has(member.id)) { focus = member.id; renderTiles(); } } });
+  }
+  for (const member of before.values()) if (member.id !== self) roomToast(member, member.name + ' saiu da sala', '');
 }
 function hideChatToast() { clearTimeout(chatToastTimer); $('chat-toast').hidden = true; }
 async function playPing() {
@@ -244,12 +406,19 @@ function tile(member, own = false) {
       slider.oninput = () => { volumes.set(member.id, Number(slider.value)); applyAudio(); };
       volume.append(svgIcon('icon-speaker'), slider); top.append(volume);
     }
+    const tools = document.createElement('div'); tools.className = 'tile-tools';
+    const quality = document.createElement('span'); quality.className = 'tile-quality'; quality.hidden = true;
+    const tool = (icon, onclick) => { const button = document.createElement('button'); button.type = 'button'; button.className = 'tile-tool'; button.append(svgIcon(icon)); button.onclick = event => { event.stopPropagation(); onclick(); }; return button; };
+    const pin = tool('icon-pin', () => { focus = focus === member.id ? null : member.id; renderTiles(); });
+    const full = tool('icon-fullscreen', () => { const action = document.fullscreenElement ? document.exitFullscreen() : element.requestFullscreen(); action.catch(error => notice(error.message, true)); });
+    pin.classList.add('tile-pin'); full.title = 'Tela cheia'; full.setAttribute('aria-label', 'Tela cheia');
+    tools.append(...(own ? [] : [quality]), pin, full); top.append(tools);
     element.append(placeholder, player, pip, top, label); element.onclick = () => { focus = focus === member.id ? null : member.id; renderTiles(); };
     player.addEventListener('playing', () => { if (player.videoWidth) element.classList.add('playing'); renderTiles(); });
     player.addEventListener('emptied', () => element.classList.remove('playing'));
     player.addEventListener('canplay', () => media?.play(player));
     player.addEventListener('error', () => { if (media?.receivers.has(member.id)) media.recover(member.id); });
-    item = { element, video: player, placeholder, label, own, member, pip, top }; tiles.set(member.id, item); $('streams-grid').append(element);
+    item = { element, video: player, placeholder, label, own, member, pip, top, quality: own ? null : quality, pin }; tiles.set(member.id, item); $('streams-grid').append(element);
   }
   item.member = member; item.placeholder.replaceChildren(avatar(member, 'tile-avatar'));
   const face = avatar(member, 'label-avatar'); face.title = own ? 'Ver seu perfil' : 'Abrir perfil de ' + member.name;
@@ -258,6 +427,28 @@ function tile(member, own = false) {
   item.top.querySelector('.tile-volume')?.setAttribute('title', 'Volume de ' + member.name);
   item.top.querySelector('.tile-volume input')?.setAttribute('aria-label', 'Volume de ' + member.name);
   applyAudio(); return item.video;
+}
+// Real resolution, frame rate and (on direct routes) bitrate of each received stream, shown on the tile while hovered.
+const tileStats = new Map();
+async function receivedBytes(pc, track) {
+  if (!pc || !track) return undefined;
+  const stats = await pc.getStats(track).catch(() => null); if (!stats) return undefined;
+  let bytes = 0; stats.forEach(report => { if (report.type === 'inbound-rtp' && report.kind === 'video') bytes += report.bytesReceived || 0; }); return bytes;
+}
+async function updateTileStats() {
+  for (const [id, item] of tiles) {
+    if (!item.quality) continue;
+    const video = item.video, now = performance.now(), frames = video.getVideoPlaybackQuality?.().totalVideoFrames || 0, last = tileStats.get(id);
+    const relay = video.dataset.transport === 'relay';
+    const bytes = relay ? undefined : await receivedBytes(media?.peers.get(id)?.pc, video.srcObject?.getVideoTracks?.()[0]);
+    const span = last ? now - last.time : 0, fps = span > 0 ? Math.max(0, Math.round((frames - last.frames) * 1000 / span)) : 0;
+    const rate = span > 0 && bytes !== undefined && last.bytes !== undefined && bytes >= last.bytes ? (bytes - last.bytes) * 8 / (span * 1000) : 0;
+    tileStats.set(id, { time: now, frames, bytes });
+    if (!video.videoHeight || !last) { item.quality.hidden = true; continue; }
+    item.quality.hidden = false; item.quality.classList.toggle('weak', relay || fps < 20);
+    item.quality.textContent = video.videoHeight + 'p · ' + fps + ' fps' + (rate ? ' · ' + rate.toFixed(1).replace('.', ',') + ' Mbps' : '') + (relay ? ' · compatibilidade' : '');
+  }
+  for (const id of tileStats.keys()) if (!tiles.has(id)) tileStats.delete(id);
 }
 function localTile() {
   if (!self || (!stream && !cameraStream)) return;
@@ -378,7 +569,7 @@ function inviteCard() {
   const title = document.createElement('strong'); title.textContent = 'Chame alguém';
   const text = document.createElement('small'); text.textContent = 'Até 7 pessoas entram pelo link.';
   const button = document.createElement('button'); button.type = 'button'; button.className = 'button primary'; button.textContent = 'Copiar link';
-  button.onclick = () => $('copy-link-button').click();
+  button.onclick = () => void copyInvite(button, false);
   card.append(svgIcon('icon-user-plus', 'invite-icon'), title, text, button); return card;
 }
 // Everyone in the room has a card, Discord style; people without video shrink to a strip under the streams.
@@ -394,6 +585,7 @@ function renderTiles() {
     item.element.hidden = focus !== null && id !== focus;
     item.element.setAttribute('aria-pressed', String(focus === id));
     item.element.setAttribute('aria-label', focus === id ? 'Voltar para todas as telas' : 'Focar transmissão de ' + item.member.name);
+    if (item.pin) { const pinned = focus === id; item.pin.setAttribute('aria-pressed', String(pinned)); item.pin.title = item.pin.ariaLabel = pinned ? 'Voltar para todas as telas' : 'Fixar esta transmissão'; }
   }
   renderPeople();
   const count = focus ? 1 : tiles.size, people = $('people-grid').children.length;
@@ -408,6 +600,7 @@ function renderMembers() {
   $('people-title').textContent = members.length ? 'Na sala — ' + members.length : 'Na sala';
   $('room-title').textContent = role === 'viewer' ? (host ? 'Sala de ' + host.name : 'Sala atual') : 'Minha sala';
   $('room-count').textContent = members.length ? members.length + ' de 8 pessoas' : '';
+  renderInviteSlots(); renderHome();
   $('audience-list').replaceChildren();
   for (const member of members) {
     const own = member.id === self, row = document.createElement('button'); row.type = 'button'; row.className = 'audience-row ' + (own ? 'audience-me' : 'audience-person'); row.dataset.member = member.id;
@@ -492,11 +685,16 @@ function setLive(active) {
 function showVideo() { renderTiles(); }
 function lockSettings(locked) {
   for (const id of ['choose-source', 'choose-audio-source', 'audio-mode', 'quality', 'fps', 'bitrate-mode', 'bitrate-value', 'bitrate-slider', 'system-audio']) $(id).disabled = locked;
+  for (const button of $('share-dialog').querySelectorAll('.seg-option, .share-source')) button.disabled = locked;
   $('test-audio').hidden = Boolean(stream) || starting || audioMode() !== 'application';
   $('start-button').hidden = Boolean(stream); $('stop-button').hidden = !stream;
+  $('share-live').hidden = !stream; $('share-live-name').textContent = stream ? 'Transmitindo ' + (selectedSource?.name || 'a tela') : '';
+  document.querySelector('.source-bar').hidden = $('share-sources').hidden = Boolean(stream);
   $('start-button').disabled = locked || !selectedSource || socket?.readyState !== WebSocket.OPEN;
-  $('start-hint').textContent = stream || starting ? '' : !selectedSource ? 'Escolha uma tela ou janela para começar.' : socket?.readyState !== WebSocket.OPEN ? 'Entre em uma sala para transmitir.' : '';
+  $('start-label').textContent = selectedSource ? 'Compartilhar ' + shortName(selectedSource.name, 22) : 'Compartilhar tela';
+  $('start-hint').textContent = stream || starting ? '' : !selectedSource ? 'Escolha uma janela ou tela para começar.' : socket?.readyState !== WebSocket.OPEN ? 'Entre em uma sala para transmitir.' : '';
   $('start-hint').hidden = !$('start-hint').textContent;
+  $('settings-quality').disabled = $('settings-fps').disabled = locked; $('settings-video-lock').hidden = !stream;
   renderCallBar();
 }
 // Discord-style call bar: quick toggles; the full sharing menu opens in #share-dialog.
@@ -583,14 +781,95 @@ function closeDeviceMenu() {
   for (const caret of document.querySelectorAll('.device-caret')) caret.setAttribute('aria-expanded', 'false');
   return button;
 }
+function deviceNames(kind, devices) {
+  const names = [...new Set(devices.filter(device => device.kind === deviceKinds[kind][0] && device.label && !['default', 'communications'].includes(device.deviceId)).map(device => device.label))];
+  if (devicePrefs[kind] && !names.includes(devicePrefs[kind])) names.push(devicePrefs[kind]);
+  return names;
+}
+// Settings (gear in the call bar): the same device choices as the carets, plus a mic test and the default share quality.
+let micTest, micTestGeneration = 0;
+async function fillSettings() {
+  const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+  for (const select of $('settings-dialog').querySelectorAll('select[data-kind]')) {
+    const kind = select.dataset.kind, connected = name => devices.some(device => device.kind === deviceKinds[kind][0] && device.label === name);
+    select.replaceChildren(...['', ...deviceNames(kind, devices)].map(name => new Option(name ? name + (connected(name) ? '' : ' (desconectado)') : deviceKinds[kind][2], name)));
+    select.value = devicePrefs[kind];
+  }
+  for (const select of $('settings-dialog').querySelectorAll('select[data-mirror]')) {
+    const source = $(select.dataset.mirror); select.replaceChildren(...[...source.options].map(option => new Option(option.textContent, option.value))); select.value = source.value;
+  }
+}
+function settingsTab(name) {
+  for (const tab of $('settings-dialog').querySelectorAll('.settings-tab')) {
+    const selected = tab.id === 'settings-tab-' + name; tab.setAttribute('aria-selected', String(selected)); tab.tabIndex = selected ? 0 : -1;
+    $(tab.getAttribute('aria-controls')).hidden = !selected; if (selected) $('settings-title').textContent = tab.textContent;
+  }
+  if (name !== 'voice') stopMicTest();
+}
+function stopMicTest() {
+  ++micTestGeneration; micTest?.getTracks().forEach(track => track.stop()); micTest = undefined; micMeter.stop();
+  $('mic-test-label').textContent = 'Fale algo. O teste não envia som para a sala.'; $('mic-test').textContent = 'Testar'; $('mic-test').setAttribute('aria-pressed', 'false');
+}
+async function startMicTest() {
+  stopMicTest(); const generation = micTestGeneration;
+  $('mic-test').textContent = 'Parar teste'; $('mic-test').setAttribute('aria-pressed', 'true');
+  try {
+    const id = await deviceId('audioinput', devicePrefs.mic);
+    const captured = await navigator.mediaDevices.getUserMedia({ audio: { ...(id ? { deviceId: { exact: id } } : {}), echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
+    if (generation !== micTestGeneration || !$('settings-dialog').open) { captured.getTracks().forEach(track => track.stop()); return; }
+    micTest = captured; await micMeter.watch(captured.getAudioTracks()[0]);
+  } catch { if (generation === micTestGeneration) { stopMicTest(); $('mic-test-label').textContent = 'Não consegui abrir esse microfone.'; } }
+}
+// Connection details open on hover over the signal in the sidebar.
+async function roundTrip(pc) {
+  const stats = pc ? await pc.getStats().catch(() => null) : null; let value = null;
+  stats?.forEach(report => { if (report.type === 'candidate-pair' && report.nominated && report.state === 'succeeded' && report.currentRoundTripTime !== undefined) value = Math.round(report.currentRoundTripTime * 1000); });
+  return value;
+}
+let uploadSample, connectionPopTimer;
+async function renderConnectionPop() {
+  const online = document.body.dataset.connected === 'true', route = document.body.dataset.route, host = members.find(member => member.id === 'host'), rows = [], hints = [];
+  const row = (name, value, state, ms) => rows.push({ name, value: value + (ms !== null && ms !== undefined ? ' · ' + ms + ' ms' : ''), state });
+  if (role === 'host') row('Sala', 'Aberta neste PC', 'ok');
+  else row('Você → ' + (host?.name || 'sala'), !online ? 'Conectando…' : route === 'tunnel' ? 'Pela Cloudflare' : route === 'direct' ? 'Direta' : 'Conectada', !online ? 'wait' : route === 'tunnel' ? 'relay' : 'ok', route === 'direct' ? await roundTrip(socket?.pc) : null);
+  if (route === 'tunnel' && role !== 'host') hints.push('A conexão direta falhou, então você entrou pela Cloudflare. Pode haver mais atraso.');
+  const relayed = [];
+  for (const member of members) {
+    if (member.id === self) continue;
+    const pc = media?.peers.get(member.id)?.pc, relay = media?.relaying(member.id) || tiles.get(member.id)?.video.dataset.transport === 'relay';
+    if (relay) relayed.push(member.name);
+    row(member.name, relay ? 'Compatibilidade' : pc?.connectionState === 'connected' ? 'Direta' : 'Conectando…', relay ? 'relay' : pc?.connectionState === 'connected' ? 'ok' : 'wait', relay ? null : await roundTrip(pc));
+  }
+  if (relayed.length) hints.push('A mídia de ' + relayed.join(', ') + ' passa pelo PC de quem criou a sala, então pode ter mais atraso.');
+  if (stream && media) {
+    let bytes = 0;
+    for (const peer of media.peers.values()) { const stats = await peer.pc?.getStats().catch(() => null); stats?.forEach(report => { if (report.type === 'outbound-rtp' && report.kind === 'video') bytes += report.bytesSent || 0; }); }
+    const now = performance.now(), rate = uploadSample && now > uploadSample.time && bytes >= uploadSample.bytes ? (bytes - uploadSample.bytes) * 8 / ((now - uploadSample.time) * 1000) : null;
+    uploadSample = { time: now, bytes };
+    rows.push({ name: 'Seu envio', value: rate === null ? 'Medindo…' : rate.toFixed(1).replace('.', ',') + ' de ' + formatMbps(bitrate()) + ' Mbps', state: '' });
+  } else uploadSample = undefined;
+  if ($('connection-pop').hidden) return;
+  const title = document.createElement('strong'); title.className = 'pop-title'; title.append(svgIcon('icon-signal'), 'Conexão da sala');
+  $('connection-pop').replaceChildren(title, ...rows.map(item => {
+    const line = document.createElement('div'); line.className = 'pop-row';
+    const name = document.createElement('span'); name.textContent = item.name;
+    const value = document.createElement('span'); value.className = 'pop-value'; value.dataset.state = item.state; value.textContent = item.value;
+    line.append(name, value); return line;
+  }), ...hints.map(text => { const hint = document.createElement('p'); hint.className = 'pop-hint'; hint.textContent = text; return hint; }));
+}
+function showConnectionPop() {
+  const box = $('connection-panel').getBoundingClientRect(), pop = $('connection-pop');
+  pop.hidden = false; pop.style.left = (box.right + 12) + 'px'; pop.style.bottom = Math.max(8, innerHeight - box.bottom) + 'px';
+  clearInterval(connectionPopTimer); void renderConnectionPop(); connectionPopTimer = setInterval(() => void renderConnectionPop(), 1000);
+}
+function hideConnectionPop() { clearInterval(connectionPopTimer); $('connection-pop').hidden = true; uploadSample = undefined; }
 async function openDeviceMenu(kind) {
   if (deviceMenuFor === kind) { closeDeviceMenu(); return; }
   closeDeviceMenu(); deviceMenuFor = kind;
   const [type, title, fallback] = deviceKinds[kind], chosen = devicePrefs[kind], menu = $('device-menu'), anchor = $(kind + '-menu-button');
   const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
   if (deviceMenuFor !== kind) return;
-  const names = [...new Set(devices.filter(device => device.kind === type && device.label && !['default', 'communications'].includes(device.deviceId)).map(device => device.label))];
-  if (chosen && !names.includes(chosen)) names.push(chosen);
+  const names = deviceNames(kind, devices);
   const heading = document.createElement('p'); heading.className = 'device-menu-title'; heading.textContent = title;
   const items = ['', ...names].map(name => {
     const item = document.createElement('button'); item.type = 'button'; item.className = 'device-option'; item.setAttribute('role', 'menuitemradio');
@@ -612,6 +891,7 @@ function updateBitrateControls() {
   $('bitrate-mode').options[0].textContent = 'Automática · ' + recommended + ' Mbps';
   $('bitrate-summary').textContent = manual ? formatMbps(bitrate()) + ' Mbps' : 'Automática · ' + recommended + ' Mbps';
   $('bitrate-hint').textContent = manual ? 'Referência: ' + recommended + ' Mbps. Ajuste antes de transmitir.' : 'Mais bitrate preserva detalhes e usa mais upload.';
+  renderQualityPresets();
 }
 function publishState() {
   send({ type: 'stream-state', active: Boolean(stream || cameraStream), screen: Boolean(stream), camera: Boolean(cameraStream), label: stream ? selectedSource?.name || '' : cameraStream ? 'Câmera' : '', quality: stream ? qualityLabel() : '', relay: false,
@@ -620,7 +900,7 @@ function publishState() {
 function disconnect() {
   closeDiscordFriends(); chat.clear(); hideChatToast(); stopVoice(); roomVoice = false; volumes.clear();
   terminal = true; clearTimeout(reconnectTimer); clearTimeout(joinTimer); const previous = socket; socket = undefined; previous?.close();
-  media?.close(); media = null; for (const id of [...cameraViews.keys()]) removeCamera(id); self = ''; for (const id of [...tiles.keys()]) removeTile(id); members = []; renderMembers(); renderCallBar();
+  $('room-toasts').replaceChildren(); hideConnectionPop(); if ($('settings-dialog').open) $('settings-dialog').close(); media?.close(); media = null; for (const id of [...cameraViews.keys()]) removeCamera(id); self = ''; for (const id of [...tiles.keys()]) removeTile(id); members = []; renderMembers(); renderCallBar();
 }
 function connect(address, token, connectionRole, p2p = false) {
   disconnect(); role = connectionRole; terminal = false; retries = 0; target = { address, token, role: connectionRole, p2p }; openSocket();
@@ -652,6 +932,7 @@ function openSocket() {
           chat.setEnabled(Array.isArray(msg.features) && msg.features.includes('chat')); chat.setSelf(msg.self, config.profile); chat.setVisible(!sideHidden); if (cameraStream && !roomCamera) stopCamera();
           renderInvite(); lockSettings(Boolean(stream)); publishState(); await media.setStream(stream); await media.setCamera(cameraStream?.getVideoTracks()[0] || null); void startVoice();
         }
+        if (msg.type === 'room') roomEvents(members, msg.members);
         members = msg.members; chat.setMembers(members); await media.roster(self, members); renderMembers();
       } else if (msg.type === 'tunnel-closed') { if (invite) invite = { ...invite, public: false }; }
       else await media.message(msg);
@@ -688,34 +969,78 @@ function updateAudioControls() {
     : $('audio-mode').value === 'system' || selectedSource ? 'Som de todo o computador.' : 'Janela: só o som do app. Tela inteira: som do computador.';
   $('audio-source-name').textContent = selectedAudioSource?.name || 'Escolher jogo / app';
   $('audio-source-hint').textContent = appOnly ? 'Só o app escolhido e seus processos. Outros apps ficam de fora.' : 'Inclui Discord, notificações e os sons de todos os apps.';
+  const choice = !$('system-audio').checked ? 'off' : $('audio-mode').value === 'application' ? '' : $('audio-mode').value;
+  for (const option of document.querySelectorAll('[data-audio]')) option.setAttribute('aria-checked', String(option.dataset.audio === choice));
+  $('audio-auto').textContent = selectedSource?.id.startsWith('window:') ? 'Só do app' : 'Automático';
+  if (!choice) $('audio-summary').textContent += ' Fonte escolhida em Avançado.';
 }
-async function chooseSource(audioOnly = false) {
+// App audio for "Somente um jogo / app" is picked in its own small list of windows.
+async function chooseAudioSource() {
   if (!native || stream) return;
-  $('choose-source').disabled = true; notice('');
+  $('choose-audio-source').disabled = true; notice('');
   try {
-    const sources = (await native.sources()).filter(source => !audioOnly || source.id.startsWith('window:')); $('source-list').replaceChildren();
-    if (!sources.length) throw new Error('Nenhuma tela ou janela disponível.');
+    const sources = (await native.sources()).filter(source => source.id.startsWith('window:')); $('source-list').replaceChildren();
+    if (!sources.length) throw new Error('Nenhuma janela disponível.');
     for (const source of sources) {
       const button = document.createElement('button'); button.className = 'source-choice';
       const image = document.createElement('img'); image.src = source.thumbnail; image.alt = '';
       const label = document.createElement('span'); label.textContent = source.name;
       button.append(image, label);
-      button.onclick = () => {
-        stopAudioPreview();
-        if (audioOnly) selectedAudioSource = source;
-        else {
-          selectedSource = source; $('source-name').textContent = source.name; $('source-description').textContent = source.id.startsWith('screen:') ? 'Tudo nesse monitor será mostrado.' : 'Somente essa janela será mostrada.';
-          $('source-thumb').src = source.thumbnail; $('source-thumb').hidden = false; $('choose-source').classList.add('chosen'); $('source-action').textContent = 'Trocar';
-          if (source.id.startsWith('window:')) selectedAudioSource = source;
-        }
-        updateAudioControls(); $('source-picker').close(); lockSettings(false);
-      };
+      button.onclick = () => { stopAudioPreview(); selectedAudioSource = source; updateAudioControls(); $('source-picker').close(); lockSettings(false); };
       $('source-list').append(button);
     }
     $('source-picker').showModal();
-  } catch (error) { notice(`Não consegui listar as telas: ${error.message}`, true); }
-  finally { $('choose-source').disabled = false; }
+  } catch (error) { notice(`Não consegui listar as janelas: ${error.message}`, true); }
+  finally { $('choose-audio-source').disabled = Boolean(stream) || starting; }
 }
+// The share dialog lists windows and screens inline; nothing is preselected, the source stays an explicit click.
+let shareSources = [], sourceKind = 'window', sourcesGeneration = 0, sourcesError = '';
+function shortName(name, max = 26) { return name.length > max ? name.slice(0, max - 1).trimEnd() + '…' : name; }
+async function loadShareSources() {
+  if (!native || stream) return;
+  const generation = ++sourcesGeneration; $('choose-source').disabled = true; sourcesError = '';
+  if (!shareSources.length) renderShareSources('Carregando janelas…');
+  try {
+    const sources = await native.sources(); if (generation !== sourcesGeneration) return;
+    shareSources = sources;
+    if (selectedSource && !stream) selectedSource = sources.find(source => source.id === selectedSource.id);
+    if (!sources.some(source => source.id.startsWith(sourceKind + ':'))) sourceKind = sourceKind === 'window' ? 'screen' : 'window';
+    renderShareSources(); updateAudioControls(); lockSettings(Boolean(stream) || starting);
+  } catch (error) { if (generation === sourcesGeneration) { shareSources = []; sourcesError = `Não consegui listar as telas: ${error.message}`; renderShareSources(); } }
+  finally { if (generation === sourcesGeneration) $('choose-source').disabled = Boolean(stream) || starting; }
+}
+function renderShareSources(status = '') {
+  const list = shareSources.filter(source => source.id.startsWith(sourceKind + ':')), locked = Boolean(stream) || starting;
+  for (const tab of document.querySelectorAll('.source-tabs .seg-option')) tab.setAttribute('aria-selected', String(tab.dataset.kind === sourceKind));
+  const items = list.map(source => {
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'share-source'; button.setAttribute('role', 'option');
+    button.setAttribute('aria-selected', String(selectedSource?.id === source.id)); button.disabled = locked; button.title = source.name;
+    const image = document.createElement('img'); image.src = source.thumbnail; image.alt = '';
+    const label = document.createElement('span'); label.append(svgIcon(source.id.startsWith('screen:') ? 'icon-screen' : 'icon-window')); label.append(source.name);
+    button.append(image, label);
+    button.onclick = () => { stopAudioPreview(); selectedSource = source; if (source.id.startsWith('window:')) selectedAudioSource = source; renderShareSources(); updateAudioControls(); lockSettings(false); };
+    button.ondblclick = () => { if (!$('start-button').disabled) void startSharing(); };
+    return button;
+  });
+  const text = status || sourcesError || (shareSources.length && !list.length ? (sourceKind === 'window' ? 'Nenhuma janela aberta.' : 'Nenhuma tela encontrada.') : '');
+  const note = document.createElement('p'); note.className = 'sources-status'; note.textContent = text;
+  $('share-sources').replaceChildren(...(text ? [note] : []), ...items);
+}
+for (const tab of document.querySelectorAll('.source-tabs .seg-option')) tab.onclick = () => { sourceKind = tab.dataset.kind; renderShareSources(); };
+function renderQualityPresets() {
+  const key = $('quality').value + ':' + $('fps').value, manual = $('bitrate-mode').value === 'manual';
+  const options = [...document.querySelectorAll('[data-preset]')], match = !manual && options.some(option => option.dataset.preset === key);
+  for (const option of options) option.setAttribute('aria-checked', String(!manual && option.dataset.preset === key));
+  $('quality-summary').textContent = qualityLabel() + (match ? '' : ' · personalizada em Avançado');
+}
+for (const option of document.querySelectorAll('[data-preset]')) option.onclick = () => {
+  const [quality, fps] = option.dataset.preset.split(':'); $('quality').value = quality; $('fps').value = fps; $('bitrate-mode').value = 'auto';
+  $('quality').dispatchEvent(new Event('change'));
+};
+for (const option of document.querySelectorAll('[data-audio]')) option.onclick = () => {
+  const choice = option.dataset.audio; $('system-audio').checked = choice !== 'off'; if (choice !== 'off') $('audio-mode').value = choice;
+  $('audio-mode').dispatchEvent(new Event('change'));
+};
 async function captureAppAudio() {
   const context = new AudioContext({ sampleRate: 48000 }); appAudioContext = context;
   await context.audioWorklet.addModule('/app-audio-worklet.js');
@@ -829,7 +1154,7 @@ function stopCamera() {
   lockSettings(Boolean(stream));
 }
 function showInvite(data) {
-  invite = data;
+  invite = data; for (const code of [data?.p2pInvite, data?.guestInvite]) if (code) knownInvites.add(inviteKey(code));
   inviteStatus('');
 }
 // Cloudflare fallback for a guest whose direct connection failed. Returns the tunnel invite or throws a safe message.
@@ -866,7 +1191,7 @@ function renderProfile() {
   $('profile-avatar').replaceChildren(avatar(config.profile)); $('name-avatar').replaceChildren(avatar(config.profile, 'tile-avatar'));
   renderBanner($('name-banner'), config.profile); renderDiscord();
   $('remove-banner').hidden = !config.profile.banner; $('remove-photo').hidden = !config.profile.photo;
-  renderNameDraft();
+  renderNameDraft(); renderHome();
 }
 // Live preview of the name being typed; photo/banner/theme are saved on the spot, only the name waits for Salvar.
 function renderNameDraft() {
@@ -955,13 +1280,24 @@ $('unlink-discord').onclick = () => void discordAction(() => native.unlinkDiscor
 $('cancel-discord').onclick = () => void native.cancelDiscord();
 $('name-picker').addEventListener('close', () => { if (discordPending) void native.cancelDiscord(); });
 function closeDiscordFriends() {
-  ++friendsGeneration; friendPhotoObserver?.disconnect(); discordFriends = []; friendsInvite = ''; friendInvites.clear();
-  if ($('discord-friends').open) { $('discord-friends').close(); $('discord-friend-list').replaceChildren(); $('invite-discord-button').focus({ preventScroll: true }); }
+  ++friendsGeneration; friendPhotoObserver?.disconnect(); if (discordFriends.length) favFriends = discordFriends; discordFriends = []; friendsInvite = ''; friendInvites.clear();
+  if ($('discord-friends').open) { $('discord-friends').close(); $('discord-friend-list').replaceChildren(); $('invite-menu-button').focus({ preventScroll: true }); }
+}
+// Favorites (starred by the user) come first; without favorites, the friends who recently got an invite.
+function renderSlots() {
+  const slots = members.slice(0, 8).map(member => { const face = avatar(member, 'slot-avatar'); face.title = member.name; return face; });
+  while (slots.length < 8) { const empty = document.createElement('span'); empty.className = 'slot-empty'; slots.push(empty); }
+  const label = document.createElement('small'); label.textContent = members.length + ' de 8 na sala';
+  $('room-slots').replaceChildren(...slots, label);
 }
 function renderDiscordFriends() {
   const generation = friendsGeneration, query = $('discord-friend-search').value.trim().toLocaleLowerCase('pt-BR');
   const filtered = discordFriends.filter(friend => (friend.name + ' ' + friend.username).toLocaleLowerCase('pt-BR').includes(query));
-  $('discord-friend-list').replaceChildren(); friendPhotoObserver?.disconnect();
+  const quickIds = query ? [] : discordFavorites.length ? discordFavorites : discordRecent;
+  const quick = quickIds.map(id => filtered.find(friend => friend.id === id)).filter(Boolean);
+  $('discord-friend-list').replaceChildren(); $('discord-quick-list').replaceChildren(); friendPhotoObserver?.disconnect();
+  $('discord-quick').hidden = $('discord-all-title').hidden = !quick.length;
+  $('discord-quick-title').textContent = discordFavorites.length ? 'Favoritos' : 'Enviados recentemente';
   $('discord-friends-status').textContent = filtered.length ? filtered.length + (filtered.length === 1 ? ' amigo' : ' amigos') : 'Nenhum amigo encontrado.';
   friendPhotoObserver = new IntersectionObserver(entries => {
     for (const entry of entries) if (entry.isIntersecting) {
@@ -972,7 +1308,7 @@ function renderDiscordFriends() {
         friend.photo = photo; entry.target.querySelector('.friend-avatar').replaceChildren(avatar(friend));
       }).catch(() => {});
     }
-  }, { root: $('discord-friend-list') });
+  });
   for (const friend of filtered) {
     const row = document.createElement('div'); row.className = 'discord-friend'; row.dataset.friend = friend.id;
     const icon = document.createElement('span'); icon.className = 'friend-avatar'; icon.append(avatar(friend));
@@ -991,18 +1327,28 @@ function renderDiscordFriends() {
         const result = await native.sendDiscordInvite(friend.id, code);
         if (result.error) throw new Error(result.error);
         if (result.value !== true) throw new Error('O Discord não confirmou o envio.');
+        discordRecent = [friend.id, ...discordRecent.filter(id => id !== friend.id)].slice(0, 8); savePreferences();
         if (generation === friendsGeneration) friendInvites.set(friend.id, { phase: 'sent' });
         notice('Convite enviado.');
       } catch (error) { if (generation === friendsGeneration) friendInvites.set(friend.id, { error: error.message }); }
       if (generation === friendsGeneration) renderDiscordFriends();
     };
-    row.append(icon, text, button); $('discord-friend-list').append(row); if (!friend.photo) friendPhotoObserver.observe(row);
+    const favorite = discordFavorites.includes(friend.id), star = document.createElement('button'); star.type = 'button'; star.className = 'friend-star';
+    star.setAttribute('aria-pressed', String(favorite)); star.title = favorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos';
+    star.setAttribute('aria-label', (favorite ? 'Remover dos favoritos: ' : 'Favoritar ') + friend.name); star.append(svgIcon('icon-star'));
+    star.onclick = () => {
+      discordFavorites = favorite ? discordFavorites.filter(id => id !== friend.id) : [...discordFavorites, friend.id].slice(-50);
+      savePreferences(); renderDiscordFriends(); $('discord-friends').querySelector(`[data-friend="${friend.id}"] .friend-star`)?.focus();
+    };
+    row.append(icon, text, star, button); (quick.includes(friend) ? $('discord-quick-list') : $('discord-friend-list')).append(row);
+    if (!friend.photo) friendPhotoObserver.observe(row);
   }
 }
 async function openDiscordFriends() {
   const code = $('invite-link').value; if (!code || socket?.readyState !== WebSocket.OPEN) return;
   const generation = ++friendsGeneration; friendsInvite = code; discordFriends = []; friendInvites.clear();
-  $('discord-friend-list').replaceChildren(); $('discord-friend-search').value = ''; $('discord-friend-search').disabled = true;
+  $('discord-friend-list').replaceChildren(); $('discord-quick-list').replaceChildren(); $('discord-quick').hidden = $('discord-all-title').hidden = true;
+  $('discord-friend-search').value = ''; $('discord-friend-search').disabled = true; renderSlots();
   $('discord-friends-authorize').hidden = $('discord-friends-retry').hidden = true;
   if (!$('discord-friends').open) $('discord-friends').showModal();
   $('discord-friends-status').textContent = 'Carregando amigos do Discord…';
@@ -1015,7 +1361,7 @@ async function openDiscordFriends() {
     discordFriends = result.value; $('discord-friend-search').disabled = false; renderDiscordFriends(); $('discord-friend-search').focus();
   } catch { if (generation === friendsGeneration) { $('discord-friends-status').textContent = 'Não foi possível carregar os amigos do Discord.'; $('discord-friends-retry').hidden = false; } }
 }
-$('invite-discord-button').onclick = () => void openDiscordFriends();
+$('invite-discord-button').onclick = () => { closeInvitePop(); void openDiscordFriends(); };
 $('close-discord-friends').onclick = closeDiscordFriends;
 $('discord-friends').addEventListener('cancel', event => { event.preventDefault(); closeDiscordFriends(); });
 $('discord-friends').addEventListener('keydown', event => { if (event.key === 'Escape') event.stopPropagation(); });
@@ -1044,17 +1390,22 @@ $('member-profile').addEventListener('close', () => { if (!$('member-profile').o
 $('home-tab').onclick = () => { stopAudioPreview(); showView('home'); };
 $('create-room').onclick = createRoom;
 $('resume-room').onclick = $('host-tab').onclick = () => { if (target) showView('room'); };
-$('join-room').onclick = $('join-room-nav').onclick = () => openJoin();
+$('join-room-nav').onclick = () => openJoin();
+$('home-join-form').onsubmit = event => {
+  event.preventDefault(); const value = $('home-join-input').value.trim();
+  if (!value) { openJoin(); return; }
+  $('home-join-input').value = ''; joinFieldState(); openJoin(value); $('join-form').requestSubmit();
+};
 $('cancel-join').onclick = cancelJoin;
 $('join-picker').addEventListener('cancel', event => { event.preventDefault(); cancelJoin(); });
-$('choose-source').onclick = () => chooseSource(); $('choose-audio-source').onclick = () => chooseSource(true);
+$('choose-source').onclick = () => void loadShareSources(); $('choose-audio-source').onclick = () => void chooseAudioSource();
 $('audio-mode').onchange = $('system-audio').onchange = () => { stopAudioPreview(); updateAudioControls(); savePreferences(); };
 $('test-audio').onclick = testAudio; updateAudioControls();
 $('quality').onchange = $('fps').onchange = $('bitrate-mode').onchange = () => { updateBitrateControls(); savePreferences(); }; updateBitrateControls();
 $('bitrate-slider').oninput = () => { $('bitrate-value').value = $('bitrate-slider').value; updateBitrateControls(); savePreferences(); };
 $('bitrate-value').oninput = () => { if ($('bitrate-value').validity.valid) { $('bitrate-slider').value = $('bitrate-value').value; updateBitrateControls(); savePreferences(); } };
 $('bar-camera').onclick = () => { if (cameraStream) stopCamera(); else void startCamera(); };
-$('bar-screen').onclick = () => { if (!$('share-dialog').open) $('share-dialog').showModal(); };
+$('bar-screen').onclick = () => { if (!$('share-dialog').open) { $('share-dialog').showModal(); if (!stream) void loadShareSources(); } };
 $('close-share').onclick = () => $('share-dialog').close();
 $('bar-mic').onclick = () => { if (voiceTrack) setVoiceMuted(!voiceMuted && !muted); else { voiceMuted = false; savePreferences(); void startVoice(); } };
 for (const kind of Object.keys(deviceKinds)) $(kind + '-menu-button').onclick = () => void openDeviceMenu(kind);
@@ -1065,6 +1416,21 @@ $('device-menu').addEventListener('keydown', event => {
   else if (event.key === 'Tab') closeDeviceMenu();
 });
 document.addEventListener('pointerdown', event => { if (deviceMenuFor && !event.target.closest('#device-menu, .device-caret')) closeDeviceMenu(); });
+$('settings-button').onclick = () => void openSettings('voice');
+$('close-settings').onclick = () => $('settings-dialog').close();
+$('settings-dialog').addEventListener('close', () => { stopMicTest(); renderHome(); });
+for (const tab of $('settings-dialog').querySelectorAll('.settings-tab')) tab.onclick = () => settingsTab(tab.id.replace('settings-tab-', ''));
+$('settings-dialog').querySelector('.settings-nav').addEventListener('keydown', event => {
+  if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+  const tabs = [...$('settings-dialog').querySelectorAll('.settings-tab')], next = tabs[(tabs.indexOf(document.activeElement) + (event.key === 'ArrowDown' ? 1 : -1) + tabs.length) % tabs.length];
+  event.preventDefault(); next.focus(); next.click();
+});
+for (const select of $('settings-dialog').querySelectorAll('select[data-kind]')) select.onchange = async () => { await chooseDevice(select.dataset.kind, select.value); if (select.dataset.kind === 'mic' && micTest) void startMicTest(); };
+for (const select of $('settings-dialog').querySelectorAll('select[data-mirror]')) select.onchange = () => { const source = $(select.dataset.mirror); source.value = select.value; source.dispatchEvent(new Event('change')); };
+$('mic-test').onclick = () => { if (micTest || $('mic-test').getAttribute('aria-pressed') === 'true') stopMicTest(); else void startMicTest(); };
+$('settings-check-updates').onclick = () => $('check-updates').click();
+$('connection-panel').addEventListener('mouseenter', showConnectionPop); $('connection-panel').addEventListener('mouseleave', hideConnectionPop);
+$('connection-panel').addEventListener('focus', showConnectionPop); $('connection-panel').addEventListener('blur', hideConnectionPop);
 addEventListener('resize', () => { if (deviceMenuFor) closeDeviceMenu(); });
 $('chat-toggle').onclick = $('chat-button').onclick = () => setSide(!sideHidden);
 $('chat-toast').onclick = () => setSide(false);
@@ -1076,20 +1442,26 @@ $('sidebar-toggle').onclick = () => {
   setTimeout(renderTiles, 320);
 };
 $('close-picker').onclick = () => $('source-picker').close(); $('start-button').onclick = startSharing; $('stop-button').onclick = () => { stopSharing(); notice(''); if ($('share-dialog').open) $('share-dialog').close(); };
-$('invite-button').onclick = reopenAccess; $('close-invite').onclick = closeInvite; $('cancel-invite').onclick = cancelFallback;
-$('copy-link-button').onclick = async () => {
-  try { await native.copyLink($('invite-link').value); notice('Link copiado.'); }
+$('invite-button').onclick = reopenAccess; $('close-invite').onclick = () => { closeInvitePop(); void closeInvite(); }; $('cancel-invite').onclick = cancelFallback;
+async function copyInvite(button, icon = true) {
+  try {
+    await native.copyLink($('invite-link').value);
+    button.classList.add('copied'); button.replaceChildren(...(icon ? [svgIcon('icon-check', 'button-icon')] : []), 'Link copiado');
+    clearTimeout(button.copiedTimer); button.copiedTimer = setTimeout(() => { button.classList.remove('copied'); button.replaceChildren(...(icon ? [svgIcon('icon-user-plus', 'button-icon')] : []), 'Copiar link'); }, 2000);
+  }
   catch { notice('Não consegui copiar o link. Tente novamente.', true); }
-};
+}
+$('copy-link-button').onclick = () => void copyInvite($('copy-link-button'));
 $('renew-button').onclick = async () => {
-  try { const data = await native.renewInvite(); accessClosed = false; await startHosting(data); notice('Convite trocado. O anterior não funciona mais.'); }
+  closeInvitePop();
+  try { const data = await native.renewInvite(); accessClosed = false; await startHosting(data); notice('Link trocado. O anterior não funciona mais.'); }
   catch (error) { notice(error.message, true); }
 };
 $('join-form').onsubmit = event => {
   event.preventDefault(); if (joining) return;
   try {
     const value = $('join-input').value.trim(), parsed = parseInvite(value);
-    stopSharing(); stopCamera(); currentInvite = value; joining = true; connect(parsed.address, parsed.token, 'viewer', Boolean(parsed.p2p));
+    stopSharing(); stopCamera(); currentInvite = value; knownInvites.add(parsed.token); hideClip(); joining = true; connect(parsed.address, parsed.token, 'viewer', Boolean(parsed.p2p));
     $('join-error').textContent = ''; $('join-button').disabled = true; $('join-input').disabled = true; $('join-button').textContent = 'Entrando…';
     // P2P may need the Cloudflare fallback, which can take up to 150 s to publish.
     joinTimer = setTimeout(() => joinFailure('Não consegui entrar. Confira o convite e tente novamente.'), parsed.p2p ? 210000 : 15000);
@@ -1111,7 +1483,7 @@ document.addEventListener('keydown', event => {
 });
 // Files dropped outside the chat are ignored instead of making Chromium open them.
 for (const type of ['dragover', 'drop']) document.addEventListener(type, event => { if ([...(event.dataTransfer?.types || [])].includes('Files')) event.preventDefault(); });
-new ResizeObserver(renderTiles).observe($('stage')); setInterval(watchLevels, 200);
+new ResizeObserver(renderTiles).observe($('stage')); setInterval(watchLevels, 200); setInterval(() => void updateTileStats(), 1000);
 setInterval(() => { if (liveSince) { const elapsed = Math.floor((Date.now()-liveSince)/1000); $('stream-clock').textContent = String(Math.floor(elapsed/3600)).padStart(2,'0') + ':' + String(Math.floor(elapsed/60)%60).padStart(2,'0') + ':' + String(elapsed%60).padStart(2,'0'); } }, 1000);
 setInterval(() => { if (inviteRetryAt && Date.now() >= inviteRetryAt) { inviteRetryAt = 0; if (!invitePending) inviteStatus(''); } }, 1000);
 window.addEventListener('beforeunload', () => { terminal = true; clearTimeout(reconnectTimer); stopSharing(); stopCamera(); stopVoice(); media?.close(); socket?.close(); stopHosting(); });
@@ -1122,7 +1494,7 @@ try {
   native.onUpdate(renderUpdate); renderUpdate(await native.updatesReady());
   const session = await native.session(); if (session.public) showInvite(session);
   if (!config.profile.name) await chooseName();
-  uiReady = true; status('Esperando sala'); showView('home');
+  uiReady = true; status('Esperando sala'); showView('home'); $('settings-version').textContent = 'Concord ' + config.version;
   for (const id of ['create-room', 'join-room', 'join-room-nav']) $(id).disabled = false;
   const launchInvite = await native.invitesReady();
   if (queuedInvite || launchInvite) receiveInvite(queuedInvite || launchInvite);

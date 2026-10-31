@@ -93,8 +93,8 @@ try {
   } else await guest.page.keyboard.press('Escape');
   const cameras = await menu('camera'); assert.ok(cameras.length >= 2, 'lista câmeras: ' + cameras.join(', '));
   await guest.page.mouse.click(5, 5); await guest.page.locator('#device-menu').waitFor({ state: 'hidden' });
-  assert.equal(await guest.page.locator('#settings-button').count(), 0, 'engrenagem removida');
-  check(`Setinhas do fone e da câmera listam saídas (${outputs.length - 1}) e câmeras; clique fora fecha; sem engrenagem.`);
+  assert.equal(await guest.page.locator('#share-dialog #settings-button').count(), 0, 'sem engrenagem no menu de transmissão');
+  check(`Setinhas do fone e da câmera listam saídas (${outputs.length - 1}) e câmeras; clique fora fecha.`);
 
   await menu('mic');
   await guest.page.evaluate(() => { const devices = navigator.mediaDevices, original = devices.getUserMedia.bind(devices); devices.getUserMedia = async () => { devices.getUserMedia = original; throw new DOMException('ocupado', 'NotReadableError'); }; });

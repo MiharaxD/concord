@@ -71,12 +71,11 @@ try {
   result.checks.push('Autorização/negação/cancelamento, importação real de imagens, atualizar, DPAPI do Windows e separação de credenciais: PASS com provedor controlado.');
 
   const session = await host.page.evaluate(() => window.concord.session());
-  await host.page.evaluate(code => { document.querySelector('#invite-link').value = code; document.querySelector('#copy-link-button').click(); }, session.guestInvite);
-  await host.page.locator('#notice').filter({ hasText: 'Link copiado' }).waitFor();
+  await host.page.evaluate(code => { document.querySelector('#invite-link').value = code; document.querySelector('#invite-result').hidden = false; document.querySelector('#invite-menu-button').click(); document.querySelector('#copy-link-button').click(); }, session.guestInvite);
+  await host.page.locator('#copy-link-button.copied').filter({ hasText: 'Link copiado' }).waitFor();
   const link = await host.app.evaluate(() => globalThis.qaClipboard);
   assert.match(link, /^http:\/\/127\.0\.0\.1:\d+\/invite\?join=/); assert.deepEqual(parseInvite(link), parseInvite(session.guestInvite));
-  assert.equal(await host.page.locator('#copy-link-button').textContent(), 'Copiar link');
-  assert.equal(await host.page.locator('#notice').textContent(), 'Link copiado.');
+  await host.page.locator('#copy-link-button:not(.copied)').filter({ hasText: 'Copiar link' }).waitFor({ timeout: 4000 });
   assert.equal(await host.page.locator('#copy-button').count(), 0);
   assert.equal(link.startsWith('['), false, 'copia URL normal, sem Markdown específico de chat');
   const landingPromise = host.app.waitForEvent('window');
@@ -136,7 +135,31 @@ try {
   await host.app.evaluate(() => globalThis.qaSendResolve({ error: 'O Discord não confirmou o envio.', code: 'SEND' }));
   await host.page.locator('.discord-friend .form-error').filter({ hasText: 'não confirmou' }).waitFor();
   assert.equal(await host.page.getByRole('button', { name: 'Convidar Bruno', exact: true }).isEnabled(), true);
+  // Without favorites the top list shows recent invites; a star moves a friend to Favoritos and is saved as an ID only.
+  await host.page.locator('#discord-friend-search').fill('');
+  await host.page.locator('#discord-quick-title').filter({ hasText: 'Enviados recentemente' }).waitFor();
+  assert.deepEqual(await host.page.locator('#discord-quick-list .discord-friend-name strong').allTextContents(), ['Ana <QA>']);
+  assert.equal(await host.page.locator('.discord-friend').count(), 2, 'amigo recente não aparece duas vezes');
+  await host.page.getByRole('button', { name: 'Favoritar Bruno', exact: true }).click();
+  await host.page.locator('#discord-quick-title').filter({ hasText: 'Favoritos' }).waitFor();
+  assert.deepEqual(await host.page.locator('#discord-quick-list .discord-friend-name strong').allTextContents(), ['Bruno']);
+  for (let i = 0; i < 20 && JSON.stringify((await host.page.evaluate(() => window.concord.bootstrap())).preferences.discordFavorites) !== '["223456789012345678"]'; i++) await new Promise(resolve => setTimeout(resolve, 100));
+  const savedFriends = (await host.page.evaluate(() => window.concord.bootstrap())).preferences;
+  assert.deepEqual([savedFriends.discordFavorites, savedFriends.discordRecent], [['223456789012345678'], ['123456789012345678']]);
+  assert.equal(await host.page.locator('#room-slots .slot-empty').count(), 6);
+  result.checks.push('Favoritos do Discord: recentes aparecem sem favoritos; estrela salva só o ID e passa o amigo para Favoritos.');
   await host.page.keyboard.press('Escape'); assert.equal(await host.page.evaluate(() => document.body.dataset.connected), 'true');
+  // Starred friends show under "Enviar por DM no Discord" in the Convidar menu, with their own send button.
+  await host.page.evaluate(() => { document.querySelector('#invite-result').hidden = false; }); await host.page.locator('#invite-menu-button').click();
+  await host.page.locator('#invite-fav-list .invite-fav-name').filter({ hasText: 'Bruno' }).waitFor();
+  assert.equal(await host.page.locator('#invite-fav-list .invite-fav').count(), 1);
+  await host.page.screenshot({ path: path.join(run, 'convidar-favoritos.png') });
+  await host.page.getByRole('button', { name: 'Convidar Bruno por DM', exact: true }).click();
+  assert.equal((await host.app.evaluate(() => globalThis.qaInvites)).at(-1).id, '223456789012345678');
+  await host.app.evaluate(() => globalThis.qaSendResolve({ value: true }));
+  await host.page.getByRole('button', { name: 'Convidar Bruno por DM', exact: true }).filter({ hasText: 'Enviado' }).waitFor();
+  await host.page.keyboard.press('Escape'); await host.page.locator('#invite-pop').waitFor({ state: 'hidden' });
+  result.checks.push('Menu Convidar: favoritos do Discord aparecem embaixo de Enviar por DM e convidam com um clique, só após confirmação do SDK.');
   result.checks.push('Modal de amigos: busca/nome seguro, envio por clique, bloqueio de duplicação, sucesso somente após confirmação e erro recuperável; nenhum contato real usado nesta suíte.');
   const roster = await host.page.evaluate(() => window.concord.session()); assert.equal(roster.members.length, 2);
   assert.equal(JSON.stringify(roster).includes('qa_refresh'), false);

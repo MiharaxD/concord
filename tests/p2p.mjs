@@ -48,7 +48,7 @@ async function capture(page, color) {
 async function start(page, relay = false) {
   // Only media connections are forced to fail; the P2P DataChannel to the host has no transceivers.
   if (relay) await page.evaluate(() => { for (const pc of window.testPeers.filter(pc => pc.getTransceivers().length)) { Object.defineProperty(pc, 'connectionState', { configurable: true, value: 'failed' }); pc.dispatchEvent(new Event('connectionstatechange')); } });
-  await openShare(page); await page.locator('#choose-source').click(); await page.locator('.source-choice').first().click(); await openShare(page); await page.locator('#start-button').click();
+  await openShare(page); await page.locator('#choose-source').click(); await page.locator('#tab-screens').click(); await page.locator('.share-source').first().click(); await openShare(page); await page.locator('#start-button').click();
   await page.locator('#bar-screen[aria-pressed="true"]').waitFor();
 }
 async function moving(page, expected = 1) {
@@ -72,12 +72,12 @@ try {
   const code = await host.page.locator('#invite-link').inputValue();
   assert.equal(await host.app.evaluate(() => globalThis.tunnelCalls), 0);
   check('Criar sala mostra o convite P2P na hora, sem pedir túnel à Cloudflare.');
-  await host.page.locator('#copy-link-button').click();
+  await host.page.locator('#invite-menu-button').click(); await host.page.locator('#copy-link-button').click();
   assert.equal(await host.app.evaluate(() => globalThis.copied), P2P_PAGE + '?join=' + code.slice(12));
   check('Copiar link gera a página estática do GitHub Pages.');
-  await host.page.locator('#notice').filter({ hasText: 'Link copiado.' }).waitFor();
-  await host.page.locator('#notice').waitFor({ state: 'hidden', timeout: 6000 });
-  check('Aviso Link copiado some sozinho.');
+  await host.page.locator('#copy-link-button.copied').filter({ hasText: 'Link copiado' }).waitFor();
+  await host.page.locator('#copy-link-button:not(.copied)').filter({ hasText: 'Copiar link' }).waitFor({ timeout: 4000 });
+  check('O botão confirma Link copiado e volta sozinho.');
 
   // Same IPC event the main process sends for a concord: link opened from the invite page.
   const openLink = app => app.evaluate(({ BrowserWindow }, code) => BrowserWindow.getAllWindows()[0].webContents.send('concord:open-invite', code), code);
@@ -110,7 +110,7 @@ try {
   await host.page.locator('#audience-list').filter({ hasText: 'Bia' }).waitFor(); await moving(bia.page, 2);
   check('Sem conexão direta, a convidada pediu o plano B e entrou pelo acesso do host (túnel simulado).');
 
-  await host.page.locator('.invite-manage summary').click(); await host.page.locator('#renew-button').click();
+  await host.page.locator('#invite-menu-button').click(); await host.page.locator('#renew-button').click(); assert.equal(await host.page.locator('#invite-pop').isHidden(), true);
   await ana.page.locator('#notice').filter({ hasText: 'Convite substituído' }).waitFor(); await bia.page.locator('#notice').filter({ hasText: 'Convite substituído' }).waitFor();
   await host.page.waitForFunction(old => { const value = document.querySelector('#invite-link').value; return value.startsWith('concord:p2p:') && value !== old; }, code);
   check('Trocar convite derruba convidados P2P e do plano B com o motivo, e gera novo link.');
@@ -120,7 +120,7 @@ try {
   await ana.page.locator('#cancel-join').click();
   check('Link antigo não encontra a sala e mostra erro claro.');
 
-  await host.page.locator('#close-invite').click();
+  await host.page.locator('#invite-menu-button').click(); await host.page.locator('#close-invite').click();
   await host.page.locator('#invite-button:not([hidden])').waitFor(); assert.equal(await host.page.locator('#invite-result').isHidden(), true);
   await host.page.locator('#invite-button').click();
   await host.page.waitForFunction(() => document.querySelector('#invite-link').value.startsWith('concord:p2p:'));

@@ -41,7 +41,7 @@ async function capture(page, color, frequency) {
 async function start(page, mode = 'auto') {
   if (await page.locator('#connection-mode').count()) await page.locator('#connection-mode').selectOption(mode);
   else if (mode === 'relay') await page.evaluate(() => { for (const pc of window.testPeers) { Object.defineProperty(pc, 'connectionState', { configurable: true, value: 'failed' }); pc.dispatchEvent(new Event('connectionstatechange')); } });
-  await openShare(page); await page.locator('#choose-source').click(); await page.locator('.source-choice').first().click(); await openShare(page); await page.locator('#start-button').click();
+  await openShare(page); await page.locator('#choose-source').click(); await page.locator('#tab-screens').click(); await page.locator('.share-source').first().click(); await openShare(page); await page.locator('#start-button').click();
   await page.locator('#bar-screen[aria-pressed="true"]').waitFor();
 }
 async function join(page, invite) {

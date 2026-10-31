@@ -35,6 +35,7 @@ contextBridge.exposeInMainWorld('concord', {
   renewInvite: () => ipcRenderer.invoke('concord:invite'),
   copyInvite: value => ipcRenderer.invoke('concord:copy-invite', value),
   copyLink: value => ipcRenderer.invoke('concord:copy-link', value),
+  clipboardInvite: () => ipcRenderer.invoke('concord:clipboard-invite'),
   startAppAudio: id => ipcRenderer.invoke('concord:start-app-audio', id),
   stopAppAudio: () => ipcRenderer.invoke('concord:stop-app-audio'),
   onAppAudio: callback => {

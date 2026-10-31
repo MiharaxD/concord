@@ -6,6 +6,11 @@ Decisão: Electron/JavaScript em instalador NSIS Windows x64, com a mesma aplica
 Motivo: o usuário rejeitou a versão em navegador e quer passar o programa ao amigo.
 Consequência: não exigir instalação de Node ou ferramentas de desenvolvimento no PC do destinatário.
 
+## Painel, Convidar e Compartilhar (0.8.9)
+
+Decisão: mocks aprovados pelo usuário em 30/10/2026 (revisão com a skill impeccable). Painel com Criar sala em destaque, convite colado no próprio Painel com validação ao digitar ("Convite reconhecido"/"Convite inválido") e resumo de como você entra (microfone, câmera, perfil; sem medidor, porque fora de sala o microfone fica fechado); em sala, cartão da sala atual (miniatura da transmissão, quem transmite, pessoas, Voltar/Sair). Cabeçalho da sala com um único Convidar que abre menu: link visível + Copiar, Enviar por DM no Discord, até 5 favoritos do Discord logo abaixo com Convidar direto (pedido do usuário), Fechar acesso e Trocar link com a consequência escrita. Compartilhar tela lista janelas/telas no próprio pop-up (abas Janelas/Telas inteiras, nada pré-selecionado), qualidade em Leve/Nítida/Máxima (720p30, 1080p30, 1440p60) e som em Automático/Só do app, Do PC, Sem som; resolução, FPS, taxa de bits e fonte do áudio ficam em Avançado. Rótulos em caixa alta acima dos títulos saíram. Página de convite do site com dois caminhos (Abrir no Concord / baixar em 3 passos) e print real do app com uma janela de teste ilustrada (não o vídeo falso verde).
+Consequência: o item "Entrar em uma sala" da lateral continua (atalho de dentro da sala). A página do site só muda no GitHub Pages depois de push na main.
+
 ## Voz e cor tema (0.8.3)
 
 Decisão: pedido do usuário em 30/10/2026. Chamada igual ao Discord: ao entrar na sala o microfone já funciona; o botão só muta, e o mute fica salvo. Microfone e câmera saem do menu de transmissão e ficam nas setinhas dos botões de microfone e câmera (0.8.5, pedido do usuário, como no Discord; o fone ganhou setinha para a saída de áudio e a engrenagem saiu da barra); câmera desligada aparece vermelha e riscada. Substitui "microfone desligado ao abrir". Cor tema escolhida no perfil (roxo, verde, azul, rosa, vermelho ou seletor livre), só neste PC, aplicada a tudo que era roxo, inclusive o logo da barra lateral.
@@ -80,6 +85,12 @@ Decisão: vincular pelo OAuth oficial de cliente público com PKCE, sem Client S
 Decisão: amigos/convites usam somente o Social SDK oficial habilitado pelo titular. Modal **Convidar pelo Discord** mostra amigos da conta autorizada, busca e **Convidar** por pessoa. Clique envia o link da sala via DM; não há mensagens automáticas ao autorizar/abrir. **Enviado** exige confirmação do SDK; falha/timeout não é prova de entrega e não dispara retry automático. Não usar token de usuário copiado, selfbot ou scraping.
 
 Consequência: Discord apresenta permissões sociais em pacote; o Concord usa perfil/amigos/envio solicitado. Credenciais criptografadas pelo Windows em arquivo separado, somente no principal e no stdin privado do auxiliar; nunca em perfil/roster/renderer/linha de comando. Lista e avatares de amigos ficam em memória. Limite de desenvolvimento atual: 100 DMs/2h para toda a aplicação; expansão depende do Discord. Vinculação não é requisito para criar/entrar/transmitir.
+
+Exceção pedida pelo usuário (30/10/2026): favoritos (estrela no modal) e até 8 amigos que receberam convite ficam salvos **só como IDs** em `preferences.json`; nomes e fotos continuam vindo do SDK em RAM. Sem favoritos, o topo do modal mostra os enviados recentemente; o mesmo amigo não aparece duas vezes.
+
+## Sala: avisos, conexão e configurações
+
+Decisão (30/10/2026, propostas aprovadas pelo usuário): entrada/saída/início de transmissão viram avisos empilhados no estilo do aviso do chat (com Assistir); `#notice` flutua no topo e some ao clicar. Detalhes da conexão aparecem ao passar o mouse no sinal da barra lateral (rota, ms, envio). Configurações (microfone, saída, câmera, teste de microfone, qualidade padrão, versão/atualização) abrem pela engrenagem à esquerda da dock; os carets de dispositivo continuam na dock. O Painel oferece convite válido da área de transferência ao ganhar foco (o principal devolve só convites válidos; próprios, usados e ignorados não voltam) e tem campo para colar. Copiar link confirma no próprio botão. Rejeitados: checklist de sala vazia, folha de atalhos e ajuste de contraste.
 
 ## Releases preservadas
 

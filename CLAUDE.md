@@ -58,11 +58,11 @@ App desktop Windows x64 (Electron + JavaScript) de compartilhamento de tela e á
 - **Segurança Electron:** `sandbox`, `contextIsolation`, sem `nodeIntegration`; IPC só aceita a janela própria com URL `${address}/`; janelas novas negadas; navegação externa bloqueada; câmera negada, exceto um único pedido logo após clicar em Ligar câmera (`concord:allow-camera`, 15 s).
 - **Servidor:** escuta só em `127.0.0.1`; admin exige `x-concord-host` + conexão local + ausência de `x-forwarded-for`/`cf-connecting-ip`. Tokens comparados com `timingSafeEqual`. O servidor sempre sobrescreve `from` e prefixa o relay com o ID autenticado. Renovar convite revoga as duas chaves e derruba os convidados.
 - **Captura explícita:** tela e câmera nunca começam sozinhas; nunca ampliar áudio de app para o sistema inteiro em caso de falha; fontes de tela não persistidas. Mídia só em memória.
-- **Voz (0.8.3+, pedido do usuário):** como no Discord, o microfone abre ao entrar numa sala e o botão só muta (mute lembrado em `preferences.json`); fora de sala o microfone fica fechado. Testes E2E usam `--use-fake-device-for-media-stream` para não capturar o microfone real.
+- **Voz (0.8.3+, pedido do usuário):** como no Discord, o microfone abre ao entrar numa sala e o botão só muta (mute lembrado em `preferences.json`); fora de sala o microfone fica fechado. Testes E2E usam `--use-fake-device-for-media-stream` para não capturar o microfone real e `--mute-audio` para não tocar som no PC do usuário (inclusive scripts de print/QA).
 - **Túnel:** só como plano B, quando um convidado com a chave pede. Sem loops automáticos; respeitar o prazo do 429. Testes comuns não devem provisionar túneis reais.
 - **P2P:** conexões com `?via=p2p` nunca autenticam como dono. Mensagens nos brokers sempre cifradas; nada de chave em texto claro no tópico.
 - **Convites/deep link:** entram direto só com o app parado; em sala/transmitindo pedem confirmação. Nunca iniciam captura. Protocolo de sala 0.3.0+ deve continuar compatível; campos novos de perfil são opcionais.
-- **Discord:** sem Client Secret, bot, selfbot ou scraping. Tokens só no main e no stdin do helper, nunca no renderer, argumentos, env ou logs. Amigos só em RAM. "Enviado" exige confirmação do SDK; sem retry automático (cota de 100 DMs/2h para o app inteiro).
+- **Discord:** sem Client Secret, bot, selfbot ou scraping. Tokens só no main e no stdin do helper, nunca no renderer, argumentos, env ou logs. Amigos (nomes/fotos) só em RAM; favoritos e enviados recentes ficam só como IDs em `preferences.json` (pedido do usuário). "Enviado" exige confirmação do SDK; sem retry automático (cota de 100 DMs/2h para o app inteiro).
 - **Dados do usuário** em `%APPDATA%\Concord` (`profile.json`, `preferences.json`, `discord-link.bin`, `tunnel/`), gravados atomicamente e serializados; o shutdown espera essas gravações. Use `CONCORD_DATA_DIR` para isolar testes.
 - **DOM:** nada de `innerHTML`/`eval`; texto do usuário sempre via `textContent`. CSP do servidor sem `unsafe-inline`.
 - **UI:** português neutro e direto, sem "galera"/"bora"/frases promocionais; sem aviso de sucesso ao parar a transmissão; crédito "Desenvolvido por Yuri Mihara" no rodapé. Detalhes em `docs/context/DECISIONS.md`.
@@ -83,7 +83,7 @@ node tests/voice.mjs                     # E2E voz (microfone falso): mute, ensu
 pnpm build:installer                     # dist/installer/<versão>/ (não publica)
 ```
 
-Testes E2E (Playwright `_electron`, dados em `test-results/`): `test:desktop` (call.mjs), `test:navigation`, `test:profiles`, `test:discord`, `test:invitation`, `test:invite-start`, `test:experience`, `test:installer`, `test:updater`. Os testes de servidor simulam o cloudflared com os scripts em `tests/fixtures/tunnel*`.
+Testes E2E (Playwright `_electron`, dados em `test-results/`): `test:desktop` (call.mjs), `test:navigation`, `test:profiles`, `test:discord`, `test:invitation`, `test:invite-start`, `test:experience`, `test:installer`, `test:updater`, `test:room-ux` (Painel/área de transferência, avisos, tile, conexão, configurações). Os testes de servidor simulam o cloudflared com os scripts em `tests/fixtures/tunnel*`.
 
 Não rode sem pedido explícito:
 - `tests/tunnel.mjs` e `CONCORD_TEST_TUNNEL=1 node tests/call.mjs`: criam um Quick Tunnel real (pode gerar 429).
