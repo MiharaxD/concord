@@ -41,6 +41,7 @@ const notes = [
       '- **Ir ao Painel sem sair:** a sala encolhe até a miniatura do card Minha sala; Voltar à sala faz o caminho contrário.',
       '- **Sair da sala** desfaz a criação: o quadro volta a ser o botão e a foto volta para a barra do Painel.',
       '- O + do botão Criar sala aparece durante as transições, sem surgir de repente no fim.',
+      '- **Aviso de atualização:** quando uma versão nova termina de baixar, aparece um aviso no canto com Reiniciar e instalar (antes só aparecia na barra lateral, que agora abre recolhida).',
       '- Com a opção de reduzir animações do Windows ligada, a troca de tela continua instantânea.',
       '',
       '### Da 0.9.1',

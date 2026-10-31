@@ -292,6 +292,7 @@ function applyPreferences(saved) {
   updateBitrateControls(); updateAudioControls();
 }
 function qualityKey() { return $('quality').value + ':' + $('fps').value; }
+let skippedUpdate = '';
 function renderUpdate(state) {
   $('update-panel').hidden = !state.enabled;
   const messages = {
@@ -312,9 +313,18 @@ function renderUpdate(state) {
   $('install-update').title = 'Encerra sua sala e reabre o Concord atualizado.';
   $('settings-update-label').textContent = messages[state.phase] || (state.enabled ? 'Atualizações automáticas pelo GitHub.' : 'Atualizações automáticas só no app instalado.');
   $('settings-check-updates').hidden = !state.enabled || $('check-updates').hidden; $('settings-check-updates').disabled = $('check-updates').disabled;
+  // The sidebar starts collapsed, so a downloaded update also gets a toast that stays until closed.
+  const toast = $('update-toast'), ready = state.phase === 'ready' && state.nextVersion !== skippedUpdate;
+  if (ready && toast.hidden) {
+    $('update-toast-text').textContent = `A versão ${state.nextVersion} já foi baixada.`; toast.dataset.version = state.nextVersion;
+    toast.classList.remove('leaving', 'show'); toast.hidden = false; void toast.offsetWidth; toast.classList.add('show');
+  } else if (!ready) toast.hidden = true;
 }
 $('check-updates').onclick = () => { void native.checkUpdates().then(renderUpdate).catch(() => {}); };
-$('install-update').onclick = () => { void native.installUpdate().catch(() => {}); };
+$('install-update').onclick = $('update-toast-install').onclick = () => { void native.installUpdate().catch(() => {}); };
+$('update-toast-close').onclick = () => {
+  const toast = $('update-toast'); skippedUpdate = toast.dataset.version || ''; toast.classList.add('leaving'); setTimeout(() => { if (toast.classList.contains('leaving')) toast.hidden = true; }, 180);
+};
 function send(value) { if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(value)); }
 // Relay chunks of the screen and camera encoders share the socket; a marker selects the stream.
 function sendBytes(blob, kind = 'screen') {
