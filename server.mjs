@@ -47,6 +47,7 @@ export function createConcord({ port = 4173, cloudflared, publicUrl = '', tunnel
     ['/mqtt.js', ['mqtt.js', 'text/javascript; charset=utf-8']],
     ['/app-audio-worklet.js', ['app-audio-worklet.js', 'text/javascript; charset=utf-8']],
     ['/audio-meter.js', ['audio-meter.js', 'text/javascript; charset=utf-8']],
+    ['/home-intro.js', ['home-intro.js', 'text/javascript; charset=utf-8']],
     ['/style.css', ['style.css', 'text/css; charset=utf-8']],
     ['/icon.svg', ['icon.svg', 'image/svg+xml']]
   ]);

@@ -5,6 +5,7 @@ import { connectRoom, P2PHost } from './p2p.js';
 import { RoomChat } from './chat.js';
 import { AudioMeter } from './audio-meter.js';
 import { visualProfile } from './profile.js';
+import { createHomeIntro } from './home-intro.js';
 const $ = id => document.getElementById(id);
 const native = window.concord, video = $('screen-video');
 let config, role = null, socket, target, reconnectTimer, terminal = false, retries = 0, processing = Promise.resolve();
@@ -23,11 +24,13 @@ let p2pHost, hosting = false, hostGeneration = 0, accessClosed = false, p2pOffli
 let audioPreviewTrack, testingAudio = false, audioGeneration = 0, captureGeneration = 0;
 let cameraStream, cameraStarting = false, cameraGeneration = 0, roomCamera = false, relayStream = 'screen';
 const cameraViews = new Map(), cameraModes = new Map(), voices = new Map();
-let themeColor = '#aa96ff', voiceTrack, voiceStarting = false, voiceGeneration = 0, voiceMuted = false, roomVoice = false, devicePrefs = { mic: '', camera: '', speaker: '' };
+let themeColor = '#aa96ff', introSeen = '', voiceTrack, voiceStarting = false, voiceGeneration = 0, voiceMuted = false, roomVoice = false, devicePrefs = { mic: '', camera: '', speaker: '' };
 const meter = new AudioMeter($('audio-level'), $('audio-level-label')), micMeter = new AudioMeter($('mic-test-level'), $('mic-test-label'));
 const chat = new RoomChat({ root: $('chat-root'), send: value => send(value), notice: (text, error) => notice(text, error),
   onUnread: count => { $('chat-badge').hidden = !count; $('chat-badge').textContent = count > 9 ? '9+' : String(count); }, onIncoming: message => chatToast(message) });
 let noticeTimer;
+const homeIntro = createHomeIntro({ brand: $('hero-brand'), logo: $('hero-logo'), look: $('hero-look'), eyes: $('hero-eyes'), glint: $('hero-glint'),
+  back: $('home-sky'), front: $('home-sky-front'), field: $('home-join-input'), rise: [$('home-sub'), $('room-live'), $('clip-invite'), document.querySelector('.home-actions'), $('home-ready')] });
 // Confirmations fade after a few seconds; errors stay until replaced.
 function notice(text, error = false) {
   clearTimeout(noticeTimer); $('notice').textContent = text; $('notice').classList.toggle('error', error); $('notice').hidden = !text;
@@ -153,19 +156,18 @@ function showView(view) {
   $('host-tab').hidden = !target; $('room-people').hidden = view !== 'room';
   $('room-name').textContent = role === 'viewer' ? 'Sala atual' : 'Minha sala'; renderInvite(); renderTiles(); renderHome();
   if (view === 'home') void checkClipboard(); else hideClip();
+  homeIntro.setActive(view === 'home' && !target);
 }
-// Painel: inside a room, a live card with who is there; outside, Criar sala first, the invite field and how you enter.
+// Painel: outside a room, the living logo, Criar sala, the invite field and how you enter; inside, a live card with who is there.
 function renderHome() {
   if (document.body.dataset.view !== 'home') return;
-  const inRoom = Boolean(target), code = document.createElement('code'); code.textContent = 'concord:';
+  const inRoom = Boolean(target);
   $('room-live').hidden = $('resume-room').hidden = !inRoom; $('home-ready').hidden = inRoom;
-  $('home-view').classList.toggle('in-room', inRoom);
-  $('home-sub').textContent = inRoom ? 'Você continua na sala enquanto navega.' : 'Crie uma sala ou cole um convite. Nada é capturado até você escolher.';
-  $('create-room').hidden = inRoom && role === 'host';
+  $('home-view').classList.toggle('in-room', inRoom); homeIntro.setActive(!inRoom);
+  $('create-room').hidden = $('create-hint').hidden = $('home-or').hidden = inRoom && role === 'host';
   $('create-title').textContent = inRoom ? 'Criar sala sua' : 'Criar sala';
-  $('create-hint').textContent = inRoom ? 'Você sai da sala atual e abre uma sala sua.' : 'O link fica pronto na hora. Até 7 pessoas entram por ele.';
-  if (inRoom) $('home-join-hint').textContent = 'Ao entrar em outra sala, você sai da atual.';
-  else $('home-join-hint').replaceChildren('Aceita o link do convite ou o código ', code, '. Links abertos no navegador já trazem você direto.');
+  $('create-hint').textContent = inRoom ? 'Você sai da sala atual e abre uma sala sua.' : 'Link pronto na hora · até 8 pessoas';
+  $('home-join-hint').hidden = !inRoom;
   if (inRoom) renderLiveCard(); else renderReady();
 }
 function renderLiveCard() {
@@ -185,8 +187,11 @@ function renderLiveCard() {
   }
 }
 function renderReady() {
-  $('ready-mic-name').textContent = devicePrefs.mic || 'Microfone padrão';
-  $('ready-mic-state').textContent = voiceMuted ? 'Você entra mutado' : 'Liga ao entrar na sala';
+  const state = voiceMuted ? 'Você entra mutado' : 'Microfone liga ao entrar';
+  $('ready-mic').classList.toggle('off', voiceMuted); $('ready-mic').querySelector('use').setAttribute('href', voiceMuted ? '#icon-mic-off' : '#icon-mic');
+  $('ready-mic').title = (devicePrefs.mic || 'Microfone padrão') + ' · ' + state;
+  $('ready-mic').setAttribute('aria-label', voiceMuted ? 'Microfone mutado; clique para entrar falando' : 'Microfone ligado ao entrar; clique para entrar mutado');
+  $('ready-state').textContent = state;
   $('ready-name').textContent = config?.profile?.name || 'Seu nome';
   $('ready-avatar').replaceChildren(avatar(config?.profile || { name: '?' }));
 }
@@ -196,11 +201,12 @@ function joinFieldState() {
   state.hidden = !value; state.className = 'join-state ' + (valid ? 'ok' : 'bad');
   state.replaceChildren(...(valid ? [svgIcon('icon-check'), 'Convite reconhecido'] : ['Convite inválido']));
   $('home-join-input').closest('.join-field').dataset.state = !value ? '' : valid ? 'ok' : 'bad';
+  $('join-room').classList.toggle('hot', valid); $('create-room').classList.toggle('quiet', valid);
 }
 $('home-join-input').oninput = joinFieldState;
 $('room-live-leave').onclick = () => $('leave-button').click();
 async function openSettings(tab) { closeDeviceMenu(); settingsTab(tab); await fillSettings(); if (!$('settings-dialog').open) $('settings-dialog').showModal(); }
-$('ready-mic').onclick = () => void openSettings('voice'); $('ready-camera').onclick = () => void openSettings('video');
+$('ready-mic').onclick = () => { setVoiceMuted(!voiceMuted); renderReady(); }; $('ready-camera').onclick = () => void openSettings('video');
 $('ready-profile').onclick = () => void chooseName();
 function createRoom() {
   const creating = role !== 'host' || !target;
@@ -256,7 +262,7 @@ function cancelJoin() {
 function preferenceValues() {
   return { resolution: $('quality').value, fps: $('fps').value, bitrateMode: $('bitrate-mode').value,
     bitrateMbps: Number($('bitrate-value').value), audioMode: $('audio-mode').value, audioEnabled: $('system-audio').checked, audioVersion: 2,
-    micMuted: voiceMuted, micDevice: devicePrefs.mic, cameraDevice: devicePrefs.camera, speakerDevice: devicePrefs.speaker, themeColor, discordFavorites, discordRecent };
+    micMuted: voiceMuted, micDevice: devicePrefs.mic, cameraDevice: devicePrefs.camera, speakerDevice: devicePrefs.speaker, themeColor, introSeen, discordFavorites, discordRecent };
 }
 // Theme: every purple in the CSS derives from --accent; text on it turns dark or white by brightness.
 function applyTheme(color) {
@@ -277,7 +283,7 @@ function applyPreferences(saved) {
   $('quality').value = saved.resolution; $('fps').value = saved.fps; $('bitrate-mode').value = saved.bitrateMode;
   $('bitrate-value').value = $('bitrate-slider').value = saved.bitrateMbps;
   $('audio-mode').value = saved.audioMode; $('system-audio').checked = saved.audioEnabled;
-  applyTheme(saved.themeColor || '#aa96ff');
+  applyTheme(saved.themeColor || '#aa96ff'); introSeen = saved.introSeen || '';
   voiceMuted = Boolean(saved.micMuted); devicePrefs = { mic: saved.micDevice || '', camera: saved.cameraDevice || '', speaker: saved.speakerDevice || '' };
   discordFavorites = [...(saved.discordFavorites || [])]; discordRecent = [...(saved.discordRecent || [])];
   updateBitrateControls(); updateAudioControls();
@@ -1393,12 +1399,14 @@ $('member-profile').addEventListener('click', event => {
 $('member-profile').addEventListener('close', () => { if (!$('member-profile').open) closeMemberProfile(); });
 
 $('home-tab').onclick = () => { stopAudioPreview(); showView('home'); };
-$('create-room').onclick = createRoom;
+$('create-room').onclick = () => { homeIntro.react('burst'); createRoom(); };
+$('create-room').onpointerenter = () => homeIntro.react('hover'); $('create-room').onpointerleave = () => homeIntro.react('leave');
 $('resume-room').onclick = $('host-tab').onclick = () => { if (target) showView('room'); };
 $('join-room-nav').onclick = () => openJoin();
 $('home-join-form').onsubmit = event => {
   event.preventDefault(); const value = $('home-join-input').value.trim();
   if (!value) { openJoin(); return; }
+  try { parseInvite(value); homeIntro.react('pull'); } catch {}
   $('home-join-input').value = ''; joinFieldState(); openJoin(value); $('join-form').requestSubmit();
 };
 $('cancel-join').onclick = cancelJoin;
@@ -1511,10 +1519,13 @@ try {
   if (!config.profile.name) await chooseName();
   uiReady = true; status('Esperando sala'); showView('home'); $('settings-version').textContent = 'Concord ' + config.version;
   for (const id of ['create-room', 'join-room', 'join-room-nav']) $(id).disabled = false;
-  const launchInvite = await native.invitesReady();
+  const launchInvite = await native.invitesReady(), day = new Date(), introKey = config.version + '@' + [day.getFullYear(), day.getMonth() + 1, day.getDate()].map(n => String(n).padStart(2, '0')).join('-');
+  // Full intro on the first launch of the day and after an update, a short one otherwise; an invite skips it.
+  homeIntro.play(queuedInvite || launchInvite ? 'none' : introSeen === introKey ? 'short' : 'full');
+  if (introSeen !== introKey) { introSeen = introKey; savePreferences(); }
   if (queuedInvite || launchInvite) receiveInvite(queuedInvite || launchInvite);
   if (config.preferencesWarning) notice('Não consegui ler suas preferências. Usei as opções padrão.', true);
-} catch (error) { notice(error.message, true); status('Não consegui abrir'); }
+} catch (error) { homeIntro.skip(); notice(error.message, true); status('Não consegui abrir'); }
 // Clicking the backdrop closes any modal, through the same cancel path as Esc (so dialogs that must stay open can veto it).
 for (const dialog of document.querySelectorAll('dialog:not(#member-profile)')) {
   let downOutside = false;

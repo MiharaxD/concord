@@ -1,6 +1,6 @@
 const { readFile, writeFile, rename } = require('node:fs/promises');
 
-const defaults = Object.freeze({ resolution: '1080', fps: '30', bitrateMode: 'auto', bitrateMbps: 12, audioMode: 'auto', audioEnabled: true, audioVersion: 2, micMuted: false, micDevice: '', cameraDevice: '', speakerDevice: '', themeColor: '#aa96ff', discordFavorites: [], discordRecent: [] });
+const defaults = Object.freeze({ resolution: '1080', fps: '30', bitrateMode: 'auto', bitrateMbps: 12, audioMode: 'auto', audioEnabled: true, audioVersion: 2, micMuted: false, micDevice: '', cameraDevice: '', speakerDevice: '', themeColor: '#aa96ff', introSeen: '', discordFavorites: [], discordRecent: [] });
 // Discord friends are kept only as IDs (favorites and recent invites); names and photos come from the SDK at runtime.
 const friendIds = (value, max) => Array.isArray(value) ? [...new Set(value.filter(id => typeof id === 'string' && /^\d{5,25}$/.test(id)))].slice(0, max) : [];
 const deviceName = value => typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f-\u009f]/g, '').slice(0, 200) : '';
@@ -20,6 +20,8 @@ function normalizePreferences(value = {}) {
     micMuted: typeof value.micMuted === 'boolean' ? value.micMuted : defaults.micMuted,
     micDevice: deviceName(value.micDevice), cameraDevice: deviceName(value.cameraDevice), speakerDevice: deviceName(value.speakerDevice),
     themeColor: typeof value.themeColor === 'string' && /^#[0-9a-f]{6}$/i.test(value.themeColor) ? value.themeColor.toLowerCase() : defaults.themeColor,
+    // Painel intro: "<version>@<local date>" of the last full intro, so it plays once a day and after updates.
+    introSeen: typeof value.introSeen === 'string' && /^[0-9A-Za-z.+-]{1,32}@\d{4}-\d{2}-\d{2}$/.test(value.introSeen) ? value.introSeen : defaults.introSeen,
     discordFavorites: friendIds(value.discordFavorites, 50), discordRecent: friendIds(value.discordRecent, 8)
   };
 }

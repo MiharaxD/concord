@@ -42,7 +42,7 @@ async function setup(t, options = {}) {
 
 test('Interface pública funciona; administração continua exclusiva do PC dono', async t => {
   const { app, api } = await setup(t);
-  for (const file of ['/', '/app.js', '/room-media.js', '/invites.js', '/audio-meter.js', '/style.css']) assert.equal((await fetch(app.address + file)).status, 200);
+  for (const file of ['/', '/app.js', '/room-media.js', '/invites.js', '/audio-meter.js', '/home-intro.js', '/style.css']) assert.equal((await fetch(app.address + file)).status, 200);
   for (const headers of [{}, { 'x-concord-host': app.hostToken, 'cf-connecting-ip': '1.2.3.4' }, { 'x-concord-host': 'é'.repeat(43) }])
     assert.equal((await fetch(app.address + '/api/session', { headers })).status, 403);
   const data = await (await api('/api/session')).json(); assert.match(data.guestInvite, /#join=[\w-]{22}$/);
