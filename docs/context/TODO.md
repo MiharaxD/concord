@@ -2,13 +2,13 @@
 
 ## Agora
 
-Melhorias de UX de 30/10 (Painel, dock, tile, avisos, conexão, Discord, Configurações) e mocks aprovados (Painel novo, Convidar com favoritos, Compartilhar com fontes no pop-up, página de convite do site): instalador local 0.8.9 gerado, sem commit nem Release.
-- [ ] Usuário testar o instalador 0.8.9; commit/push/Release só com pedido (notas da 0.8.9 ainda não escritas em `scripts/publish-release.mjs`).
+Melhorias de UX de 30/10 (Painel, dock, tile, avisos, conexão, Discord, Configurações) e mocks aprovados (Painel novo, Convidar com favoritos, Compartilhar com fontes no pop-up, página de convite do site): 0.8.9 publicada em 30/10/2026 editando a Release da 0.8.8; site atualizado.
 - [ ] Testar o teste de microfone das Configurações com microfone físico.
-- [ ] Conferir favoritos do Discord no menu Convidar com conta real (testado só com SDK simulado) e publicar a página do site (precisa de push).
+- [ ] Conferir favoritos do Discord no menu Convidar com conta real (testado só com SDK simulado).
+- [ ] `tests/experience.mjs` falha no teste de áudio do app (WASAPI) porque agora roda com `--mute-audio`; decidir como testar esse trecho sem tocar som no PC.
 
 
-0.8.8 (visualizador de mídia do chat) publicada editando a Release da 0.8.7 (antes 0.8.6/0.8.5/0.8.4/0.8.3).
+0.8.8 (visualizador de mídia do chat) publicada editando a Release da 0.8.7 (agora 0.8.9) (antes 0.8.6/0.8.5/0.8.4/0.8.3).
 - [ ] Conferir à mão zoom e arrastar do visualizador com foto grande.
 - [ ] Testar voz entre duas máquinas reais (eco, atraso, relay de voz) e com microfone/câmera físicos trocados no modal.
 
