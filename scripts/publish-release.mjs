@@ -37,6 +37,13 @@ async function api(url, options = {}, allow404 = false) {
 const notes = [
       `## Novidades do Concord ${pkg.version}`,
       '',
+      '- **Transição ao criar a sala:** o botão Criar sala vira o seu quadro, sua foto voa da barra do Painel até ele e a barra do Painel vira a barra da chamada.',
+      '- **Ir ao Painel sem sair:** a sala encolhe até a miniatura do card Minha sala; Voltar à sala faz o caminho contrário.',
+      '- **Sair da sala** desfaz a criação: o quadro volta a ser o botão e a foto volta para a barra do Painel.',
+      '- Com a opção de reduzir animações do Windows ligada, a troca de tela continua instantânea.',
+      '',
+      '### Da 0.9.1',
+      '',
       '- **Barra lateral recolhida** ao abrir o app; clique no logo para expandir.',
       '- **Engrenagem na barra do Painel**, ao lado do microfone e da câmera, abre as Configurações de voz e vídeo.',
       '',
