@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Concord</title>
-<meta name="description" content="Compartilhe tela, áudio e voz com até 8 pessoas numa sala privada. Sem servidor, sem conta. Para Windows.">
+<meta name="description" content="Call de voz, transmissão de tela e chat com até 8 pessoas numa sala privada. Sem servidor, sem conta. Para Windows.">
 <link rel="icon" href="img/icon.svg">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.github.com; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
@@ -14,7 +14,7 @@
 <meta property="og:site_name" content="Concord">
 <meta property="og:locale" content="pt_BR">
 <meta property="og:title" content="Concord: sua tela, seus amigos e nenhum servidor no meio">
-<meta property="og:description" content="Compartilhe tela, áudio e voz com até 8 pessoas numa sala privada. Sem servidor, sem conta. Para Windows.">
+<meta property="og:description" content="Call de voz, transmissão de tela e chat com até 8 pessoas numa sala privada. Sem servidor, sem conta. Para Windows.">
 <meta property="og:url" content="https://concordapp.vercel.app/">
 <meta property="og:image" content="https://concordapp.vercel.app/img/og.png">
 <meta property="og:image:width" content="1200">
@@ -57,7 +57,7 @@
       <div>
         <h1 class="ransom" data-ransom="CONCORD." aria-label="Concord"></h1>
         <p class="lede">Sua tela, seus amigos e <em>nenhum servidor</em> no meio.</p>
-        <p class="sub">Crie uma sala, mande o link e transmita jogo, filme ou o que estiver na tela pra até 8 pessoas. Sem conta, sem cadastro.</p>
+        <p class="sub">Crie uma sala, mande o link e conversem por voz como numa call, com até 8 pessoas. Quando quiser, transmita jogo, filme ou o que estiver na tela. Sem conta, sem cadastro.</p>
         <div class="cta">
           <a class="btn" data-download href="https://github.com/MiharaxD/concord/releases/download/v0.9.5/Concord-0.9.5-Setup.exe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 20h16"/></svg>Baixar pra Windows</a>
           <span class="fine"><span data-version>v0.9.5</span> · instalador x64<br>atualiza sozinho</span>
@@ -66,7 +66,7 @@
       <div class="stack" id="stack" role="group" aria-roledescription="carrossel" aria-label="Prints do Concord. Clique para trocar.">
         <figure class="photo" style="--rot:2.2deg"><span class="tape tl"></span><span class="tape tr"></span><div class="shot"><img src="img/chat.png" width="1600" height="900" alt="Sala do Concord com duas pessoas transmitindo ao mesmo tempo, uma corrida e um filme, e o chat aberto"><figcaption>duas telas ao vivo + chat</figcaption></div></figure>
         <figure class="photo" style="--rot:-2.6deg"><span class="tape tl"></span><span class="tape br"></span><div class="shot"><img src="img/foco.png" width="1600" height="900" alt="Uma transmissão em destaque em 720p 30 fps, com o chat ao lado" loading="lazy"><figcaption>clicou, ficou grandona</figcaption></div></figure>
-        <figure class="photo" style="--rot:3.4deg"><span class="tape tr"></span><span class="tape tl"></span><div class="shot"><img src="img/sala.png" width="1600" height="900" alt="Sala com duas transmissões lado a lado e uma pessoa só na voz" loading="lazy"><figcaption>cada um transmite o seu</figcaption></div></figure>
+        <figure class="photo" style="--rot:3.4deg"><span class="tape tr"></span><span class="tape tl"></span><div class="shot"><img src="img/sala.png" width="1600" height="900" alt="Sala com duas transmissões lado a lado e uma pessoa só na voz" loading="lazy"><figcaption>uns transmitem, outros só na voz</figcaption></div></figure>
         <figure class="photo" style="--rot:-1.4deg"><span class="tape tl"></span><span class="tape tr"></span><div class="shot"><img src="img/painel.png" width="1600" height="900" alt="Painel do Concord com o botão Criar sala e o campo para colar um convite" loading="lazy"><figcaption>um clique e a sala existe</figcaption></div></figure>
         <span class="stack-count" aria-live="polite"><b id="stack-n">1</b> / 4</span>
       </div>
@@ -136,8 +136,9 @@
       <h2 class="ransom" data-ransom="SINTONIZA AÍ." aria-label="Sintoniza aí."></h2>
       <ul class="sr-only">
         <li>Até 8 pessoas na sala: você e mais sete, numa sala privada.</li>
+        <li>Call de voz: o microfone abre ao entrar, com mute, ensurdecer e volume de cada pessoa.</li>
         <li>Várias telas ao mesmo tempo: cada um transmite o seu e todo mundo assiste.</li>
-        <li>Voz, câmera e chat: quando a sala fecha, nada fica salvo.</li>
+        <li>Câmera e chat: quando a sala fecha, nada fica salvo.</li>
         <li>Direto de PC pra PC: sem servidor no meio, sem conta, sem cadastro.</li>
         <li>Convite por link, ou direto pelo Discord.</li>
       </ul>
@@ -154,17 +155,18 @@
                 <div class="desk"><span>CONCORD</span></div>
                 <div class="box">
                   <div class="vis on" data-title="Até 8 pessoas na sala" data-sub="Você e mais sete, numa sala privada."><div class="people"><i>BI</i><i>AN</i><i>LÉ</i><i>RA</i><i>JU</i><i>BE</i><i>TH</i><i>VC</i></div></div>
+                  <div class="vis" data-title="Também é call de voz" data-sub="Entrou, já tá na voz. Ninguém precisa transmitir nada pra conversar."><div class="people call"><i class="talk">BI</i><i>AN</i><i class="talk late">LÉ</i><i class="muted">RA</i></div></div>
                   <div class="vis room" data-title="Várias telas ao mesmo tempo" data-sub="Cada um transmite o seu e todo mundo assiste."><img src="img/sala.png" alt="" loading="lazy"></div>
-                  <div class="vis chat" data-title="Voz, câmera e chat" data-sub="E quando a sala fecha, nada fica salvo."><img src="img/chat.png" alt="" loading="lazy"></div>
+                  <div class="vis chat" data-title="Câmera e chat" data-sub="E quando a sala fecha, nada fica salvo."><img src="img/chat.png" alt="" loading="lazy"></div>
                   <div class="vis" data-title="Direto de PC pra PC" data-sub="Sem servidor no meio, sem conta, sem cadastro."><svg class="draw" viewBox="0 0 320 170" fill="none" stroke-linecap="round" stroke-linejoin="round"><g stroke="#f1edf6" stroke-width="6"><rect x="12" y="34" width="96" height="66" rx="8"/><path d="M48 100v20M36 122h48"/><rect x="212" y="34" width="96" height="66" rx="8"/><path d="M248 100v20M236 122h48"/></g><path d="M118 67h84" stroke="#9b86ff" stroke-width="6" stroke-dasharray="4 12"/><path d="M190 55l14 12-14 12M130 55l-14 12 14 12" stroke="#9b86ff" stroke-width="6"/><text x="160" y="160" fill="#c9bcff" font-family="Special Elite,monospace" font-size="22" text-anchor="middle">sem servidor</text></svg></div>
                   <div class="vis" data-tape data-title="Passo 1: cria a sala" data-sub="Abre o Concord e clica em Criar sala. O link já fica pronto."><img src="img/painel.png" alt="" loading="lazy"><span class="ring" style="left:52.5%;top:42%"></span></div>
                   <div class="vis" data-tape data-title="Passo 2: manda o link" data-sub="Copia o convite e manda pra quem você quiser, ou chama pelo Discord."><div class="url"><span>…/concord/invite/?join=•••</span><span class="copied">link copiado!</span></div></div>
-                  <div class="vis room" data-tape data-title="Passo 3: entra e assiste" data-sub="Quem abre o link cai direto na sala. Clica em Transmitir tela e escolhe o que mostrar."><img src="img/sala.png" alt="" loading="lazy"><span class="ring" style="left:45%;top:91%"></span></div>
+                  <div class="vis room" data-tape data-title="Passo 3: entra e conversa" data-sub="Quem abre o link cai na sala já na voz. Pra mostrar algo, clica em Transmitir tela."><img src="img/sala.png" alt="" loading="lazy"><span class="ring" style="left:45%;top:91%"></span></div>
                   <div class="vis" data-title="Convite por link" data-sub="Ou manda direto pelo Discord."><div class="url"><span>miharaxd.github.io/concord/invite/?join=•••••</span><span>concord:p2p:••••••••••••</span></div></div>
                 </div>
                 <div class="osd"><span id="osd-state">PLAY ▶</span><span id="osd-time">0:00:00</span></div>
                 <div class="lower"><strong id="tv-title">Até 8 pessoas na sala</strong><span id="tv-sub">Você e mais sete, numa sala privada.</span></div>
-                <div class="ticker"><b>PLANTÃO</b><div><span>Concord pra Windows</span><span>sem conta, sem cadastro</span><span>até 8 pessoas por sala</span><span>baixe por aqui, logo abaixo</span><span>Concord pra Windows</span><span>sem conta, sem cadastro</span><span>até 8 pessoas por sala</span><span>baixe por aqui, logo abaixo</span></div></div>
+                <div class="ticker"><b>PLANTÃO</b><div><span>Concord pra Windows</span><span>sem conta, sem cadastro</span><span>call de voz com até 8 pessoas</span><span>baixe por aqui, logo abaixo</span><span>Concord pra Windows</span><span>sem conta, sem cadastro</span><span>call de voz com até 8 pessoas</span><span>baixe por aqui, logo abaixo</span></div></div>
               </div>
               <div class="insert"><p id="insert-label">PLAY ▶</p><div class="insert-well"><div class="mini-tape"><i id="mini-label">passo 1</i><span class="window"><span class="reel"></span><span class="reel"></span></span></div></div></div>
               <canvas class="snow" id="snow" width="128" height="96"></canvas>
@@ -190,7 +192,7 @@
             <p class="shelf-tag">é assim:</p>
             <article class="tape-c" style="--r:-2.4deg" role="button" tabindex="0" aria-label="Colocar a fita 1, Cria a sala, no leitor da TV"><div class="tape-label"><header><b>1</b><h3>Cria a sala</h3></header><div class="window" aria-hidden="true"><span class="reel"></span><span class="reel"></span></div><p>No Painel. O link fica pronto na hora.</p></div></article>
             <article class="tape-c" style="--r:1.6deg" role="button" tabindex="0" aria-label="Colocar a fita 2, Manda o link, no leitor da TV"><div class="tape-label"><header><b>2</b><h3>Manda o link</h3></header><div class="window" aria-hidden="true"><span class="reel"></span><span class="reel"></span></div><p>Pra quem você quiser, ou chama pelo Discord.</p></div></article>
-            <article class="tape-c" style="--r:-1deg" role="button" tabindex="0" aria-label="Colocar a fita 3, Entra e assiste, no leitor da TV"><div class="tape-label"><header><b>3</b><h3>Entra e assiste</h3></header><div class="window" aria-hidden="true"><span class="reel"></span><span class="reel"></span></div><p>Quem abre o link cai direto na sala. Aí é só escolher a tela.</p></div></article>
+            <article class="tape-c" style="--r:-1deg" role="button" tabindex="0" aria-label="Colocar a fita 3, Entra e conversa, no leitor da TV"><div class="tape-label"><header><b>3</b><h3>Entra e conversa</h3></header><div class="window" aria-hidden="true"><span class="reel"></span><span class="reel"></span></div><p>Quem abre o link cai na sala já na voz. Pra mostrar algo, escolhe a tela.</p></div></article>
           </div>
         </div>
       </div>
@@ -201,7 +203,7 @@
     <div class="streaks" aria-hidden="true"></div>
     <div class="wrap">
       <h2 class="ransom" data-ransom="BAIXE POR AQUI." aria-label="Baixe por aqui."><span class="walker" aria-hidden="true"><span class="wb"><svg viewBox="180 320 920 600"><path fill="#9B86FF" d="M 206 798 C 204 713 202 570 211 506 C 219 453 256 420 303 420 L 394 420 L 394 401 C 394 367 421 339 457 339 L 668 339 C 699 339 722 366 722 397 L 723 420 L 816 420 C 861 420 891 451 891 506 L 894 550 L 1024 465 C 1040 454 1057 461 1068 476 C 1073 483 1077 492 1077 502 L 1077 849 C 1077 874 1054 895 1033 884 L 894 785 C 891 847 852 888 789 888 L 755 889 L 708 809 C 617 851 481 853 391 809 L 343 889 L 305 889 C 247 889 206 855 206 798 Z"/><g class="w-eyes"><g class="lid"><circle cx="425.5" cy="653.5" r="82.5" fill="#151021"/><circle cx="688.5" cy="653.5" r="82.5" fill="#151021"/></g></g></svg></span></span></h2>
-      <p>Instala, cria a sala e chama quem você quiser.</p>
+      <p>Instala, cria a sala e chama quem você quiser pra call.</p>
       <a class="btn" data-download href="https://github.com/MiharaxD/concord/releases/download/v0.9.5/Concord-0.9.5-Setup.exe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 20h16"/></svg>Baixar pra Windows</a>
       <p class="fine"><span data-version>v0.9.5</span> · instalador x64 · atualiza sozinho</p>
     </div>

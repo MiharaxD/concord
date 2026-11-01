@@ -4,7 +4,7 @@
 
 <h1 align="center">Concord</h1>
 
-<p align="center">Compartilhe a tela com os amigos numa sala só de vocês.</p>
+<p align="center">Call de voz e compartilhamento de tela com os amigos, numa sala só de vocês.</p>
 
 <p align="center">
   <a href="https://github.com/MiharaxD/concord/releases/latest"><strong>Baixar para Windows</strong></a>
@@ -14,13 +14,13 @@
   <img src=".github/concord.png" alt="Sala do Concord com duas transmissões ao vivo e o chat aberto">
 </p>
 
-Até **8 pessoas** por sala, várias telas ao vivo ao mesmo tempo, voz, câmera e chat. Sem conta, sem servidor e sem nada salvo.
+Até **8 pessoas** por sala numa **call de voz**, com várias telas ao vivo ao mesmo tempo, câmera e chat. Dá pra usar só pra conversar, sem ninguém transmitir nada. Sem conta, sem servidor e sem nada salvo.
 
 ## Como usar
 
 1. **Instale e escolha seu nome.** Foto e banner são opcionais.
 2. **Crie uma sala** e clique em **Copiar link**.
-3. Mande o link pros amigos. Quem abre já cai na sala.
+3. Mande o link pros amigos. Quem abre já cai na sala, com o microfone ligado, como numa call.
 4. Quer mostrar algo? Escolha a tela ou janela e clique em **Compartilhar tela**.
 
 Clique numa transmissão pra deixar ela grande; clique de novo pra voltar à grade.
@@ -47,8 +47,8 @@ A sala roda no PC de quem criou. Não existe servidor do Concord no meio.
 
 | Recurso | O que oferece |
 | --- | --- |
+| Call de voz | Microfone abre ao entrar na sala; mute, ensurdecer, troca de microfone e volume por pessoa |
 | Transmissões | Várias telas ao mesmo tempo, grade adaptável, foco e tela cheia |
-| Voz | Microfone com mute, ensurdecer e volume por pessoa |
 | Câmera | Sozinha ou junto com a tela, no canto, em tela cheia ou em quadro separado |
 | Chat | Texto, imagens, vídeos e arquivos de qualquer tamanho; some quando a sala fecha |
 | Qualidade | 720p, 1080p, 1440p ou 4K, a 30 ou 60 FPS; bitrate automático ou de 1 a 60 Mbps |

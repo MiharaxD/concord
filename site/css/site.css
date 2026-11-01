@@ -232,6 +232,11 @@ body.locked{overflow:hidden}
 .people i{display:grid;place-items:center;width:7.2cqw;height:7.2cqw;border-radius:50%;background:#2c2252;color:#c9bcff;font:700 2.4cqw/1 var(--sans);font-style:normal;box-shadow:inset 0 0 0 .4cqw #9b86ff55}
 .people i:nth-child(3n){background:#9b86ff;color:#0b0912}.people i:last-child{box-shadow:inset 0 0 0 .5cqw #80d5af}
 .vis svg.draw{width:82%;height:auto}
+.people.call{grid-template-columns:repeat(2,auto);gap:2.6cqw 3.4cqw}
+.people.call i{width:8.4cqw;height:8.4cqw;font-size:2.8cqw;position:relative;background:#2c2252;color:#c9bcff;box-shadow:inset 0 0 0 .4cqw #9b86ff55}
+.people.call i.talk{box-shadow:inset 0 0 0 .5cqw #80d5af;animation:talk .9s ease-in-out infinite alternate}.people.call i.late{animation-delay:-.45s;animation-duration:1.2s}
+.people.call i.muted:after{content:"";position:absolute;right:-.6cqw;bottom:-.6cqw;width:3cqw;height:3cqw;border-radius:50%;background:#e5484d url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round'%3E%3Cpath d='M9 5a3 3 0 0 1 6 0v6a3 3 0 0 1-6 0zM5 11a7 7 0 0 0 14 0M12 18v3M4 4l16 16'/%3E%3C/svg%3E") center/70% no-repeat;box-shadow:0 0 0 .5cqw #0b0912}
+@keyframes talk{from{box-shadow:inset 0 0 0 .5cqw #80d5af,0 0 0 0 #80d5af00}to{box-shadow:inset 0 0 0 .5cqw #80d5af,0 0 0 1.2cqw #80d5af33}}
 .url{display:grid;gap:2cqw;width:84%}
 .url span{display:block;padding:1.6cqw 2.2cqw;border-radius:1.4cqw;background:#1d1830;color:#c9bcff;font:400 2.6cqw/1.2 var(--type);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:inset 0 0 0 .3cqw #9b86ff44}
 .url span:first-child{background:#f1edf6;color:#17121f}
@@ -347,7 +352,7 @@ body.locked{overflow:hidden}
   .window{height:10cqw;padding:0 5cqw;border-radius:5cqw}.reel{width:7cqw;border-width:.7cqw}
   .shelf-tag{font-size:6.4cqw;top:-2cqw}
 }
-@media(prefers-reduced-motion:reduce){.feed,.anchor,.anchor svg,.pointer,.anchor .lids,.scan:after,.ticker div{animation:none}.den *{animation:none!important}}
+@media(prefers-reduced-motion:reduce){.feed,.anchor,.anchor svg,.pointer,.anchor .lids,.scan:after,.ticker div,.people.call i{animation:none}.den *{animation:none!important}}
 
 /* ---------- FINAL ---------- */
 .final{position:relative;padding:clamp(90px,12vw,160px) 0 clamp(60px,8vw,100px);text-align:center;overflow:hidden}
