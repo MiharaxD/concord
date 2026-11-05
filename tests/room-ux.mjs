@@ -36,11 +36,14 @@ try {
   assert.equal(await guest.page.locator('#clip-invite').isHidden(), true, 'convite ignorado não volta');
   check('Painel oferece só convites válidos de outra sala, e Ignorar vale até trocar de convite.');
 
+  // Join/leave cues are synthesized; each one builds two filtered notes, so count filters (output is muted by --mute-audio).
+  await host.page.evaluate(() => { window.roomCueNotes = 0; const original = BaseAudioContext.prototype.createBiquadFilter; BaseAudioContext.prototype.createBiquadFilter = function () { window.roomCueNotes++; return original.call(this); }; });
   await guest.page.locator('#join-room').click(); await guest.page.locator('#join-picker[open]').waitFor(); await guest.page.keyboard.press('Escape');
   await guest.page.locator('#home-join-input').fill(invite); await guest.page.locator('#join-room').click();
   await guest.page.waitForFunction(() => document.body.dataset.connected === 'true');
   await host.page.locator('.room-toast', { hasText: 'Ana entrou na sala' }).waitFor();
-  check('Campo do Painel entra na sala e o dono vê o aviso de entrada.');
+  await host.page.waitForFunction(() => window.roomCueNotes === 2);
+  check('Campo do Painel entra na sala e o dono vê o aviso e ouve o som de entrada.');
 
   await host.page.locator('#bar-screen').click(); await host.page.locator('#choose-source').click(); await host.page.locator('#tab-screens').click(); await host.page.locator('.share-source').first().click(); await host.page.locator('#start-button').click();
   const live = guest.page.locator('.room-toast', { hasText: 'Yuri começou a transmitir' }); await live.waitFor();
@@ -86,7 +89,9 @@ try {
   await guest.page.keyboard.press('Escape'); await guest.page.locator('#name-picker').waitFor({ state: 'hidden' });
   check('Engrenagem ao lado do perfil abre as Configurações; foto e nome abrem o perfil.');
 
+  const notesBefore = await host.page.evaluate(() => window.roomCueNotes);
   await guest.page.locator('#leave-button').click();
   await host.page.locator('.room-toast', { hasText: 'Ana saiu da sala' }).waitFor();
-  check('Dono vê o aviso de saída.');
+  await host.page.waitForFunction(count => window.roomCueNotes === count + 2, notesBefore);
+  check('Dono vê o aviso e ouve o som de saída.');
 } finally { for (const app of apps) await app.close().catch(() => {}); }

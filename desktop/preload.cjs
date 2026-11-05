@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('concord', {
   bootstrap: () => ipcRenderer.invoke('concord:bootstrap'),
+  appAudioSupport: () => ipcRenderer.invoke('concord:app-audio-support'),
   savePreferences: value => ipcRenderer.invoke('concord:preferences', value),
   invitesReady: () => ipcRenderer.invoke('concord:invites-ready'),
   onInvite: callback => {

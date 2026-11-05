@@ -7,6 +7,7 @@ import { AudioMeter } from './audio-meter.js';
 import { visualProfile } from './profile.js';
 import { createHomeIntro } from './home-intro.js';
 import { createRoomMotion } from './room-motion.js';
+import { playRoomSound } from './room-sounds.js';
 const $ = id => document.getElementById(id);
 const native = window.concord, video = $('screen-video');
 let config, role = null, socket, target, reconnectTimer, terminal = false, retries = 0, processing = Promise.resolve();
@@ -22,7 +23,7 @@ let selectedAudioSource, appAudioContext, appAudioNode, unsubscribeAppAudio, uns
 let invite, inviteGeneration = 0, invitePending = false, inviteRetryAt = 0;
 let ownInviteMessage = '', currentInvite = '', joining = false, joinTimer, uiReady = false, queuedInvite;
 let p2pHost, hosting = false, hostGeneration = 0, accessClosed = false, p2pOffline = false, fallbackPromise;
-let audioPreviewTrack, testingAudio = false, audioGeneration = 0, captureGeneration = 0;
+let audioPreviewTrack, testingAudio = false, audioGeneration = 0, captureGeneration = 0, appAudioUnsupported = '';
 let cameraStream, cameraStarting = false, cameraGeneration = 0, roomCamera = false, relayStream = 'screen';
 const cameraViews = new Map(), cameraModes = new Map(), voices = new Map();
 let themeColor = '#aa96ff', introSeen = '', voiceTrack, voiceStarting = false, voiceGeneration = 0, voiceMuted = false, roomVoice = false, devicePrefs = { mic: '', camera: '', speaker: '' };
@@ -347,7 +348,7 @@ function avatar(profile, className = '') {
   return element;
 }
 // Chat collapsed: a toast with the message plus a short rising "bounce" blip (synthesized from the user's sample).
-let chatToastTimer, pingContext;
+let chatToastTimer, pingContext, roomSoundAt = 0;
 function chatToast({ from, name, text, file }) {
   const toast = $('chat-toast'), member = members.find(item => item.id === from) || { name };
   const title = document.createElement('strong'); title.textContent = name;
@@ -378,23 +379,35 @@ function roomToast(member, title, text, action) {
 function screenLive(member) { return Boolean(member?.stream?.active && member.stream.screen !== false); }
 function roomEvents(previous, next) {
   if (!self) return;
-  const before = new Map(previous.map(member => [member.id, member]));
+  const before = new Map(previous.map(member => [member.id, member])); let joined = false;
   for (const member of next) {
     if (member.id === self) continue;
     const old = before.get(member.id); before.delete(member.id);
-    if (!old) roomToast(member, member.name + ' entrou na sala', '');
+    if (!old) { joined = true; roomToast(member, member.name + ' entrou na sala', ''); }
     if (screenLive(member) && !screenLive(old)) roomToast(member, member.name + ' começou a transmitir', member.stream.label || '',
       { label: 'Assistir', run: () => { showView('room'); if (tiles.has(member.id)) { focus = member.id; renderTiles(); } } });
   }
-  for (const member of before.values()) if (member.id !== self) roomToast(member, member.name + ' saiu da sala', '');
+  let left = false;
+  for (const member of before.values()) if (member.id !== self) { left = true; roomToast(member, member.name + ' saiu da sala', ''); }
+  if (joined || left) void playRoomCue(joined ? 'join' : 'leave');
 }
 function hideChatToast() { clearTimeout(chatToastTimer); $('chat-toast').hidden = true; }
-async function playPing() {
-  const volume = Number($('volume').value); if (muted || !volume) return;
+// UI sounds follow the room volume, the sound toggle and the chosen speaker.
+async function soundOutput() {
+  const volume = Number($('volume').value); if (muted || !volume) return 0;
   pingContext ||= new AudioContext();
   const sink = await deviceId('audiooutput', devicePrefs.speaker);
   if (pingContext.setSinkId && pingContext.sinkId !== sink) await pingContext.setSinkId(sink).catch(() => {});
   if (pingContext.state === 'suspended') await pingContext.resume().catch(() => {});
+  return volume;
+}
+// One cue per roster change, and never a burst when several people arrive or drop at once.
+async function playRoomCue(kind) {
+  if (Date.now() - roomSoundAt < 500) return; roomSoundAt = Date.now();
+  const volume = await soundOutput(); if (volume) playRoomSound(pingContext, kind, volume);
+}
+async function playPing() {
+  const volume = await soundOutput(); if (!volume) return;
   const now = pingContext.currentTime, tone = pingContext.createOscillator(), gain = pingContext.createGain();
   tone.type = 'sine'; tone.frequency.setValueAtTime(320, now); tone.frequency.exponentialRampToValueAtTime(1250, now + 0.025);
   gain.gain.setValueAtTime(0.0001, now); gain.gain.exponentialRampToValueAtTime(0.3 * volume, now + 0.004);
@@ -976,7 +989,15 @@ function openSocket() {
 // (Windows has no per-monitor audio). Opções avançadas can pick another app or the whole PC explicitly.
 function audioMode() {
   const mode = $('audio-mode').value;
-  return mode !== 'auto' ? mode : selectedSource?.id.startsWith('window:') ? 'application' : 'system';
+  return mode !== 'auto' ? mode : selectedSource?.id.startsWith('window:') && !appAudioUnsupported ? 'application' : 'system';
+}
+// Older Windows can't isolate one app: keep sharing working, with the whole PC's sound, and say why up front.
+function applyAppAudioSupport(support) {
+  if (support?.supported !== false) return;
+  appAudioUnsupported = support.reason || 'Este Windows não conseguiu separar o som de um app.';
+  const option = $('audio-mode').querySelector('option[value="application"]'); option.disabled = true; option.textContent = 'Somente um jogo / app (indisponível neste Windows)';
+  if ($('audio-mode').value === 'application') { $('audio-mode').value = 'auto'; stopAudioPreview(); }
+  updateAudioControls();
 }
 function updateAudioControls() {
   const appOnly = audioMode() === 'application', manual = $('audio-mode').value === 'application';
@@ -989,12 +1010,13 @@ function updateAudioControls() {
   $('choose-audio-source').hidden = !manual;
   $('audio-summary').textContent = !$('system-audio').checked ? 'Sem som na transmissão.'
     : appOnly ? (selectedAudioSource ? 'Som de ' + selectedAudioSource.name + ', sem outros apps.' : 'Escolha o jogo / app abaixo.')
+    : appAudioUnsupported && $('audio-mode').value === 'auto' && !selectedSource?.id.startsWith('screen:') ? 'Som de todo o computador. ' + appAudioUnsupported
     : $('audio-mode').value === 'system' || selectedSource ? 'Som de todo o computador.' : 'Janela: só o som do app. Tela inteira: som do computador.';
   $('audio-source-name').textContent = selectedAudioSource?.name || 'Escolher jogo / app';
   $('audio-source-hint').textContent = appOnly ? 'Só o app escolhido e seus processos. Outros apps ficam de fora.' : 'Inclui Discord, notificações e os sons de todos os apps.';
   const choice = !$('system-audio').checked ? 'off' : $('audio-mode').value === 'application' ? '' : $('audio-mode').value;
   for (const option of document.querySelectorAll('[data-audio]')) option.setAttribute('aria-checked', String(option.dataset.audio === choice));
-  $('audio-auto').textContent = selectedSource?.id.startsWith('window:') ? 'Só do app' : 'Automático';
+  $('audio-auto').textContent = selectedSource?.id.startsWith('window:') && !appAudioUnsupported ? 'Só do app' : 'Automático';
   if (!choice) $('audio-summary').textContent += ' Fonte escolhida em Avançado.';
 }
 // App audio for "Somente um jogo / app" is picked in its own small list of windows.
@@ -1530,6 +1552,7 @@ window.addEventListener('beforeunload', () => { terminal = true; clearTimeout(re
 try {
   if (!native) throw new Error('Abra o executável do Concord.');
   config = await native.bootstrap(); $('app-version').textContent = 'Concord ' + config.version; renderProfile(); applyPreferences(config.preferences);
+  void native.appAudioSupport().then(applyAppAudioSupport, () => {});
   native.onInvite(value => receiveInvite(value));
   native.onUpdate(renderUpdate); renderUpdate(await native.updatesReady());
   const session = await native.session(); if (session.public) showInvite(session);

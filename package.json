@@ -1,6 +1,6 @@
 {
   "name": "concord",
-  "version": "0.9.5",
+  "version": "0.9.6",
   "private": true,
   "author": "Concord",
   "license": "UNLICENSED",
@@ -28,6 +28,7 @@
     "test:voice": "node tests/voice.mjs",
     "test:experience": "node tests/experience.mjs",
     "test:room-ux": "node tests/room-ux.mjs",
+    "test:app-audio": "node tests/app-audio-support.mjs",
     "test:installer": "node tests/installer.mjs",
     "test:updater": "node tests/updater.mjs"
   },

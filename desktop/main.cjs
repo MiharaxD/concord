@@ -4,9 +4,10 @@ const { pathToFileURL } = require('node:url');
 const { mkdir, readFile, writeFile, rename, stat } = require('node:fs/promises');
 const { mkdirSync } = require('node:fs');
 const { spawn } = require('node:child_process');
+const os = require('node:os');
 
 let window, concord, selection, quitting = false, appAudio, updates, discord, discordSocial, shutdownPromise, appAudioGeneration = 0;
-let pendingInvite, invitesReady = false, cameraUntil = 0;
+let pendingInvite, invitesReady = false, cameraUntil = 0, appAudioSupport;
 const pendingProfiles = new Set(), stoppingAudio = new Set();
 app.setName('Concord');
 app.setAppUserModelId('local.concord.desktop');
@@ -42,6 +43,23 @@ function stopAppAudio() {
   child.stdin.end();
   const timeout = setTimeout(() => child.kill(), 1000); timeout.unref();
   child.once('exit', () => clearTimeout(timeout));
+}
+
+const audioHelper = () => app.isPackaged ? path.join(process.resourcesPath, 'ConcordAudio.exe') : path.join(__dirname, '..', '.runtime', 'ConcordAudio.exe');
+// Asks the helper whether this Windows can capture a single app (Windows 10 2004+ in practice), once per run.
+function probeAppAudio() {
+  if (!app.isPackaged && process.env.CONCORD_APP_AUDIO_UNSUPPORTED) return Promise.resolve({ supported: false, reason: 'Para ouvir só um app, atualize o Windows (versão 2004 ou mais recente).' });
+  return appAudioSupport ??= new Promise(resolve => {
+    const build = Number(os.release().split('.')[2]) || 0;
+    const unsupported = () => ({ supported: false, reason: build && build < 19041 ? 'Para ouvir só um app, atualize o Windows (versão 2004 ou mais recente).' : 'Este Windows não conseguiu separar o som de um app.' });
+    let output = '', done = false;
+    const finish = result => { if (!done) { done = true; clearTimeout(timeout); resolve(result); } };
+    const child = spawn(audioHelper(), ['--probe'], { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] });
+    const timeout = setTimeout(() => { child.kill(); appAudioSupport = undefined; finish(unsupported()); }, 8000);
+    child.stderr.on('data', chunk => { output = (output + chunk.toString('utf8')).slice(-2000); });
+    child.once('error', () => finish({ supported: false, reason: 'O capturador de áudio do app não está disponível. Reabra a versão completa do Concord.' }));
+    child.once('close', code => finish(code === 0 && output.includes('SUPPORTED') ? { supported: true } : unsupported()));
+  });
 }
 
 async function shutdown() {
@@ -94,7 +112,7 @@ if (primaryInstance) app.whenReady().then(async () => {
     if (!response.ok) throw new Error(body.error);
     return body;
   }
-  handle('concord:bootstrap', () => ({ address: concord.address, hostToken: concord.hostToken, version: app.getVersion(), profile, discord: discord.state(), preferences: preferences.get(), preferencesWarning: preferences.warning }));
+  handle('concord:bootstrap', () => (void probeAppAudio(), { address: concord.address, hostToken: concord.hostToken, version: app.getVersion(), profile, discord: discord.state(), preferences: preferences.get(), preferencesWarning: preferences.warning }));
   handle('concord:preferences', value => preferences.save(value));
   handle('concord:invites-ready', () => { invitesReady = true; const value = pendingInvite; pendingInvite = undefined; return value || null; });
   let profileQueue = Promise.resolve();
@@ -189,15 +207,17 @@ if (primaryInstance) app.whenReady().then(async () => {
     if (typeof value !== 'string' || value.length > 2048) throw new Error('Convite inválido.');
     clipboard.writeText(webInvite(value)); return true;
   });
+  handle('concord:app-audio-support', () => probeAppAudio());
   handle('concord:stop-app-audio', () => { stopAppAudio(); return true; });
   handle('concord:start-app-audio', async id => {
     if (typeof id !== 'string' || !/^window:\d+:\d+$/.test(id)) throw new Error('Escolha a janela do jogo/app para capturar seu áudio.');
+    const support = await probeAppAudio(); if (!support.supported) throw new Error(support.reason);
     stopAppAudio(); const generation = appAudioGeneration;
     const sources = await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 0, height: 0 } });
     if (quitting) throw new Error('O Concord está fechando.');
     if (generation !== appAudioGeneration) throw new Error('Teste de áudio cancelado.');
     if (!sources.some(source => source.id === id)) throw new Error('A janela do áudio foi fechada. Escolha novamente.');
-    const binary = app.isPackaged ? path.join(process.resourcesPath, 'ConcordAudio.exe') : path.join(__dirname, '..', '.runtime', 'ConcordAudio.exe');
+    const binary = audioHelper();
     return new Promise((resolve, reject) => {
       const child = spawn(binary, ['--window', id.split(':')[1]], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
       appAudio = child; let pending = Buffer.alloc(0), errorText = '', ready = false, settled = false;

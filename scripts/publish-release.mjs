@@ -37,6 +37,11 @@ async function api(url, options = {}, allow404 = false) {
 const notes = [
       `## Novidades do Concord ${pkg.version}`,
       '',
+      '- **Sons de entrada e saída:** um som quando alguém entra na sala e outro quando sai. Seguem o volume da sala e não tocam com o som desligado.',
+      '- **Som só de um app no Windows 10:** o Concord agora testa se o Windows consegue separar o som de um app. No Windows 10 versão 2004 ou mais recente a opção fica liberada (antes exigia Windows 11). Em Windows mais antigo ela aparece desativada com o motivo, e a transmissão segue com o som do computador.',
+      '',
+      '### Da 0.9.5',
+      '',
       '- **Transição ao criar a sala:** o botão Criar sala vira o seu quadro, sua foto voa da barra do Painel até ele e a barra do Painel vira a barra da chamada.',
       '- **Ir ao Painel sem sair:** a sala encolhe até a miniatura do card Minha sala; Voltar à sala faz o caminho contrário.',
       '- **Sair da sala** desfaz a criação: o quadro volta a ser o botão e a foto volta para a barra do Painel.',

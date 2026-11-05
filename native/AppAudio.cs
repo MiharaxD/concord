@@ -63,6 +63,7 @@ namespace ConcordAudio {
     static extern int ActivateAudioInterfaceAsync(string path, ref Guid id, ref PropVariant activation, ICompletion handler, out IActivationOperation operation);
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr window, out uint process);
     [DllImport("user32.dll")] static extern bool IsWindow(IntPtr window);
+    [DllImport("kernel32.dll")] static extern uint GetCurrentProcessId();
     [DllImport("ntdll.dll", CharSet = CharSet.Unicode)] static extern int RtlGetVersion(ref OsVersion version);
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     struct OsVersion {
@@ -81,12 +82,14 @@ namespace ConcordAudio {
       string stage = "preparacao";
       try {
         Console.SetError(new StreamWriter(Console.OpenStandardError(), new UTF8Encoding(false)) { AutoFlush = true });
-        if (args.Length != 2 || (args[0] != "--window" && args[0] != "--pid")) throw new ArgumentException("Fonte de audio invalida.");
+        bool probe = args.Length == 1 && args[0] == "--probe"; // Startup check: activates loopback on itself and exits.
+        if (!probe && (args.Length != 2 || (args[0] != "--window" && args[0] != "--pid"))) throw new ArgumentException("Fonte de audio invalida.");
         OsVersion version = new OsVersion(); version.Size = (uint)Marshal.SizeOf(typeof(OsVersion));
         Check(RtlGetVersion(ref version));
-        if (version.Build < 20348) throw new NotSupportedException("Audio por aplicativo exige Windows build 20348 ou mais recente (Windows 11).");
+        if (version.Build < 19041) throw new NotSupportedException("Audio por aplicativo exige Windows 10 versao 2004 ou mais recente.");
         uint pid;
-        if (args[0] == "--window") {
+        if (probe) pid = GetCurrentProcessId();
+        else if (args[0] == "--window") {
           IntPtr window = new IntPtr(long.Parse(args[1]));
           if (!IsWindow(window)) throw new ArgumentException("A janela escolhida foi fechada.");
           GetWindowThreadProcessId(window, out pid);
@@ -106,6 +109,7 @@ namespace ConcordAudio {
         WaveFormat format = new WaveFormat { Format = 1, Channels = 2, SampleRate = 48000, BytesPerSecond = 192000, BlockAlign = 4, Bits = 16, Extra = 0 };
         stage = "formato de audio";
         Check(client.Initialize(0, 0x80060000, 0, 0, ref format, IntPtr.Zero)); // loopback + event + auto-conversion
+        if (probe) { Console.Error.WriteLine("SUPPORTED"); return 0; }
         Guid captureId = typeof(IAudioCaptureClient).GUID; object service;
         stage = "servico de captura"; Check(client.GetService(ref captureId, out service)); capture = (IAudioCaptureClient)service;
         using (AutoResetEvent samplesReady = new AutoResetEvent(false)) {

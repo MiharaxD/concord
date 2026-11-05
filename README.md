@@ -68,7 +68,7 @@ A sala roda no PC de quem criou. Não existe servidor do Concord no meio.
 ## Requisitos
 
 - **Windows 10 ou 11, 64 bits.** O instalador já traz tudo.
-- Som só de um app exige Windows build 20348+ (Windows 11 recomendado).
+- Som só de um app exige Windows 10 versão 2004 ou mais recente. Em Windows mais antigo a transmissão funciona com o som do computador, e o app avisa.
 - Mais gente transmitindo pede mais internet e processamento de quem está na sala.
 - Convites pelo Discord têm limite de 100 mensagens a cada 2 horas para o app inteiro.
 
